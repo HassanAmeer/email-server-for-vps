@@ -5,9 +5,9 @@
   "devFiles": [],
   "polyfillFiles": [],
   "lowPriorityFiles": [
-    "static/-yBgq2rG6JAlxUT1C84DV/_buildManifest.js",
-    "static/-yBgq2rG6JAlxUT1C84DV/_ssgManifest.js",
-    "static/-yBgq2rG6JAlxUT1C84DV/_clientMiddlewareManifest.js"
+    "static/APKjX0w-BysI1Iot1QpIG/_buildManifest.js",
+    "static/APKjX0w-BysI1Iot1QpIG/_ssgManifest.js",
+    "static/APKjX0w-BysI1Iot1QpIG/_clientMiddlewareManifest.js"
   ],
   "rootMainFiles": []
 }

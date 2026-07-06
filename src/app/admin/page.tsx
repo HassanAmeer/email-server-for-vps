@@ -7,6 +7,7 @@ import CredentialsManager from "./components/CredentialsManager";
 import LiveLogs from "./components/LiveLogs";
 import MailExplorer from "./components/MailExplorer";
 import ApiSettingsManager from "./components/ApiSettingsManager";
+import Overview from "./components/Overview";
 
 const API_BASE = "http://localhost:8081";
 
@@ -14,7 +15,7 @@ export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [apiUrl, setApiUrl] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<string>("credentials-tab");
+  const [activeTab, setActiveTab] = useState<string>("overview-tab");
 
   // Stats State
   const [stats, setStats] = useState({
@@ -94,109 +95,57 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="live-console-theme bg-[#070A13] text-gray-100 min-h-screen relative overflow-x-hidden font-sans">
-      {/* Glow Background */}
-      <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-full h-[500px] bg-radial from-[rgba(16,185,129,0.06)] via-[rgba(5,150,105,0.01)] to-transparent pointer-events-none z-0 rounded-full"></div>
+    <div className="flex bg-[#070A13] text-gray-100 min-h-screen relative overflow-hidden font-sans">
+      {/* Left Sidebar */}
+      <aside className="w-[280px] bg-[#0A0D18] border-r border-white/[0.04] flex flex-col z-20 shrink-0 min-h-screen">
+        {/* Sidebar Brand Logo */}
+        <div className="p-6 border-b border-white/[0.04] flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6 text-emerald-400">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
+          </svg>
+          <span className="font-bold text-base tracking-wide text-white">TempEmail Admin</span>
+        </div>
 
-      {/* MAIN CONTAINER */}
-      <main className="max-w-[1300px] w-full mx-auto p-8 relative z-10 flex flex-col gap-6 min-h-screen">
-        {/* Top Navbar */}
-        <header className="flex justify-between items-center pb-4 border-b border-white/[0.06] flex-wrap gap-4">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-gray-400 hover:text-white transition-colors" title="Back to Home">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-6 h-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-              </svg>
-            </Link>
-            <div className="flex items-center gap-2 font-bold text-xl tracking-tight">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-7 h-7 text-emerald-400 animate-pulse">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
-              </svg>
-              <span>TempEmail <span className="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Admin</span></span>
-            </div>
-            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-wider">Control Panel</span>
+        {/* Admin profile indicator */}
+        <div className="p-5 border-b border-white/[0.04] bg-white/[0.01] flex flex-col gap-1.5">
+          <div className="flex justify-between items-center text-[10px] text-gray-500 font-bold uppercase">
+            <span>Server admin</span>
+            <span className="text-[9px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/20">Active</span>
           </div>
-          <div className="flex gap-4 items-center">
-            <button
-              onClick={handleLogout}
-              className="bg-transparent border border-white/[0.08] hover:bg-red-500/10 hover:border-red-500/20 text-gray-400 hover:text-red-400 px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all flex items-center gap-1.5"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
-              </svg>
-              <span>Logout</span>
-            </button>
-          </div>
-        </header>
+          <span className="text-xs font-semibold text-white font-mono">admin</span>
+        </div>
 
-        {/* SYSTEM STATS GRID */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {/* Stat 1 */}
-          <div className="bg-slate-900/40 border border-white/[0.05] p-5 rounded-2xl backdrop-blur-md flex items-center justify-between">
-            <div className="flex flex-col gap-1">
-              <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Total Mail Database</span>
-              <strong className="text-2xl font-bold text-white">{stats.totalEmails}</strong>
-            </div>
-            <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/10">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5 text-emerald-400">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-              </svg>
-            </div>
-          </div>
-          {/* Stat 2 */}
-          <div className="bg-slate-900/40 border border-white/[0.05] p-5 rounded-2xl backdrop-blur-md flex items-center justify-between">
-            <div className="flex flex-col gap-1">
-              <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Active Mailboxes</span>
-              <strong className="text-2xl font-bold text-white">{stats.activeMailboxesCount}</strong>
-            </div>
-            <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/10">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5 text-emerald-400">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-              </svg>
-            </div>
-          </div>
-          {/* Stat 3 */}
-          <div className="bg-slate-900/40 border border-white/[0.05] p-5 rounded-2xl backdrop-blur-md flex items-center justify-between">
-            <div className="flex flex-col gap-1">
-              <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Storage Used</span>
-              <strong className="text-2xl font-bold text-white">{formatBytes(stats.diskUsageBytes)}</strong>
-            </div>
-            <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/10">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5 text-emerald-400">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0v3.75" />
-              </svg>
-            </div>
-          </div>
-          {/* Stat 4 */}
-          <div className="bg-slate-900/40 border border-white/[0.05] p-5 rounded-2xl backdrop-blur-md flex items-center justify-between">
-            <div className="flex flex-col gap-1">
-              <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">System Mode</span>
-              {stats.liveModeActive ? (
-                <strong className="text-xs font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/20 w-fit mt-1">
-                  Live Mode
-                </strong>
-              ) : (
-                <strong className="text-xs font-bold uppercase tracking-wider bg-sky-500/10 text-sky-400 px-3 py-1 rounded-full border border-sky-500/20 w-fit mt-1">
-                  Local Mode
-                </strong>
-              )}
-            </div>
-            <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/10">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5 text-emerald-400">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12.75 3.03v.568c0 .334.148.65.405.864l.406.34a2.203 2.203 0 002.2-.012l.424-.24a1.873 1.873 0 012.506.743l.015.03a2.25 2.25 0 01-.57 2.915l-.35.287a1.25 1.25 0 00-.374.939v.104c0 .3.162.58.423.729l.19.109a2.25 2.25 0 011.06 2.449l-.004.016a2.25 2.25 0 01-1.532 1.628l-.64.195a1.25 1.25 0 00-.787 1.636l.288.692a1.875 1.875 0 01-1.023 2.404l-.03.012a2.25 2.25 0 01-2.237-.056l-.507-.316a1.25 1.25 0 00-1.32 0l-.507.316a2.25 2.25 0 01-2.237.056l-.03-.012a1.875 1.875 0 01-1.022-2.404l.288-.692a1.25 1.25 0 00-.787-1.636l-.64-.195a2.25 2.25 0 01-1.531-1.628l-.004-.016a2.25 2.25 0 011.06-2.449l.19-.109a1.25 1.25 0 00.422-.729v-.104a1.25 1.25 0 00-.374-.94l-.35-.286a2.25 2.25 0 01-.57-2.916l.015-.03a1.875 1.875 0 012.506-.743l.424.24a2.25 2.25 0 002.2-.012l.406-.34a1.25 1.25 0 00.405-.865v-.568a2.25 2.25 0 012.25-2.25h.03a2.25 2.25 0 012.25 2.25z" />
-              </svg>
-            </div>
-          </div>
-        </section>
+        {/* Sidebar Nav Links */}
+        <nav className="flex-grow p-4 flex flex-col gap-1.5 overflow-y-auto">
+          <button
+            onClick={() => setActiveTab("overview-tab")}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+              activeTab === "overview-tab" ? "text-white bg-emerald-500/10 border-l-2 border-emerald-400 font-bold" : "text-gray-400 hover:text-white hover:bg-white/[0.02]"
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4.5 h-4.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z" />
+            </svg>
+            <span>Overview</span>
+          </button>
 
-        {/* NAVIGATION TABS */}
-        <nav className="flex gap-3 bg-white/[0.02] p-1.5 rounded-xl border border-white/[0.06] w-fit flex-wrap">
+          <button
+            onClick={() => setActiveTab("api-tab")}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+              activeTab === "api-tab" ? "text-white bg-emerald-500/10 border-l-2 border-emerald-400 font-bold" : "text-gray-400 hover:text-white hover:bg-white/[0.02]"
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4.5 h-4.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+            </svg>
+            <span>API Route Manager</span>
+          </button>
+
           <button
             onClick={() => setActiveTab("credentials-tab")}
-            className={`tab-btn flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all ${
-              activeTab === "credentials-tab"
-                ? "text-white bg-white/[0.05]"
-                : "text-gray-400 hover:text-white"
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+              activeTab === "credentials-tab" ? "text-white bg-emerald-500/10 border-l-2 border-emerald-400 font-bold" : "text-gray-400 hover:text-white hover:bg-white/[0.02]"
             }`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4.5 h-4.5">
@@ -206,25 +155,9 @@ export default function AdminPage() {
           </button>
 
           <button
-            onClick={() => setActiveTab("logs-tab")}
-            className={`tab-btn flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all ${
-              activeTab === "logs-tab"
-                ? "text-white bg-white/[0.05]"
-                : "text-gray-400 hover:text-white"
-            }`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4.5 h-4.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
-            </svg>
-            <span>Live Server Logs</span>
-          </button>
-
-          <button
             onClick={() => setActiveTab("explorer-tab")}
-            className={`tab-btn flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all ${
-              activeTab === "explorer-tab"
-                ? "text-white bg-white/[0.05]"
-                : "text-gray-400 hover:text-white"
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+              activeTab === "explorer-tab" ? "text-white bg-emerald-500/10 border-l-2 border-emerald-400 font-bold" : "text-gray-400 hover:text-white hover:bg-white/[0.02]"
             }`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4.5 h-4.5">
@@ -234,22 +167,71 @@ export default function AdminPage() {
           </button>
 
           <button
-            onClick={() => setActiveTab("api-tab")}
-            className={`tab-btn flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all ${
-              activeTab === "api-tab"
-                ? "text-white bg-white/[0.05]"
-                : "text-gray-400 hover:text-white"
+            onClick={() => setActiveTab("logs-tab")}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+              activeTab === "logs-tab" ? "text-white bg-emerald-500/10 border-l-2 border-emerald-400 font-bold" : "text-gray-400 hover:text-white hover:bg-white/[0.02]"
             }`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4.5 h-4.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
             </svg>
-            <span>API Route Manager</span>
+            <span>Live Server Logs</span>
           </button>
         </nav>
 
-        {/* CONTENT PANES */}
-        <div className="flex-grow min-h-[500px] flex">
+        {/* Logout section */}
+        <div className="p-4 border-t border-white/[0.04]">
+          <button
+            onClick={handleLogout}
+            className="w-full bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/25 px-4 py-2.5 rounded-xl text-xs font-semibold cursor-pointer transition-all flex items-center justify-center gap-1.5"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+            </svg>
+            <span>Logout</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Right Content Pane */}
+      <div className="flex-grow flex flex-col min-h-screen relative z-10 overflow-y-auto bg-[#070A13]">
+        {/* Glow Background */}
+        <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-full h-[500px] bg-radial from-[rgba(16,185,129,0.04)] via-[rgba(5,150,105,0.01)] to-transparent pointer-events-none z-0 rounded-full"></div>
+
+        {/* Top Navbar */}
+        <header className="p-6 border-b border-white/[0.05] flex justify-between items-center relative z-10 flex-wrap gap-4 bg-[#0A0D18]/80 backdrop-blur-md">
+          <div className="flex items-center gap-3">
+            <Link href="/" className="text-gray-400 hover:text-white transition-colors" title="Back to Home">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5.5 h-5.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+              </svg>
+            </Link>
+            <h1 className="text-sm font-bold text-white uppercase tracking-wider">
+              {activeTab === "overview-tab" && "System Overview Dashboard"}
+              {activeTab === "api-tab" && "API Endpoint Router Settings"}
+              {activeTab === "credentials-tab" && "Outbound SMTP Credentials Config"}
+              {activeTab === "explorer-tab" && "Global Mail Database Explorer"}
+              {activeTab === "logs-tab" && "Live SMTP Server Logs"}
+            </h1>
+          </div>
+          
+          <div className="flex gap-3 items-center">
+            <div className="bg-slate-900/50 border border-white/[0.06] px-4 py-2 rounded-full flex items-center gap-2.5 text-xs text-gray-400 backdrop-blur-md">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>Uptime Status: <strong className="text-emerald-400 font-mono">100%</strong></span>
+            </div>
+          </div>
+        </header>
+
+        {/* Page Content Body */}
+        <div className="p-8 flex-grow relative z-10">
+          {activeTab === "overview-tab" && (
+            <Overview apiUrl={apiUrl} stats={stats} />
+          )}
+
           {activeTab === "credentials-tab" && (
             <CredentialsManager apiUrl={apiUrl} />
           )}
@@ -266,14 +248,7 @@ export default function AdminPage() {
             <ApiSettingsManager apiUrl={apiUrl} />
           )}
         </div>
-
-        {/* Footer */}
-        <footer className="flex flex-col items-center gap-4 pt-6 border-t border-white/[0.06] mt-auto">
-          <p className="text-xs text-gray-500 font-mono">
-            TempEmail Server Console &bull; Security Auth Active &bull; DigitalOcean VPS Ingestion
-          </p>
-        </footer>
-      </main>
+      </div>
     </div>
   );
 }
