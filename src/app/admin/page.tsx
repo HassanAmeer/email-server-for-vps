@@ -97,33 +97,45 @@ export default function AdminPage() {
   return (
     <div className="flex bg-[#070A13] text-gray-100 min-h-screen relative overflow-hidden font-sans">
       {/* Left Sidebar */}
-      <aside className="w-[280px] bg-[#0A0D18] border-r border-white/[0.04] flex flex-col z-20 shrink-0 min-h-screen">
+      <aside className="w-[280px] bg-[#090C16]/95 backdrop-blur-xl border-r border-white/[0.04] flex flex-col z-20 shrink-0 min-h-screen">
         {/* Sidebar Brand Logo */}
-        <div className="p-6 border-b border-white/[0.04] flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6 text-emerald-400">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
-          </svg>
-          <span className="font-bold text-base tracking-wide text-white">TempEmail Admin</span>
+        <div className="p-6 border-b border-white/[0.04] flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.25)]">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-5.5 h-5.5 text-black">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+            </svg>
+          </div>
+          <div className="flex flex-col">
+            <span className="font-extrabold text-sm tracking-widest text-white uppercase font-mono bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">TempEmail</span>
+            <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider font-mono">Control Panel</span>
+          </div>
         </div>
 
-        {/* Admin profile indicator */}
-        <div className="p-5 border-b border-white/[0.04] bg-white/[0.01] flex flex-col gap-1.5">
-          <div className="flex justify-between items-center text-[10px] text-gray-500 font-bold uppercase">
-            <span>Server admin</span>
-            <span className="text-[9px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/20">Active</span>
+        {/* Admin profile crest */}
+        <div className="p-5 border-b border-white/[0.04] bg-white/[0.01] flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full border border-emerald-500/30 bg-emerald-500/5 flex items-center justify-center font-bold text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+            AD
           </div>
-          <span className="text-xs font-semibold text-white font-mono">admin</span>
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-white">Administrator</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            </div>
+            <span className="text-[10px] text-gray-500 font-mono">Role: Superuser</span>
+          </div>
         </div>
 
         {/* Sidebar Nav Links */}
         <nav className="flex-grow p-4 flex flex-col gap-1.5 overflow-y-auto">
           <button
             onClick={() => setActiveTab("overview-tab")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
-              activeTab === "overview-tab" ? "text-white bg-emerald-500/10 border-l-2 border-emerald-400 font-bold" : "text-gray-400 hover:text-white hover:bg-white/[0.02]"
+            className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
+              activeTab === "overview-tab" 
+                ? "text-white bg-gradient-to-r from-emerald-500/10 to-teal-500/2 border-l-4 border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.05)]" 
+                : "text-gray-400 hover:text-white hover:bg-white/[0.02]"
             }`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4.5 h-4.5">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z" />
             </svg>
@@ -132,11 +144,13 @@ export default function AdminPage() {
 
           <button
             onClick={() => setActiveTab("api-tab")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
-              activeTab === "api-tab" ? "text-white bg-emerald-500/10 border-l-2 border-emerald-400 font-bold" : "text-gray-400 hover:text-white hover:bg-white/[0.02]"
+            className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
+              activeTab === "api-tab" 
+                ? "text-white bg-gradient-to-r from-emerald-500/10 to-teal-500/2 border-l-4 border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.05)] font-bold" 
+                : "text-gray-400 hover:text-white hover:bg-white/[0.02]"
             }`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4.5 h-4.5">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
             </svg>
             <span>API Route Manager</span>
@@ -144,11 +158,13 @@ export default function AdminPage() {
 
           <button
             onClick={() => setActiveTab("credentials-tab")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
-              activeTab === "credentials-tab" ? "text-white bg-emerald-500/10 border-l-2 border-emerald-400 font-bold" : "text-gray-400 hover:text-white hover:bg-white/[0.02]"
+            className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
+              activeTab === "credentials-tab" 
+                ? "text-white bg-gradient-to-r from-emerald-500/10 to-teal-500/2 border-l-4 border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.05)] font-bold" 
+                : "text-gray-400 hover:text-white hover:bg-white/[0.02]"
             }`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4.5 h-4.5">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
             </svg>
             <span>SMTP Relay Credentials</span>
@@ -156,11 +172,13 @@ export default function AdminPage() {
 
           <button
             onClick={() => setActiveTab("explorer-tab")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
-              activeTab === "explorer-tab" ? "text-white bg-emerald-500/10 border-l-2 border-emerald-400 font-bold" : "text-gray-400 hover:text-white hover:bg-white/[0.02]"
+            className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
+              activeTab === "explorer-tab" 
+                ? "text-white bg-gradient-to-r from-emerald-500/10 to-teal-500/2 border-l-4 border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.05)] font-bold" 
+                : "text-gray-400 hover:text-white hover:bg-white/[0.02]"
             }`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4.5 h-4.5">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z" />
             </svg>
             <span>Global Mail Explorer</span>
@@ -168,11 +186,13 @@ export default function AdminPage() {
 
           <button
             onClick={() => setActiveTab("logs-tab")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
-              activeTab === "logs-tab" ? "text-white bg-emerald-500/10 border-l-2 border-emerald-400 font-bold" : "text-gray-400 hover:text-white hover:bg-white/[0.02]"
+            className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
+              activeTab === "logs-tab" 
+                ? "text-white bg-gradient-to-r from-emerald-500/10 to-teal-500/2 border-l-4 border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.05)] font-bold" 
+                : "text-gray-400 hover:text-white hover:bg-white/[0.02]"
             }`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4.5 h-4.5">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
             </svg>
             <span>Live Server Logs</span>
@@ -183,9 +203,9 @@ export default function AdminPage() {
         <div className="p-4 border-t border-white/[0.04]">
           <button
             onClick={handleLogout}
-            className="w-full bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/25 px-4 py-2.5 rounded-xl text-xs font-semibold cursor-pointer transition-all flex items-center justify-center gap-1.5"
+            className="w-full bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/25 px-4 py-3 rounded-2xl text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-2 shadow-lg shadow-red-500/5"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4.5 h-4.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
             </svg>
             <span>Logout</span>
@@ -199,29 +219,29 @@ export default function AdminPage() {
         <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-full h-[500px] bg-radial from-[rgba(16,185,129,0.04)] via-[rgba(5,150,105,0.01)] to-transparent pointer-events-none z-0 rounded-full"></div>
 
         {/* Top Navbar */}
-        <header className="p-6 border-b border-white/[0.05] flex justify-between items-center relative z-10 flex-wrap gap-4 bg-[#0A0D18]/80 backdrop-blur-md">
+        <header className="p-6 border-b border-white/[0.04] flex justify-between items-center relative z-10 flex-wrap gap-4 bg-[#090C16]/75 backdrop-blur-md">
           <div className="flex items-center gap-3">
             <Link href="/" className="text-gray-400 hover:text-white transition-colors" title="Back to Home">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5.5 h-5.5">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-5.5 h-5.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
               </svg>
             </Link>
-            <h1 className="text-sm font-bold text-white uppercase tracking-wider">
-              {activeTab === "overview-tab" && "System Overview Dashboard"}
+            <h1 className="text-xs font-extrabold text-white uppercase tracking-widest font-mono">
+              {activeTab === "overview-tab" && "System Ingestion Dashboard"}
               {activeTab === "api-tab" && "API Endpoint Router Settings"}
-              {activeTab === "credentials-tab" && "Outbound SMTP Credentials Config"}
+              {activeTab === "credentials-tab" && "Outbound SMTP Credentials"}
               {activeTab === "explorer-tab" && "Global Mail Database Explorer"}
               {activeTab === "logs-tab" && "Live SMTP Server Logs"}
             </h1>
           </div>
           
           <div className="flex gap-3 items-center">
-            <div className="bg-slate-900/50 border border-white/[0.06] px-4 py-2 rounded-full flex items-center gap-2.5 text-xs text-gray-400 backdrop-blur-md">
+            <div className="bg-emerald-500/5 border border-emerald-500/15 px-4 py-2 rounded-full flex items-center gap-2.5 text-xs text-emerald-400 font-bold uppercase tracking-wider font-mono shadow-[0_0_15px_rgba(16,185,129,0.05)]">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span>Uptime Status: <strong className="text-emerald-400 font-mono">100%</strong></span>
+              <span>Uptime Status: <strong className="font-mono text-white">100%</strong></span>
             </div>
           </div>
         </header>
