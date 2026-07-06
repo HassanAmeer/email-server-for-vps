@@ -168,11 +168,10 @@ export default function CredentialsManager({ apiUrl }: CredentialsManagerProps) 
 
             {alert && (
               <div
-                className={`text-xs font-semibold text-center rounded-lg py-2 border ${
-                  alert.type === "success"
+                className={`text-xs font-semibold text-center rounded-lg py-2 border ${alert.type === "success"
                     ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                     : "bg-red-500/10 text-red-400 border-red-500/20"
-                }`}
+                  }`}
               >
                 {alert.msg}
               </div>

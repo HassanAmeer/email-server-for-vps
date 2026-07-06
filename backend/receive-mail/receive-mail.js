@@ -536,19 +536,25 @@ const httpServer = http.createServer((req, res) => {
     return;
   }
 
-  // Fallback: Static file serving (serves compiled Astro website)
+  // Fallback: Static file serving (serves compiled static website)
   let reqPath = req.url.split("?")[0];
-  if (reqPath === "/" || reqPath === "/local" || reqPath === "/live") {
-    reqPath = "/index.html";
+
+  // Redirect to trailing slash for proper directory asset loading of static routes
+  if (reqPath === "/admin" || reqPath === "/local" || reqPath === "/live") {
+    res.writeHead(301, { "Location": reqPath + "/" });
+    res.end();
+    return;
   }
 
   // Handle routing for static compiled pages
-  if (req.url.startsWith("/local")) {
+  if (reqPath.startsWith("/local/")) {
     reqPath = "/local/index.html";
-  } else if (req.url.startsWith("/live")) {
+  } else if (reqPath.startsWith("/live/")) {
     reqPath = "/live/index.html";
-  } else if (req.url.startsWith("/admin")) {
+  } else if (reqPath.startsWith("/admin/")) {
     reqPath = "/admin/index.html";
+  } else if (reqPath === "/") {
+    reqPath = "/index.html";
   }
 
   const publicPath = path.join(process.cwd(), "out", reqPath);
