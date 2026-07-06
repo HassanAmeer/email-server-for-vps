@@ -6,6 +6,7 @@ import http from "http";
 import nodemailer from "nodemailer";
 import { sendOutboundEmail as sendOutboundEmailLive } from "../send-mail-simple/send-mail-from-generated-mail-from-live.js";
 import { sendOutboundEmail as sendOutboundEmailLocal } from "../send-mail-simple/send-mail-from-generated-mail-from-local.js";
+import { ApiRouter } from "../../apis/api-router.js";
 
 // Load .env file manually if it exists
 const envPath = path.join(process.cwd(), ".env");
@@ -203,6 +204,57 @@ const httpServer = http.createServer((req, res) => {
     res.writeHead(204);
     res.end();
     return;
+  }
+
+  const cleanUrl = req.url.split("?")[0];
+
+  // Intercept api-router temporary mailbox endpoints
+  if (cleanUrl === "/api/mailbox/generate" && req.method === "GET") {
+    return ApiRouter.generateMailbox(req, res);
+  }
+  
+  if (cleanUrl.startsWith("/api/mailbox/") && req.method === "GET") {
+    const parts = cleanUrl.split("/");
+    const email = parts[3];
+    const isOtps = parts[4] === "otps";
+    if (isOtps) {
+      return ApiRouter.getOtps(req, res, email);
+    } else {
+      return ApiRouter.getMailbox(req, res, email);
+    }
+  }
+
+  if (cleanUrl.startsWith("/api/mailbox/") && req.method === "DELETE") {
+    const parts = cleanUrl.split("/");
+    const email = parts[3];
+    const mailId = parts[4];
+    if (mailId) {
+      return ApiRouter.deleteMail(req, res, email, mailId);
+    } else {
+      return ApiRouter.deleteMailbox(req, res, email);
+    }
+  }
+
+  // Intercept admin endpoints
+  if (cleanUrl === "/api/admin/login" && req.method === "POST") {
+    return ApiRouter.adminLogin(req, res);
+  }
+
+  if (cleanUrl === "/api/admin/stats" && req.method === "GET") {
+    return ApiRouter.getStats(req, res);
+  }
+
+  if (cleanUrl === "/api/admin/credentials" && req.method === "GET") {
+    return ApiRouter.getCredentials(req, res);
+  }
+
+  if (cleanUrl === "/api/admin/credentials" && req.method === "POST") {
+    return ApiRouter.addCredential(req, res);
+  }
+
+  if (cleanUrl.startsWith("/api/admin/credentials/") && req.method === "DELETE") {
+    const username = decodeURIComponent(cleanUrl.split("/api/admin/credentials/")[1]);
+    return ApiRouter.deleteCredential(req, res, username);
   }
 
   // API: Get all emails (combined local and live)
@@ -482,7 +534,7 @@ const httpServer = http.createServer((req, res) => {
     reqPath = "/live/index.html";
   }
 
-  const publicPath = path.join(process.cwd(), "frontend", "dist", reqPath);
+  const publicPath = path.join(process.cwd(), "out", reqPath);
 
   if (fs.existsSync(publicPath) && fs.lstatSync(publicPath).isFile()) {
     const ext = path.extname(publicPath);
@@ -500,7 +552,7 @@ const httpServer = http.createServer((req, res) => {
     fs.createReadStream(publicPath).pipe(res);
   } else {
     // SPA fallback
-    const indexFallback = path.join(process.cwd(), "frontend", "dist", "index.html");
+    const indexFallback = path.join(process.cwd(), "out", "index.html");
     if (fs.existsSync(indexFallback)) {
       res.writeHead(200, { "Content-Type": "text/html" });
       fs.createReadStream(indexFallback).pipe(res);

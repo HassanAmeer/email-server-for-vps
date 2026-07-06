@@ -142,3 +142,25 @@ bun run build
 # 3. Email Server aur Backend API start karein
 bun run mail:start
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

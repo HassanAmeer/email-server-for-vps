@@ -1,28 +1,46 @@
 {
   "name": "temp-email",
-  "type": "module",
   "version": "0.0.1",
+  "private": true,
   "engines": {
     "bun": ">=1.0.0"
   },
   "scripts": {
-    "dev": "cd frontend && bunx astro dev",
-    "build": "cd frontend && bunx astro build",
-    "preview": "cd frontend && bunx astro preview",
-    "start": "bunx serve frontend/dist -l 8080",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "npx serve out -l 8080",
+    "preview": "npx serve out -l 8080",
     "mail:start": "bun backend/receive-mail/receive-mail.js",
     "mail:test": "bun backend/send-mail-simple/send-mail-local-to-local.js",
     "mail:send-ip-mail": "bun backend/send-mail-simple/send-mail-from-local-to-live-by-ip.js",
     "mail:generate-dkim": "bun backend/scripts/generate-dkim.js",
-    "astro": "cd frontend && bunx astro"
+    "next": "next"
   },
   "dependencies": {
-    "@tailwindcss/vite": "^4.3.1",
-    "astro": "^6.4.6",
+    "next": "16.2.10",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
     "mailparser": "^3.7.1",
     "nodemailer": "^6.9.13",
     "serve": "^14.2.4",
     "smtp-server": "^3.13.5",
-    "tailwindcss": "^4.3.1"
-  }
+    "tailwindcss": "^4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.10",
+    "typescript": "^5"
+  },
+  "ignoreScripts": [
+    "sharp",
+    "unrs-resolver"
+  ],
+  "trustedDependencies": [
+    "sharp",
+    "unrs-resolver"
+  ]
 }
