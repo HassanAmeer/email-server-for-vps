@@ -85,15 +85,18 @@ export default function AdminPage() {
     );
   }
 
+  if (!isAuthenticated) {
+    return (
+      <div className="bg-[#070A13] text-gray-100 min-h-screen relative overflow-x-hidden font-sans">
+        <LoginOverlay apiUrl={apiUrl} onLoginSuccess={() => setIsAuthenticated(true)} />
+      </div>
+    );
+  }
+
   return (
     <div className="live-console-theme bg-[#070A13] text-gray-100 min-h-screen relative overflow-x-hidden font-sans">
       {/* Glow Background */}
       <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-full h-[500px] bg-radial from-[rgba(16,185,129,0.06)] via-[rgba(5,150,105,0.01)] to-transparent pointer-events-none z-0 rounded-full"></div>
-
-      {/* LOGIN OVERLAY */}
-      {!isAuthenticated && (
-        <LoginOverlay apiUrl={apiUrl} onLoginSuccess={() => setIsAuthenticated(true)} />
-      )}
 
       {/* MAIN CONTAINER */}
       <main className="max-w-[1300px] w-full mx-auto p-8 relative z-10 flex flex-col gap-6 min-h-screen">
