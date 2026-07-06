@@ -197,12 +197,19 @@ const smtpServer = new SMTPServer({
 // ==========================================
 const httpServer = http.createServer((req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, DELETE");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   if (req.method === "OPTIONS") {
     res.writeHead(204);
     res.end();
+    return;
+  }
+
+  // Intercept route status check (Can disable specific paths dynamically)
+  if (req.url.startsWith("/api/") && !ApiRouter.isApiEnabled(req.url, req.method)) {
+    res.writeHead(503, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Service Unavailable: This API endpoint has been disabled by the administrator" }));
     return;
   }
 
@@ -242,6 +249,14 @@ const httpServer = http.createServer((req, res) => {
 
   if (cleanUrl === "/api/admin/stats" && req.method === "GET") {
     return ApiRouter.getStats(req, res);
+  }
+
+  if (cleanUrl === "/api/admin/api-settings" && req.method === "GET") {
+    return ApiRouter.getApiSettings(req, res);
+  }
+
+  if (cleanUrl === "/api/admin/api-settings/toggle" && req.method === "POST") {
+    return ApiRouter.toggleApiSetting(req, res);
   }
 
   if (cleanUrl === "/api/admin/credentials" && req.method === "GET") {

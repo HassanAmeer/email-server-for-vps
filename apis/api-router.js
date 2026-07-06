@@ -272,4 +272,16 @@ export class ApiRouter {
   static deleteCredential(req, res, username) {
     return AdminController.deleteCredential(req, res, username);
   }
+
+  static getApiSettings(req, res) {
+    return AdminController.getApiSettings(req, res);
+  }
+
+  static toggleApiSetting(req, res) {
+    return AdminController.toggleApiSetting(req, res);
+  }
+
+  static isApiEnabled(url, method) {
+    return AdminController.isApiEnabled(url, method);
+  }
 }

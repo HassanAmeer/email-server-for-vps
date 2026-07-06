@@ -6,6 +6,7 @@ import LoginOverlay from "./components/LoginOverlay";
 import CredentialsManager from "./components/CredentialsManager";
 import LiveLogs from "./components/LiveLogs";
 import MailExplorer from "./components/MailExplorer";
+import ApiSettingsManager from "./components/ApiSettingsManager";
 
 const API_BASE = "http://localhost:8081";
 
@@ -228,6 +229,20 @@ export default function AdminPage() {
             </svg>
             <span>Global Mail Explorer</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab("api-tab")}
+            className={`tab-btn flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all ${
+              activeTab === "api-tab"
+                ? "text-white bg-white/[0.05]"
+                : "text-gray-400 hover:text-white"
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4.5 h-4.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+            </svg>
+            <span>API Route Manager</span>
+          </button>
         </nav>
 
         {/* CONTENT PANES */}
@@ -242,6 +257,10 @@ export default function AdminPage() {
 
           {activeTab === "explorer-tab" && (
             <MailExplorer apiUrl={apiUrl} />
+          )}
+
+          {activeTab === "api-tab" && (
+            <ApiSettingsManager apiUrl={apiUrl} />
           )}
         </div>
 

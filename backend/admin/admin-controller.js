@@ -20,6 +20,23 @@ function extractEmail(str) {
   return match ? match[1].toLowerCase().trim() : str.toLowerCase().trim();
 }
 
+// Available APIs config list with category and stats
+const apiSettings = [
+  { id: "mailbox-generate", method: "GET", path: "/api/mailbox/generate", desc: "Generate a new random temporary mailbox email address", enabled: true, category: "Mailbox UI", hits: 0 },
+  { id: "mailbox-get", method: "GET", path: "/api/mailbox/:email", desc: "Retrieve list of all received emails in a mailbox", enabled: true, category: "Mailbox UI", hits: 0 },
+  { id: "mailbox-delete", method: "DELETE", path: "/api/mailbox/:email", desc: "Delete all emails in a mailbox database", enabled: true, category: "Mailbox UI", hits: 0 },
+  { id: "mailbox-otps", method: "GET", path: "/api/mailbox/:email/otps", desc: "Scan mailbox emails and parse numeric OTP codes", enabled: true, category: "Mailbox UI", hits: 0 },
+  { id: "local-emails", method: "GET", path: "/api/emails/local", desc: "Fetch local inbox emails and local SMTP logs", enabled: true, category: "Local Console", hits: 0 },
+  { id: "live-emails", method: "GET", path: "/api/emails/live", desc: "Fetch live inbox emails and live SMTP traffic logs", enabled: true, category: "Live Console", hits: 0 },
+  { id: "delete-local", method: "POST", path: "/api/emails/delete/local/:filename", desc: "Delete a local email JSON file", enabled: true, category: "Local Console", hits: 0 },
+  { id: "delete-live", method: "POST", path: "/api/emails/delete/live/:filename", desc: "Delete a live email JSON file", enabled: true, category: "Live Console", hits: 0 },
+  { id: "send-local", method: "POST", path: "/api/send-email/local", desc: "Dispatch email locally on SMTP Port 2525", enabled: true, category: "Local Console", hits: 0 },
+  { id: "send-live", method: "POST", path: "/api/send-email/live", desc: "Dispatch email publicly using validated relay", enabled: true, category: "Live Console", hits: 0 },
+  { id: "admin-login", method: "POST", path: "/api/admin/login", desc: "Authenticate admin dashboard session credentials", enabled: true, category: "Admin Management", hits: 0 },
+  { id: "admin-stats", method: "GET", path: "/api/admin/stats", desc: "Get server metrics, disk sizes, and account totals", enabled: true, category: "Admin Management", hits: 0 },
+  { id: "admin-credentials", method: "GET/POST/DELETE", path: "/api/admin/credentials", desc: "Manage outbound SMTP relay credentials configuration", enabled: true, category: "Admin Management", hits: 0 }
+];
+
 /**
  * Controller class to handle all admin actions
  */
@@ -27,19 +44,19 @@ export class AdminController {
   
   /**
    * Validates credentials for Admin Dashboard
-   * Login with: admin@gmail.com / 1234
+   * Login with: admin / 1234
    */
   static login(req, res) {
     let body = "";
     req.on("data", chunk => body += chunk.toString());
     req.on("end", () => {
       try {
-        const { email, password } = JSON.parse(body);
-        const adminEmail = process.env.ADMIN_EMAIL || "admin@gmail.com";
+        const { email, username, password } = JSON.parse(body);
+        const loginName = username || email;
         const adminPass = process.env.ADMIN_PASSWORD || "1234";
 
-        if ((email === adminEmail || email === "admin") && password === adminPass) {
-          const token = Buffer.from(`${adminEmail}:${adminPass}`).toString("base64");
+        if ((loginName === "admin" || loginName === "admin@gmail.com") && password === adminPass) {
+          const token = Buffer.from(`admin:${adminPass}`).toString("base64");
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ success: true, token }));
         } else {
@@ -51,6 +68,85 @@ export class AdminController {
         res.end(JSON.stringify({ error: "Invalid JSON body" }));
       }
     });
+  }
+
+  /**
+   * Helper to retrieve all API Settings (routes, descriptions, hits)
+   */
+  static getApiSettings(req, res) {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(apiSettings));
+  }
+
+  /**
+   * Helper to toggle API route activation
+   */
+  static toggleApiSetting(req, res) {
+    let body = "";
+    req.on("data", chunk => body += chunk.toString());
+    req.on("end", () => {
+      try {
+        const { id, enabled } = JSON.parse(body);
+        const api = apiSettings.find(a => a.id === id);
+        if (api) {
+          api.enabled = enabled;
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ success: true, api }));
+        } else {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "API setting not found" }));
+        }
+      } catch (err) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid JSON body" }));
+      }
+    });
+  }
+
+  /**
+   * Middleware check to verify if a request route is enabled
+   */
+  static isApiEnabled(url, method) {
+    const cleanUrl = url.split("?")[0];
+    
+    // Always allow configuration APIs to remain active
+    if (cleanUrl === "/api/admin/api-settings" || cleanUrl === "/api/admin/api-settings/toggle") {
+      return true;
+    }
+    
+    // Find matching API config
+    const api = apiSettings.find(a => {
+      // Direct path match
+      if (a.path === cleanUrl) return true;
+      
+      // Dynamic pattern matches:
+      if (a.id === "mailbox-get" && cleanUrl.startsWith("/api/mailbox/") && !cleanUrl.endsWith("/otps") && method === "GET") {
+        const parts = cleanUrl.split("/");
+        return parts.length === 4; // /api/mailbox/user@domain.com
+      }
+      if (a.id === "mailbox-otps" && cleanUrl.startsWith("/api/mailbox/") && cleanUrl.endsWith("/otps") && method === "GET") {
+        return true;
+      }
+      if (a.id === "mailbox-delete" && cleanUrl.startsWith("/api/mailbox/") && method === "DELETE") {
+        return true;
+      }
+      if (a.id === "delete-local" && cleanUrl.startsWith("/api/emails/delete/local/") && method === "POST") return true;
+      if (a.id === "delete-live" && cleanUrl.startsWith("/api/emails/delete/live/") && method === "POST") return true;
+      
+      // Match logs
+      if (a.id === "local-emails" && cleanUrl.startsWith("/api/logs/local") && method === "GET") return true;
+      if (a.id === "live-emails" && cleanUrl.startsWith("/api/logs/live") && method === "GET") return true;
+      
+      return false;
+    });
+
+    if (api) {
+      if (!api.enabled) {
+        return false;
+      }
+      api.hits++; // Increment usage statistics count
+    }
+    return true;
   }
 
   /**

@@ -8,7 +8,7 @@ interface LoginOverlayProps {
 }
 
 export default function LoginOverlay({ apiUrl, onLoginSuccess }: LoginOverlayProps) {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
@@ -23,7 +23,7 @@ export default function LoginOverlay({ apiUrl, onLoginSuccess }: LoginOverlayPro
       const res = await fetch(`${apiUrl}/api/admin/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, email: username, password }),
       });
 
       const data = await res.json();
@@ -61,9 +61,9 @@ export default function LoginOverlay({ apiUrl, onLoginSuccess }: LoginOverlayPro
             <input
               type="text"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Admin Email"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Username"
               className="bg-[#111625] border border-white/[0.06] rounded-xl px-4 py-3 text-center text-sm text-white focus:outline-none focus:border-emerald-500/50 transition-colors placeholder:text-gray-500"
             />
             <input
