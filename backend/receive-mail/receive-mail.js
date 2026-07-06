@@ -547,6 +547,8 @@ const httpServer = http.createServer((req, res) => {
     reqPath = "/local/index.html";
   } else if (req.url.startsWith("/live")) {
     reqPath = "/live/index.html";
+  } else if (req.url.startsWith("/admin")) {
+    reqPath = "/admin/index.html";
   }
 
   const publicPath = path.join(process.cwd(), "out", reqPath);
