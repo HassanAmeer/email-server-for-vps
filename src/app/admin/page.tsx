@@ -16,6 +16,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [apiUrl, setApiUrl] = useState<string>("");
   const [activeTab, setActiveTab] = useState<string>("overview-tab");
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
 
   // Stats State
   const [stats, setStats] = useState({
@@ -95,20 +96,40 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="flex bg-[#070A13] text-gray-100 min-h-screen relative overflow-hidden font-sans">
-      {/* Left Sidebar */}
-      <aside className="w-[280px] bg-[#090C16]/95 backdrop-blur-xl border-r border-white/[0.04] flex flex-col z-20 shrink-0 min-h-screen">
+    <div className="flex bg-[#070A13] text-gray-100 h-screen w-screen relative overflow-hidden font-sans">
+      {/* Mobile Sidebar Backdrop Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-20 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        ></div>
+      )}
+
+      {/* Left Sidebar (Desktop permanent, Mobile overlay drawer) */}
+      <aside className={`w-[280px] bg-[#090C16]/95 backdrop-blur-xl border-r border-white/[0.04] flex flex-col z-30 shrink-0 h-full transition-transform duration-300
+        fixed inset-y-0 left-0 lg:static lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+        
         {/* Sidebar Brand Logo */}
-        <div className="p-6 border-b border-white/[0.04] flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.25)]">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-5.5 h-5.5 text-black">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+        <div className="p-6 border-b border-white/[0.04] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.25)]">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-5.5 h-5.5 text-black">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+              </svg>
+            </div>
+            <div className="flex flex-col">
+              <span className="font-extrabold text-sm tracking-widest text-white uppercase font-mono bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">TempEmail</span>
+              <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider font-mono">Control Panel</span>
+            </div>
+          </div>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden text-gray-400 hover:text-white p-1.5 rounded-lg border border-white/[0.06] bg-slate-900/40 hover:bg-slate-900 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4.5 h-4.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
-          </div>
-          <div className="flex flex-col">
-            <span className="font-extrabold text-sm tracking-widest text-white uppercase font-mono bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">TempEmail</span>
-            <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider font-mono">Control Panel</span>
-          </div>
+          </button>
         </div>
 
         {/* Admin profile crest */}
@@ -128,10 +149,13 @@ export default function AdminPage() {
         {/* Sidebar Nav Links */}
         <nav className="flex-grow p-4 flex flex-col gap-1.5 overflow-y-auto">
           <button
-            onClick={() => setActiveTab("overview-tab")}
+            onClick={() => {
+              setActiveTab("overview-tab");
+              setSidebarOpen(false);
+            }}
             className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
               activeTab === "overview-tab" 
-                ? "text-white bg-gradient-to-r from-emerald-500/10 to-teal-500/2 border-l-4 border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.05)]" 
+                ? "text-emerald-400 bg-emerald-500/10 shadow-[0_2px_12px_rgba(16,185,129,0.03)]" 
                 : "text-gray-400 hover:text-white hover:bg-white/[0.02]"
             }`}
           >
@@ -143,10 +167,13 @@ export default function AdminPage() {
           </button>
 
           <button
-            onClick={() => setActiveTab("api-tab")}
+            onClick={() => {
+              setActiveTab("api-tab");
+              setSidebarOpen(false);
+            }}
             className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
               activeTab === "api-tab" 
-                ? "text-white bg-gradient-to-r from-emerald-500/10 to-teal-500/2 border-l-4 border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.05)] font-bold" 
+                ? "text-emerald-400 bg-emerald-500/10 shadow-[0_2px_12px_rgba(16,185,129,0.03)]" 
                 : "text-gray-400 hover:text-white hover:bg-white/[0.02]"
             }`}
           >
@@ -157,10 +184,13 @@ export default function AdminPage() {
           </button>
 
           <button
-            onClick={() => setActiveTab("credentials-tab")}
+            onClick={() => {
+              setActiveTab("credentials-tab");
+              setSidebarOpen(false);
+            }}
             className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
               activeTab === "credentials-tab" 
-                ? "text-white bg-gradient-to-r from-emerald-500/10 to-teal-500/2 border-l-4 border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.05)] font-bold" 
+                ? "text-emerald-400 bg-emerald-500/10 shadow-[0_2px_12px_rgba(16,185,129,0.03)]" 
                 : "text-gray-400 hover:text-white hover:bg-white/[0.02]"
             }`}
           >
@@ -171,10 +201,13 @@ export default function AdminPage() {
           </button>
 
           <button
-            onClick={() => setActiveTab("explorer-tab")}
+            onClick={() => {
+              setActiveTab("explorer-tab");
+              setSidebarOpen(false);
+            }}
             className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
               activeTab === "explorer-tab" 
-                ? "text-white bg-gradient-to-r from-emerald-500/10 to-teal-500/2 border-l-4 border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.05)] font-bold" 
+                ? "text-emerald-400 bg-emerald-500/10 shadow-[0_2px_12px_rgba(16,185,129,0.03)]" 
                 : "text-gray-400 hover:text-white hover:bg-white/[0.02]"
             }`}
           >
@@ -185,10 +218,13 @@ export default function AdminPage() {
           </button>
 
           <button
-            onClick={() => setActiveTab("logs-tab")}
+            onClick={() => {
+              setActiveTab("logs-tab");
+              setSidebarOpen(false);
+            }}
             className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
               activeTab === "logs-tab" 
-                ? "text-white bg-gradient-to-r from-emerald-500/10 to-teal-500/2 border-l-4 border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.05)] font-bold" 
+                ? "text-emerald-400 bg-emerald-500/10 shadow-[0_2px_12px_rgba(16,185,129,0.03)]" 
                 : "text-gray-400 hover:text-white hover:bg-white/[0.02]"
             }`}
           >
@@ -214,13 +250,21 @@ export default function AdminPage() {
       </aside>
 
       {/* Right Content Pane */}
-      <div className="flex-grow flex flex-col min-h-screen relative z-10 overflow-y-auto bg-[#070A13]">
+      <div className="flex-grow flex flex-col h-full relative z-10 overflow-y-auto bg-[#070A13]">
         {/* Glow Background */}
         <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-full h-[500px] bg-radial from-[rgba(16,185,129,0.04)] via-[rgba(5,150,105,0.01)] to-transparent pointer-events-none z-0 rounded-full"></div>
 
         {/* Top Navbar */}
         <header className="p-6 border-b border-white/[0.04] flex justify-between items-center relative z-10 flex-wrap gap-4 bg-[#090C16]/75 backdrop-blur-md">
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden text-gray-400 hover:text-white p-2 rounded-xl border border-white/[0.06] bg-slate-900/40 hover:bg-slate-900 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5.5 h-5.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+              </svg>
+            </button>
             <Link href="/" className="text-gray-400 hover:text-white transition-colors" title="Back to Home">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-5.5 h-5.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
