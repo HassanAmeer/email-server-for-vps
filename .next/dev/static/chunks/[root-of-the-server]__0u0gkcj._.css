@@ -1065,6 +1065,10 @@
     display: block;
   }
 
+  .contents {
+    display: contents;
+  }
+
   .flex {
     display: flex;
   }
@@ -2516,6 +2520,16 @@
   @supports (color: color-mix(in lab, red, red)) {
     .bg-emerald-500\/\[0\.02\] {
       background-color: color-mix(in oklab, var(--color-emerald-500) 2%, transparent);
+    }
+  }
+
+  .bg-emerald-500\/\[0\.03\] {
+    background-color: #ccff0008;
+  }
+
+  @supports (color: color-mix(in lab, red, red)) {
+    .bg-emerald-500\/\[0\.03\] {
+      background-color: color-mix(in oklab, var(--color-emerald-500) 3%, transparent);
     }
   }
 

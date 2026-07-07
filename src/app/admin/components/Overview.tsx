@@ -38,7 +38,7 @@ export default function Overview({ apiUrl, stats }: OverviewProps) {
         setLoading(false);
       }
     };
-    
+
     fetchApiStats();
     const interval = setInterval(fetchApiStats, 5000);
     return () => clearInterval(interval);
@@ -75,7 +75,7 @@ export default function Overview({ apiUrl, stats }: OverviewProps) {
     <div className="flex flex-col gap-8 w-full animate-fade-in">
       {/* Dynamic Dashboard Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        
+
         {/* Metric 1 */}
         <div className="group relative bg-gradient-to-br from-slate-950/80 to-slate-900/60 border border-white/[0.04] hover:border-emerald-500/30 p-6 rounded-3xl shadow-xl hover:shadow-[0_0_30px_rgba(16,185,129,0.08)] transition-all duration-300 overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition-colors"></div>
@@ -153,7 +153,7 @@ export default function Overview({ apiUrl, stats }: OverviewProps) {
 
       {/* Analytics Graph Card & Status Checklist Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
+
         {/* API Traffic chart card - spans 7/12 cols */}
         <div className="lg:col-span-7 bg-gradient-to-b from-[#0E1325] to-[#0A0D18] border border-white/[0.04] p-6 rounded-3xl shadow-xl flex flex-col gap-6 relative overflow-hidden">
           <div className="flex justify-between items-center">
@@ -170,27 +170,27 @@ export default function Overview({ apiUrl, stats }: OverviewProps) {
               <defs>
                 {/* Neon Area Fill Gradient */}
                 <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.25" />
-                  <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
+                  <stop offset="0%" stopColor="#ccff00" stopOpacity="0.25" />
+                  <stop offset="100%" stopColor="#ccff00" stopOpacity="0.0" />
                 </linearGradient>
               </defs>
-              
+
               {/* Horizontal Grid lines */}
               <line x1="50" y1="35" x2="470" y2="35" stroke="rgba(255,255,255,0.02)" strokeWidth="1" />
               <line x1="50" y1="75" x2="470" y2="75" stroke="rgba(255,255,255,0.02)" strokeWidth="1" />
               <line x1="50" y1="120" x2="470" y2="120" stroke="rgba(255,255,255,0.02)" strokeWidth="1" />
               <line x1="50" y1="155" x2="470" y2="155" stroke="rgba(255,255,255,0.02)" strokeWidth="1" />
-              
+
               {/* Area path */}
               <path d={areaD} fill="url(#chartGradient)" />
-              
+
               {/* Line path */}
-              <path d={pathD} fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" />
-              
+              <path d={pathD} fill="none" stroke="#ccff00" strokeWidth="2.5" strokeLinecap="round" />
+
               {/* Glow spots for coordinates */}
               {points.map((p, i) => (
                 <g key={i}>
-                  <circle cx={p.x} cy={p.y} r="5.5" fill="#10b981" className="animate-pulse" />
+                  <circle cx={p.x} cy={p.y} r="5.5" fill="#ccff00" className="animate-pulse" />
                   <circle cx={p.x} cy={p.y} r="2.5" fill="#ffffff" />
                   <text x={p.x - 10} y="172" fill="#64748b" className="text-[10px] font-mono font-semibold" style={{ fontSize: "8px" }}>
                     {p.day}
@@ -235,7 +235,7 @@ export default function Overview({ apiUrl, stats }: OverviewProps) {
           </div>
 
           <div className="flex flex-col gap-4">
-            
+
             {/* Health check item */}
             <div className="flex items-start gap-4 p-4 bg-slate-950/40 border border-white/[0.02] rounded-2xl hover:border-emerald-500/10 transition-colors">
               <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0 shadow-[0_0_10px_rgba(16,185,129,0.05)]">

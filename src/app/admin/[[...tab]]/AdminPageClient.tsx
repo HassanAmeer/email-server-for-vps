@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import LoginOverlay from "../components/LoginOverlay";
 import CredentialsManager from "../components/CredentialsManager";
 import LiveLogs from "../components/LiveLogs";
@@ -23,6 +23,11 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
 
   const router = useRouter();
+  const pathname = usePathname();
+
+  // Extract the last segment from the URL pathname, ignoring any trailing slashes
+  const pathParts = (pathname || "").split("/").filter(Boolean);
+  const currentSegment = pathParts.length > 1 ? pathParts[pathParts.length - 1] : tabSegment;
 
   // Map route segment to active tab string
   const tabPathMap: Record<string, string> = {
@@ -43,7 +48,7 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
     "logs-tab": "logs"
   };
 
-  const activeTab = tabPathMap[tabSegment] || "overview-tab";
+  const activeTab = tabPathMap[currentSegment] || "overview-tab";
 
   // Stats State
   const [stats, setStats] = useState({
