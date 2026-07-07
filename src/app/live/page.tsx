@@ -681,7 +681,7 @@ export default function LiveConsolePage() {
                   <button
                     type="submit"
                     disabled={sendingEmail}
-                    className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:shadow-emerald-500/20 transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
+                    className="bg-emerald-500 hover:bg-emerald-600 text-black font-extrabold py-3 px-8 rounded-lg shadow-lg hover:shadow-emerald-500/20 transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
@@ -717,7 +717,7 @@ export default function LiveConsolePage() {
         {/* Floating Help Button */}
         <button
           onClick={() => setIsHelpOpen(true)}
-          className="fixed bottom-6 right-6 bg-emerald-500 hover:bg-emerald-600 text-white w-12 h-12 rounded-full flex items-center justify-center shadow-lg hover:shadow-emerald-500/20 transition-all hover:scale-110 cursor-pointer z-40 border border-emerald-400/20 animate-pulse"
+          className="fixed bottom-6 right-6 bg-emerald-500 hover:bg-emerald-600 text-black w-12 h-12 rounded-full flex items-center justify-center shadow-lg hover:shadow-emerald-500/20 transition-all hover:scale-110 cursor-pointer z-40 border border-emerald-400/20 animate-pulse"
           style={{ animationDuration: "2s" }}
           title="Instructions & Guide"
         >

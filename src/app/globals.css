@@ -3,6 +3,71 @@
 @theme {
   --font-sans: var(--font-outfit), sans-serif;
   --font-mono: var(--font-mono), monospace;
+
+  /* 
+   * THEME CONFIGURATION 
+   * Change these hex values to easily update the global colors of the project.
+   */
+   
+  /* Main Primary Color (Neon Lime / Yellow-Green) replacing Emerald */
+  --color-emerald-50: #faffea;
+  --color-emerald-100: #f3ffc5;
+  --color-emerald-200: #eaff9a;
+  --color-emerald-300: #e0ff65;
+  --color-emerald-400: #d6ff33;
+  --color-emerald-500: #ccff00; /* <--- Core Brand Color */
+  --color-emerald-600: #a3cc00;
+  --color-emerald-700: #7a9900;
+  --color-emerald-800: #526600;
+  --color-emerald-900: #293300;
+  --color-emerald-950: #141a00;
+
+  /* Secondary Color (Yellow) replacing Teal for Gradients */
+  --color-teal-50: #fffdf0;
+  --color-teal-100: #fff9c9;
+  --color-teal-200: #fff49b;
+  --color-teal-300: #ffe86b;
+  --color-teal-400: #ffe13b;
+  --color-teal-500: #ffea00; /* <--- Secondary Gradient Color */
+  --color-teal-600: #ccbb00;
+  --color-teal-700: #998c00;
+  --color-teal-800: #665e00;
+  --color-teal-900: #332f00;
+  --color-teal-950: #1a1700;
+}
+
+/* ==================================================
+   Custom Scrollbar Styles (Global)
+   ================================================== */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #030712; /* Very dark background */
+  border-left: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  border: 2px solid #030712; /* Creates padding effect */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.5); /* Emerald hover effect */
+}
+
+::-webkit-scrollbar-corner {
+  background: #030712;
+}
+
+/* Firefox Support */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) #030712;
 }
 
 /* ==================================================

@@ -540,7 +540,7 @@ const httpServer = http.createServer((req, res) => {
   let reqPath = req.url.split("?")[0];
 
   // Redirect to trailing slash for proper directory asset loading of static routes
-  if (reqPath === "/admin" || reqPath === "/local" || reqPath === "/live") {
+  if (reqPath === "/admin" || reqPath === "/local" || reqPath === "/live" || reqPath === "/doc") {
     res.writeHead(301, { "Location": reqPath + "/" });
     res.end();
     return;
@@ -553,6 +553,8 @@ const httpServer = http.createServer((req, res) => {
     reqPath = "/live/index.html";
   } else if (reqPath.startsWith("/admin/")) {
     reqPath = "/admin/index.html";
+  } else if (reqPath.startsWith("/doc/")) {
+    reqPath = "/doc/index.html";
   } else if (reqPath === "/") {
     reqPath = "/index.html";
   }

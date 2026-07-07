@@ -35,7 +35,16 @@
     "afterFiles": [],
     "fallback": []
   },
-  "dynamicRoutes": [],
+  "dynamicRoutes": [
+    {
+      "page": "/admin/[[...tab]]",
+      "regex": "^/admin(?:/(.+?))?(?:/)?$",
+      "routeKeys": {
+        "nxtPtab": "nxtPtab"
+      },
+      "namedRegex": "^/admin(?:/(?<nxtPtab>.+?))?(?:/)?$"
+    }
+  ],
   "staticRoutes": [
     {
       "page": "/",
@@ -56,10 +65,10 @@
       "namedRegex": "^/_not\\-found(?:/)?$"
     },
     {
-      "page": "/admin",
-      "regex": "^/admin(?:/)?$",
+      "page": "/doc",
+      "regex": "^/doc(?:/)?$",
       "routeKeys": {},
-      "namedRegex": "^/admin(?:/)?$"
+      "namedRegex": "^/doc(?:/)?$"
     },
     {
       "page": "/live",

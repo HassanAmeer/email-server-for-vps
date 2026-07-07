@@ -78,7 +78,7 @@ export default function LoginOverlay({ apiUrl, onLoginSuccess }: LoginOverlayPro
           <button
             type="submit"
             disabled={loading}
-            className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition-all cursor-pointer shadow-lg shadow-emerald-500/10 hover:shadow-emerald-500/25 disabled:opacity-50"
+            className="bg-emerald-500 hover:bg-emerald-600 text-black font-extrabold py-3 rounded-xl transition-all cursor-pointer shadow-lg shadow-emerald-500/10 hover:shadow-emerald-500/25 disabled:opacity-50"
           >
             {loading ? "Authenticating..." : "Authenticate"}
           </button>

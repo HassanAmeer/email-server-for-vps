@@ -161,7 +161,7 @@ export default function CredentialsManager({ apiUrl }: CredentialsManagerProps) 
 
             <button
               type="submit"
-              className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition-all cursor-pointer shadow-lg shadow-emerald-500/10"
+              className="bg-emerald-500 hover:bg-emerald-600 text-black font-extrabold py-3 rounded-xl transition-all cursor-pointer shadow-lg shadow-emerald-500/10"
             >
               Create Credential
             </button>

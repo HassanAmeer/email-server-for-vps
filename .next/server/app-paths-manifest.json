@@ -1,7 +1,8 @@
 {
   "/_global-error/page": "app/_global-error/page.js",
   "/_not-found/page": "app/_not-found/page.js",
-  "/admin/page": "app/admin/page.js",
+  "/admin/[[...tab]]/page": "app/admin/[[...tab]]/page.js",
+  "/doc/page": "app/doc/page.js",
   "/live/page": "app/live/page.js",
   "/local/page": "app/local/page.js",
   "/page": "app/page.js"
