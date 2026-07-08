@@ -117,9 +117,43 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
 
   if (loading) {
     return (
-      <div className="bg-[#070A13] text-gray-100 min-h-screen flex items-center justify-center font-sans">
-        <div className="text-sm font-semibold tracking-wider text-gray-400 animate-pulse">
-          INITIALIZING SECURE SESSION...
+      <div className="flex bg-[#070A13] text-gray-100 h-screen w-screen relative overflow-hidden font-sans">
+        {/* Skeleton Sidebar */}
+        <aside className="w-[280px] bg-[#090C16]/95 border-r border-white/[0.04] flex flex-col z-30 shrink-0 h-full hidden lg:flex p-6">
+          <div className="flex items-center gap-3 mb-10">
+            <div className="w-9 h-9 rounded-xl bg-white/[0.05] animate-pulse"></div>
+            <div className="flex flex-col gap-2">
+              <div className="h-3 w-24 bg-white/[0.05] rounded animate-pulse"></div>
+              <div className="h-2 w-16 bg-white/[0.05] rounded animate-pulse"></div>
+            </div>
+          </div>
+          <div className="space-y-4">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-11 w-full bg-white/[0.03] rounded-lg animate-pulse"></div>
+            ))}
+          </div>
+        </aside>
+
+        {/* Skeleton Right Pane */}
+        <div className="flex-grow flex flex-col h-full relative z-10 overflow-hidden bg-[#070A13]">
+          {/* Skeleton Header */}
+          <header className="p-6 border-b border-white/[0.04] flex justify-between items-center bg-[#090C16]/75">
+            <div className="h-4 w-48 bg-white/[0.05] rounded animate-pulse"></div>
+            <div className="h-8 w-32 bg-emerald-500/[0.05] rounded-full animate-pulse"></div>
+          </header>
+          
+          {/* Skeleton Content Area */}
+          <div className="p-8 flex-grow space-y-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-32 bg-white/[0.02] border border-white/[0.05] rounded-3xl animate-pulse"></div>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              <div className="lg:col-span-7 h-96 bg-white/[0.02] border border-white/[0.05] rounded-3xl animate-pulse"></div>
+              <div className="lg:col-span-5 h-96 bg-white/[0.02] border border-white/[0.05] rounded-3xl animate-pulse"></div>
+            </div>
+          </div>
         </div>
       </div>
     );
