@@ -434,6 +434,8 @@ export default function Home() {
                   { method: "GET", endpoint: "/api/mailbox/generate", type: "JSON Object", color: "emerald" },
                   { method: "GET", endpoint: "/api/mailbox/:email", type: "JSON Array [Emails]", color: "emerald" },
                   { method: "GET", endpoint: "/api/mailbox/:email/otps", type: "JSON Array [OTPs]", color: "emerald" },
+                  { method: "DELETE", endpoint: "/api/mailbox/:email", type: "JSON Object", color: "rose" },
+                  { method: "DELETE", endpoint: "/api/mailbox/:email/:mailId", type: "JSON Object", color: "rose" },
                   { method: "GET", endpoint: "/storage/media/:filename", type: "Binary payload stream", color: "violet" },
                 ].map((ep, i) => (
                   <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-xl bg-white/[0.01] hover:bg-white/[0.03] transition-all border border-white/[0.02] hover:border-white/[0.08]">

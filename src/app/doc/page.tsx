@@ -114,18 +114,32 @@ const endpoints = [
     auth: false,
   },
   {
+    id: "delete-mailbox",
+    method: "DELETE",
+    path: "/api/mailbox/:email",
+    title: "Delete Mailbox",
+    desc: "Purges the entire mailbox storage history. Useful for cleanup between test runs.",
+    payload: null,
+    response: `{
+  "success": true
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/mailbox/test@tempemail.vps",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
     id: "delete-mail",
     method: "DELETE",
-    path: "/api/mailbox/:email/:mailId?",
-    title: "Delete Email or Mailbox",
-    desc: "Removes a single email by ID when mailId is specified, or purges the entire mailbox storage history when mailId is omitted. Useful for cleanup between test runs.",
+    path: "/api/mailbox/:email/:mailId",
+    title: "Delete Specific Email",
+    desc: "Removes a single email by its ID from the mailbox.",
     payload: null,
     response: `{
   "success": true
 }`,
     exampleUrl: "http://your-vps-ip:8081/api/mailbox/test@tempemail.vps/1234567890",
     returns: "JSON Object",
-    auth: false,
+    auth: true,
   },
   {
     id: "all-mails",

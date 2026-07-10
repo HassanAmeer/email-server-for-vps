@@ -76,6 +76,18 @@ db.exec(`
   );
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS api_settings (
+    id TEXT PRIMARY KEY,
+    method TEXT,
+    path TEXT,
+    desc TEXT,
+    enabled BOOLEAN DEFAULT 1,
+    category TEXT,
+    hits INTEGER DEFAULT 0
+  );
+`);
+
 // Helper to log generated emails
 export function logGeneratedEmail(email, ip_address, project_id = null) {
   try {
@@ -225,6 +237,45 @@ export function clearSystemLogs(log_type) {
     }
   } catch (err) {
     console.error("DB Error clearing system logs:", err);
+  }
+}
+
+export function initApiSettings(settingsArray) {
+  try {
+    const stmt = db.prepare("INSERT OR IGNORE INTO api_settings (id, method, path, desc, enabled, category, hits) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    for (const api of settingsArray) {
+      stmt.run(api.id, api.method, api.path, api.desc, api.enabled ? 1 : 0, api.category, api.hits || 0);
+    }
+  } catch (err) {
+    console.error("DB Error initializing API settings:", err);
+  }
+}
+
+export function getApiSettingsList() {
+  try {
+    const rows = db.prepare("SELECT * FROM api_settings").all();
+    return rows.map(r => ({ ...r, enabled: r.enabled === 1 }));
+  } catch (err) {
+    console.error("DB Error getting API settings:", err);
+    return [];
+  }
+}
+
+export function toggleApiSettingDB(id, enabled) {
+  try {
+    db.prepare("UPDATE api_settings SET enabled = ? WHERE id = ?").run(enabled ? 1 : 0, id);
+    return true;
+  } catch (err) {
+    console.error("DB Error toggling API setting:", err);
+    return false;
+  }
+}
+
+export function incrementApiHits(id) {
+  try {
+    db.prepare("UPDATE api_settings SET hits = hits + 1 WHERE id = ?").run(id);
+  } catch (err) {
+    console.error("DB Error incrementing API hit:", err);
   }
 }
 

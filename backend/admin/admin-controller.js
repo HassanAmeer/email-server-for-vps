@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { initApiSettings, getApiSettingsList, toggleApiSettingDB, incrementApiHits } from "../database/db.js";
 
 // Paths config
 const localMailDir = path.join(process.cwd(), "backend", "storage", "local");
@@ -21,10 +22,11 @@ function extractEmail(str) {
 }
 
 // Available APIs config list with category and stats
-const apiSettings = [
+const defaultApiSettings = [
   { id: "mailbox-generate", method: "GET", path: "/api/mailbox/generate", desc: "Generate a new random temporary mailbox email address", enabled: true, category: "Mailbox UI", hits: 0 },
   { id: "mailbox-get", method: "GET", path: "/api/mailbox/:email", desc: "Retrieve list of all received emails in a mailbox", enabled: true, category: "Mailbox UI", hits: 0 },
   { id: "mailbox-delete", method: "DELETE", path: "/api/mailbox/:email", desc: "Delete all emails in a mailbox database", enabled: true, category: "Mailbox UI", hits: 0 },
+  { id: "mailbox-delete-one", method: "DELETE", path: "/api/mailbox/:email/:mailId", desc: "Delete a specific email from a mailbox database", enabled: true, category: "Mailbox UI", hits: 0 },
   { id: "mailbox-otps", method: "GET", path: "/api/mailbox/:email/otps", desc: "Scan mailbox emails and parse numeric OTP codes", enabled: true, category: "Mailbox UI", hits: 0 },
   { id: "local-emails", method: "GET", path: "/api/emails/local", desc: "Fetch local inbox emails and local SMTP logs", enabled: true, category: "Local Console", hits: 0 },
   { id: "live-emails", method: "GET", path: "/api/emails/live", desc: "Fetch live inbox emails and live SMTP traffic logs", enabled: true, category: "Live Console", hits: 0 },
@@ -36,6 +38,9 @@ const apiSettings = [
   { id: "admin-stats", method: "GET", path: "/api/admin/stats", desc: "Get server metrics, disk sizes, and account totals", enabled: true, category: "Admin Management", hits: 0 },
   { id: "admin-credentials", method: "GET/POST/DELETE", path: "/api/admin/credentials", desc: "Manage outbound SMTP relay credentials configuration", enabled: true, category: "Admin Management", hits: 0 }
 ];
+
+// Initialize settings in database
+initApiSettings(defaultApiSettings);
 
 /**
  * Controller class to handle all admin actions
@@ -75,12 +80,10 @@ export class AdminController {
     });
   }
 
-  /**
-   * Helper to retrieve all API Settings (routes, descriptions, hits)
-   */
   static getApiSettings(req, res) {
+    const list = getApiSettingsList();
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(apiSettings));
+    res.end(JSON.stringify(list));
   }
 
   /**
@@ -92,9 +95,10 @@ export class AdminController {
     req.on("end", () => {
       try {
         const { id, enabled } = JSON.parse(body);
-        const api = apiSettings.find(a => a.id === id);
-        if (api) {
-          api.enabled = enabled;
+        const success = toggleApiSettingDB(id, enabled);
+        if (success) {
+          const list = getApiSettingsList();
+          const api = list.find(a => a.id === id);
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ success: true, api }));
         } else {
@@ -108,9 +112,6 @@ export class AdminController {
     });
   }
 
-  /**
-   * Middleware check to verify if a request route is enabled
-   */
   static isApiEnabled(url, method) {
     const cleanUrl = url.split("?")[0];
 
@@ -119,8 +120,9 @@ export class AdminController {
       return true;
     }
 
+    const list = getApiSettingsList();
     // Find matching API config
-    const api = apiSettings.find(a => {
+    const api = list.find(a => {
       // Direct path match
       if (a.path === cleanUrl) return true;
 
@@ -132,8 +134,13 @@ export class AdminController {
       if (a.id === "mailbox-otps" && cleanUrl.startsWith("/api/mailbox/") && cleanUrl.endsWith("/otps") && method === "GET") {
         return true;
       }
+      if (a.id === "mailbox-delete-one" && cleanUrl.startsWith("/api/mailbox/") && method === "DELETE") {
+        const parts = cleanUrl.split("/");
+        return parts.length === 5;
+      }
       if (a.id === "mailbox-delete" && cleanUrl.startsWith("/api/mailbox/") && method === "DELETE") {
-        return true;
+        const parts = cleanUrl.split("/");
+        return parts.length === 4;
       }
       if (a.id === "delete-local" && cleanUrl.startsWith("/api/emails/delete/local/") && method === "POST") return true;
       if (a.id === "delete-live" && cleanUrl.startsWith("/api/emails/delete/live/") && method === "POST") return true;
@@ -149,7 +156,7 @@ export class AdminController {
       if (!api.enabled) {
         return false;
       }
-      api.hits++; // Increment usage statistics count
+      incrementApiHits(api.id); // Increment usage statistics count
     }
     return true;
   }

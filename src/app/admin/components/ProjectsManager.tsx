@@ -430,12 +430,12 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
                                   if (emailFilter === "attachment") return mail.has_attachment;
                                   return true;
                                 }).length === 0 && (
-                                  <tr>
-                                    <td colSpan={6} className="py-6 text-center text-sm text-gray-500">
-                                      No emails match the selected filter.
-                                    </td>
-                                  </tr>
-                                )}
+                                    <tr>
+                                      <td colSpan={6} className="py-6 text-center text-sm text-gray-500">
+                                        No emails match the selected filter.
+                                      </td>
+                                    </tr>
+                                  )}
                               </tbody>
                             </table>
 

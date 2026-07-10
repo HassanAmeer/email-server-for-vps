@@ -33,9 +33,11 @@ module.exports=[17594,a=>{"use strict";var b=a.i(87924),c=a.i(38246),d=a.i(72131
   "html": "<p>HTML body <b>content</b></p>"
 }`,response:`{
   "success": true
-}`,exampleUrl:"http://your-vps-ip:8081/api/send-email/live",returns:"JSON Object",auth:!1},{id:"delete-mail",method:"DELETE",path:"/api/mailbox/:email/:mailId?",title:"Delete Email or Mailbox",desc:"Removes a single email by ID when mailId is specified, or purges the entire mailbox storage history when mailId is omitted. Useful for cleanup between test runs.",payload:null,response:`{
+}`,exampleUrl:"http://your-vps-ip:8081/api/send-email/live",returns:"JSON Object",auth:!1},{id:"delete-mailbox",method:"DELETE",path:"/api/mailbox/:email",title:"Delete Mailbox",desc:"Purges the entire mailbox storage history. Useful for cleanup between test runs.",payload:null,response:`{
   "success": true
-}`,exampleUrl:"http://your-vps-ip:8081/api/mailbox/test@tempemail.vps/1234567890",returns:"JSON Object",auth:!1},{id:"all-mails",method:"GET",path:"/api/mails",title:"Get All Emails (Global)",desc:"Returns a combined, date-sorted feed of every email captured across both the Live SMTP listener and Local Sandbox ports. Useful for admin dashboards or global monitoring.",payload:null,response:`[
+}`,exampleUrl:"http://your-vps-ip:8081/api/mailbox/test@tempemail.vps",returns:"JSON Object",auth:!0},{id:"delete-mail",method:"DELETE",path:"/api/mailbox/:email/:mailId",title:"Delete Specific Email",desc:"Removes a single email by its ID from the mailbox.",payload:null,response:`{
+  "success": true
+}`,exampleUrl:"http://your-vps-ip:8081/api/mailbox/test@tempemail.vps/1234567890",returns:"JSON Object",auth:!0},{id:"all-mails",method:"GET",path:"/api/mails",title:"Get All Emails (Global)",desc:"Returns a combined, date-sorted feed of every email captured across both the Live SMTP listener and Local Sandbox ports. Useful for admin dashboards or global monitoring.",payload:null,response:`[
   {
     "id": "...",
     "from": "...",
