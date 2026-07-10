@@ -122,6 +122,68 @@ export class ApiRouter {
   }
 
   /**
+   * GET /api/mailbox/custom?name=abc&domain=llamerada.online
+   * Generates a custom email address with the user's chosen name.
+   * Returns 409 if the address is already taken.
+   */
+  static customGenerateMailbox(req, res) {
+    const project = ApiRouter.validateApiKey(req, res);
+    if (!project) return;
+
+    const endpoint = "/api/mailbox/custom";
+    logProjectApiHit(project.id, endpoint, "GET");
+
+    const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    const name = url.searchParams.get("name");
+    const requestedDomain = url.searchParams.get("domain");
+
+    if (!name || name.trim().length === 0) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing 'name' query parameter. Example: ?name=myname&domain=yourdomain.com" }));
+      return;
+    }
+
+    // Sanitize name: only allow alphanumeric, dots, hyphens, underscores
+    const sanitized = name.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
+    if (sanitized.length === 0 || sanitized.length > 64) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid name. Use only letters, numbers, dots, hyphens, underscores (1-64 chars)." }));
+      return;
+    }
+
+    let domains = getActiveDomains();
+    if (domains.length === 0) {
+      domains.push(process.env.DOMAIN || "llamerada.online");
+    }
+
+    let domain = domains[0];
+    if (requestedDomain && domains.includes(requestedDomain)) {
+      domain = requestedDomain;
+    }
+
+    const email = `${sanitized}@${domain}`;
+
+    // Check if this email was already generated
+    try {
+      const existing = db.prepare("SELECT id FROM generated_emails WHERE email = ?").get(email);
+      if (existing) {
+        res.writeHead(409, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "This email address is already taken. Please choose a different name.", email }));
+        return;
+      }
+    } catch (err) {
+      console.error("DB Error checking existing email:", err);
+    }
+
+    // Capture IP and log
+    const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || "Unknown";
+    logGeneratedEmail(email, ipAddress, project.id);
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ email }));
+  }
+
+  /**
    * GET /api/mailbox/:email
    * Fetches all emails received for the specified mailbox
    */

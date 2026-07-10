@@ -440,6 +440,7 @@ export default function Home() {
                 {[
                   { method: "GET", endpoint: "/api/domains", type: "JSON Array [Domains]", color: "emerald" },
                   { method: "GET", endpoint: "/api/mailbox/generate?domain=...", type: "JSON Object", color: "emerald" },
+                  { method: "GET", endpoint: "/api/mailbox/custom?name=...&domain=...", type: "JSON Object", color: "emerald" },
                   { method: "GET", endpoint: "/api/mailbox/:email", type: "JSON Array [Emails]", color: "emerald" },
                   { method: "GET", endpoint: "/api/mailbox/:email/otps", type: "JSON Array [OTPs]", color: "emerald" },
                   { method: "DELETE", endpoint: "/api/mailbox/:email", type: "JSON Object", color: "rose" },

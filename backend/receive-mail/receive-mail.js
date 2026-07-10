@@ -254,6 +254,10 @@ const httpServer = http.createServer((req, res) => {
   if (cleanUrl === "/api/mailbox/generate" && req.method === "GET") {
     return ApiRouter.generateMailbox(req, res);
   }
+
+  if (cleanUrl === "/api/mailbox/custom" && req.method === "GET") {
+    return ApiRouter.customGenerateMailbox(req, res);
+  }
   
   if (cleanUrl.startsWith("/api/mailbox/") && req.method === "GET") {
     const parts = cleanUrl.split("/");

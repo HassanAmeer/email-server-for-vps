@@ -50,6 +50,20 @@ const endpoints = [
     auth: true,
   },
   {
+    id: "custom-generate",
+    method: "GET",
+    path: "/api/mailbox/custom",
+    title: "Custom Address Mailbox",
+    desc: "Create a custom email address with your chosen name. Pass `name` (required) and optionally `domain`. Returns 409 if the address is already taken. Only letters, numbers, dots, hyphens, and underscores are allowed (1-64 chars).",
+    payload: null,
+    response: `{
+  "email": "myname@tempemail.vps"
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/mailbox/custom?name=myname&domain=tempemail.vps",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
     id: "get-mailbox",
     method: "GET",
     path: "/api/mailbox/:email",
@@ -76,7 +90,7 @@ const endpoints = [
 ]`,
     exampleUrl: "http://your-vps-ip:8081/api/mailbox/test@tempemail.vps",
     returns: "JSON Array",
-    auth: false,
+    auth: true,
   },
   {
     id: "extract-otp",
@@ -96,7 +110,7 @@ const endpoints = [
 ]`,
     exampleUrl: "http://your-vps-ip:8081/api/mailbox/test@tempemail.vps/otps",
     returns: "JSON Array",
-    auth: false,
+    auth: true,
   },
   {
     id: "get-attachment",

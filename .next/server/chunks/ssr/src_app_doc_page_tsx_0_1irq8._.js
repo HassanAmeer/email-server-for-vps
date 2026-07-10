@@ -5,7 +5,9 @@ module.exports=[17594,a=>{"use strict";var b=a.i(87924),c=a.i(38246),d=a.i(72131
   ]
 }`,exampleUrl:"http://your-vps-ip:8081/api/domains",returns:"JSON Object",auth:!1},{id:"generate",method:"GET",path:"/api/mailbox/generate",title:"Generate Mailbox",desc:"Dynamically allocates a random transient email address. Optionally pass a `domain` query parameter to force generation on a specific active domain.",payload:null,response:`{
   "email": "a1b2c3d4@tempemail.vps"
-}`,exampleUrl:"http://your-vps-ip:8081/api/mailbox/generate?domain=tempemail.vps",returns:"JSON Object",auth:!0},{id:"get-mailbox",method:"GET",path:"/api/mailbox/:email",title:"Fetch Inbox Mails",desc:"Retrieves all captured emails sent to the specified transient mailbox, including parsed sender info, subject, body text, HTML, and any attachment metadata.",payload:null,response:`[
+}`,exampleUrl:"http://your-vps-ip:8081/api/mailbox/generate?domain=tempemail.vps",returns:"JSON Object",auth:!0},{id:"custom-generate",method:"GET",path:"/api/mailbox/custom",title:"Custom Address Mailbox",desc:"Create a custom email address with your chosen name. Pass `name` (required) and optionally `domain`. Returns 409 if the address is already taken. Only letters, numbers, dots, hyphens, and underscores are allowed (1-64 chars).",payload:null,response:`{
+  "email": "myname@tempemail.vps"
+}`,exampleUrl:"http://your-vps-ip:8081/api/mailbox/custom?name=myname&domain=tempemail.vps",returns:"JSON Object",auth:!0},{id:"get-mailbox",method:"GET",path:"/api/mailbox/:email",title:"Fetch Inbox Mails",desc:"Retrieves all captured emails sent to the specified transient mailbox, including parsed sender info, subject, body text, HTML, and any attachment metadata.",payload:null,response:`[
   {
     "id": "1234567890",
     "from": "noreply@github.com",
@@ -22,7 +24,7 @@ module.exports=[17594,a=>{"use strict";var b=a.i(87924),c=a.i(38246),d=a.i(72131
       }
     ]
   }
-]`,exampleUrl:"http://your-vps-ip:8081/api/mailbox/test@tempemail.vps",returns:"JSON Array",auth:!1},{id:"extract-otp",method:"GET",path:"/api/mailbox/:email/otps",title:"Extract OTP Codes",desc:"Scans inbound emails in the specified mailbox and extracts all detected 4-6 digit numeric OTP verification codes via regex. Returns structured objects ready for test assertion.",payload:null,response:`[
+]`,exampleUrl:"http://your-vps-ip:8081/api/mailbox/test@tempemail.vps",returns:"JSON Array",auth:!0},{id:"extract-otp",method:"GET",path:"/api/mailbox/:email/otps",title:"Extract OTP Codes",desc:"Scans inbound emails in the specified mailbox and extracts all detected 4-6 digit numeric OTP verification codes via regex. Returns structured objects ready for test assertion.",payload:null,response:`[
   {
     "otp": "123456",
     "from": "noreply@github.com",
@@ -30,7 +32,7 @@ module.exports=[17594,a=>{"use strict";var b=a.i(87924),c=a.i(38246),d=a.i(72131
     "date": "2026-07-07T10:17:02.000Z",
     "mailId": "1234567890"
   }
-]`,exampleUrl:"http://your-vps-ip:8081/api/mailbox/test@tempemail.vps/otps",returns:"JSON Array",auth:!1},{id:"get-attachment",method:"GET",path:"/api/attachments/:filename",title:"Download Attachment",desc:"Streams the raw binary payload of a previously saved email attachment. The filename is returned in the attachment metadata from the inbox endpoint.",payload:null,response:"Binary Data (File Stream)",exampleUrl:"http://your-vps-ip:8081/api/attachments/1234567890-invoice.pdf",returns:"Binary Stream",auth:!1},{id:"send-mail-live",method:"POST",path:"/api/send-email/live",title:"Send Custom Email (Live)",desc:"Dispatches an outbound email to any public internet address using your VPS SMTP node. Supports plain text and HTML bodies. Optionally include DKIM signing.",payload:`{
+]`,exampleUrl:"http://your-vps-ip:8081/api/mailbox/test@tempemail.vps/otps",returns:"JSON Array",auth:!0},{id:"get-attachment",method:"GET",path:"/api/attachments/:filename",title:"Download Attachment",desc:"Streams the raw binary payload of a previously saved email attachment. The filename is returned in the attachment metadata from the inbox endpoint.",payload:null,response:"Binary Data (File Stream)",exampleUrl:"http://your-vps-ip:8081/api/attachments/1234567890-invoice.pdf",returns:"Binary Stream",auth:!1},{id:"send-mail-live",method:"POST",path:"/api/send-email/live",title:"Send Custom Email (Live)",desc:"Dispatches an outbound email to any public internet address using your VPS SMTP node. Supports plain text and HTML bodies. Optionally include DKIM signing.",payload:`{
   "from": "sender@your-domain.com",
   "to": "recipient@example.com",
   "subject": "Hello World",
