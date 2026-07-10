@@ -53,6 +53,8 @@ db.exec(`
     sender TEXT NOT NULL,
     subject TEXT,
     has_attachment BOOLEAN DEFAULT 0,
+    attachment_size INTEGER DEFAULT 0,
+    file_name TEXT,
     project_id INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
@@ -61,6 +63,8 @@ db.exec(`
 // Auto-migrate schema (add project_id if missing for backward compatibility)
 try { db.exec(`ALTER TABLE generated_emails ADD COLUMN project_id INTEGER;`); } catch (e) { }
 try { db.exec(`ALTER TABLE received_emails ADD COLUMN project_id INTEGER;`); } catch (e) { }
+try { db.exec(`ALTER TABLE received_emails ADD COLUMN attachment_size INTEGER DEFAULT 0;`); } catch (e) { }
+try { db.exec(`ALTER TABLE received_emails ADD COLUMN file_name TEXT;`); } catch (e) { }
 try { db.exec(`ALTER TABLE projects ADD COLUMN is_active BOOLEAN DEFAULT 1;`); } catch (e) { }
 
 db.exec(`
@@ -83,10 +87,10 @@ export function logGeneratedEmail(email, ip_address, project_id = null) {
 }
 
 // Helper to log received emails
-export function logReceivedEmail(recipient, sender, subject, hasAttachment, project_id = null) {
+export function logReceivedEmail(recipient, sender, subject, hasAttachment, project_id = null, attachment_size = 0, file_name = null) {
   try {
-    const stmt = db.prepare("INSERT INTO received_emails (recipient, sender, subject, has_attachment, project_id) VALUES (?, ?, ?, ?, ?)");
-    stmt.run(recipient, sender, subject || "", hasAttachment ? 1 : 0, project_id);
+    const stmt = db.prepare("INSERT INTO received_emails (recipient, sender, subject, has_attachment, project_id, attachment_size, file_name) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    stmt.run(recipient, sender, subject || "", hasAttachment ? 1 : 0, project_id, attachment_size, file_name);
   } catch (err) {
     console.error("DB Error logging received email:", err);
   }
@@ -126,6 +130,101 @@ export function getProjectByEmail(email) {
   } catch (err) {
     console.error("DB Error finding project by email:", err);
     return null;
+  }
+}
+
+export function getProjectEmails(project_id, page = 1, limit = 20) {
+  try {
+    const offset = (page - 1) * limit;
+    
+    // We only fetch received emails as per request
+    const stmt = db.prepare(`SELECT * FROM received_emails WHERE project_id = ? ORDER BY id DESC LIMIT ? OFFSET ?`);
+    const countStmt = db.prepare(`SELECT COUNT(*) as count FROM received_emails WHERE project_id = ?`);
+    
+    const count = countStmt.get(project_id).count;
+    const emails = stmt.all(project_id, limit, offset);
+    
+    return { data: emails, pagination: { total: count, page, limit, totalPages: Math.ceil(count / limit) } };
+  } catch (err) {
+    console.error("DB Error fetching project emails:", err);
+    return { data: [], pagination: { total: 0, page, limit, totalPages: 1 } };
+  }
+}
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS system_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    log_type TEXT NOT NULL,
+    status TEXT NOT NULL,
+    message TEXT NOT NULL,
+    details TEXT,
+    project_id INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+// Helper to log system events
+export function logSystemEvent({ log_type, status, message, details = null, project_id = null }) {
+  try {
+    const stmt = db.prepare("INSERT INTO system_logs (log_type, status, message, details, project_id) VALUES (?, ?, ?, ?, ?)");
+    stmt.run(log_type, status, message, details ? JSON.stringify(details) : null, project_id);
+    
+    // Auto cleanup old logs (older than 15 days)
+    cleanupOldSystemLogs(15);
+  } catch (err) {
+    console.error("DB Error logging system event:", err);
+  }
+}
+
+export function cleanupOldSystemLogs(days = 15) {
+  try {
+    const stmt = db.prepare(`DELETE FROM system_logs WHERE created_at < datetime('now', ?)`);
+    stmt.run(`-${days} days`);
+  } catch (err) {
+    console.error("DB Error cleaning old system logs:", err);
+  }
+}
+
+export function getSystemLogs(log_type, page = 1, limit = 50) {
+  try {
+    const offset = (page - 1) * limit;
+    let stmt, countStmt, count, logs;
+    
+    if (log_type === "ALL") {
+      stmt = db.prepare(`SELECT * FROM system_logs ORDER BY id DESC LIMIT ? OFFSET ?`);
+      countStmt = db.prepare(`SELECT COUNT(*) as count FROM system_logs`);
+      count = countStmt.get().count;
+      logs = stmt.all(limit, offset).map(log => ({
+        ...log,
+        details: log.details ? JSON.parse(log.details) : null
+      }));
+    } else {
+      stmt = db.prepare(`SELECT * FROM system_logs WHERE log_type = ? ORDER BY id DESC LIMIT ? OFFSET ?`);
+      countStmt = db.prepare(`SELECT COUNT(*) as count FROM system_logs WHERE log_type = ?`);
+      count = countStmt.get(log_type).count;
+      logs = stmt.all(log_type, limit, offset).map(log => ({
+        ...log,
+        details: log.details ? JSON.parse(log.details) : null
+      }));
+    }
+    
+    return { data: logs, pagination: { total: count, page, limit, totalPages: Math.ceil(count / limit) } };
+  } catch (err) {
+    console.error("DB Error fetching system logs:", err);
+    return { data: [], pagination: { total: 0, page, limit, totalPages: 1 } };
+  }
+}
+
+export function clearSystemLogs(log_type) {
+  try {
+    if (log_type === "ALL") {
+      db.prepare(`DELETE FROM system_logs`).run();
+    } else {
+      const stmt = db.prepare(`DELETE FROM system_logs WHERE log_type = ?`);
+      stmt.run(log_type);
+    }
+  } catch (err) {
+    console.error("DB Error clearing system logs:", err);
   }
 }
 

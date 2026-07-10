@@ -31,6 +31,12 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
   const [projectStatsData, setProjectStatsData] = useState<any | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
 
+  const [activeAnalyticsTab, setActiveAnalyticsTab] = useState<"receive" | "send">("receive");
+  const [projectEmailsData, setProjectEmailsData] = useState<any | null>(null);
+  const [emailsPage, setEmailsPage] = useState(1);
+  const [loadingEmails, setLoadingEmails] = useState(false);
+  const [emailFilter, setEmailFilter] = useState("all");
+
   const fetchProjects = async () => {
     if (!apiUrl) return;
     try {
@@ -43,6 +49,8 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
         const data = await res.json();
         setProjects(data);
         setError("");
+      } else if (res.status === 401) {
+        window.location.href = "/admin";
       } else {
         throw new Error("Failed to load projects");
       }
@@ -51,6 +59,14 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const formatBytes = (bytes: number) => {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   useEffect(() => {
@@ -180,8 +196,32 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
     }
   };
 
+  const fetchProjectEmails = async (projectId: number, page: number) => {
+    setLoadingEmails(true);
+    try {
+      const token = localStorage.getItem("admin_token") || "";
+      const res = await fetch(`${apiUrl}/api/admin/projects/${projectId}/emails?page=${page}&limit=50`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProjectEmailsData(data);
+      } else {
+        setProjectEmailsData(null);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setProjectEmailsData(null);
+    } finally {
+      setLoadingEmails(false);
+    }
+  };
+
+
   const handleViewStats = async (project: Project) => {
     setViewingAnalyticsFor(project);
+    setActiveAnalyticsTab("receive");
+    setEmailsPage(1);
     setLoadingStats(true);
     try {
       const token = localStorage.getItem("admin_token") || "";
@@ -194,6 +234,8 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
       } else {
         setProjectStatsData(null);
       }
+
+      await fetchProjectEmails(project.id, 1);
     } catch (err: any) {
       console.error(err);
       setProjectStatsData(null);
@@ -201,6 +243,12 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
       setLoadingStats(false);
     }
   };
+
+  useEffect(() => {
+    if (viewingAnalyticsFor && activeAnalyticsTab === "receive") {
+      fetchProjectEmails(viewingAnalyticsFor.id, emailsPage);
+    }
+  }, [emailsPage, activeAnalyticsTab]);
 
   if (viewingAnalyticsFor) {
     return (
@@ -223,7 +271,10 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6 text-indigo-400">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
               </svg>
-              Project Analytics: {viewingAnalyticsFor.name}
+              <span className="text-gray-400">
+                Project Analytics:
+              </span>
+              {viewingAnalyticsFor.name}
             </h2>
             <div className="flex items-center gap-3 text-sm text-gray-500">
               <span>API Key: <code className="text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded font-mono">{viewingAnalyticsFor.api_key}</code></span>
@@ -232,152 +283,196 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
             </div>
           </div>
 
-          {loadingStats ? (
-            <div className="py-20 flex justify-center">
-              <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+          <div className="flex border-b border-white/[0.05] mb-6">
+            <button
+              onClick={() => setActiveAnalyticsTab("receive")}
+              className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${activeAnalyticsTab === "receive"
+                ? "border-emerald-400 text-emerald-400"
+                : "border-transparent text-gray-500 hover:text-gray-300"
+                }`}
+            >
+              Receive Email
+            </button>
+            <button
+              onClick={() => setActiveAnalyticsTab("send")}
+              className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${activeAnalyticsTab === "send"
+                ? "border-indigo-400 text-indigo-400"
+                : "border-transparent text-gray-500 hover:text-gray-300"
+                }`}
+            >
+              Send Email
+            </button>
+          </div>
+
+          {activeAnalyticsTab === "send" ? (
+            <div className="py-20 flex flex-col items-center justify-center text-center">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-16 h-16 text-gray-600 mb-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              </svg>
+              <h3 className="text-xl font-bold text-gray-400">Disabled by Dev</h3>
+              <p className="text-gray-500 text-sm mt-2">Sending module analytics are currently disabled.</p>
             </div>
-          ) : projectStatsData ? (
-            <div className="flex flex-col gap-8">
-              {/* Top Stats Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white/[0.02] border border-white/[0.05] p-5 rounded-xl hover:bg-white/[0.04] transition-colors">
-                  <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Total API Hits</span>
-                  <p className="text-3xl font-black text-white mt-2">{projectStatsData.totalHits}</p>
+          ) : (
+            <>
+              {loadingStats ? (
+                <div className="py-20 flex justify-center">
+                  <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
                 </div>
-                <div className="bg-white/[0.02] border border-white/[0.05] p-5 rounded-xl hover:bg-white/[0.04] transition-colors">
-                  <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Generated Emails</span>
-                  <p className="text-3xl font-black text-white mt-2">{projectStatsData.totalInboxes}</p>
-                </div>
-                <div className="bg-white/[0.02] border border-white/[0.05] p-5 rounded-xl hover:bg-white/[0.04] transition-colors">
-                  <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Total Received</span>
-                  <p className="text-3xl font-black text-white mt-2">{projectStatsData.totalReceived}</p>
-                </div>
-                <div className="bg-white/[0.02] border border-white/[0.05] p-5 rounded-xl hover:bg-white/[0.04] transition-colors flex flex-col justify-center">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-400">Simple:</span>
-                    <span className="text-white font-bold">{projectStatsData.simpleReceived}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm mt-2 pt-2 border-t border-white/[0.05]">
-                    <span className="text-gray-400">Attachments:</span>
-                    <span className="text-amber-400 font-bold">{projectStatsData.attachmentReceived}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Top Endpoints */}
-                <div className="col-span-1 bg-white/[0.02] border border-white/[0.05] rounded-xl p-5">
-                  <h3 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-emerald-400">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.925 3.546 5.974 5.974 0 01-2.133-1A3.75 3.75 0 0012 18z" />
-                    </svg>
-                    Most Used APIs
-                  </h3>
-                  {projectStatsData.topEndpoints && projectStatsData.topEndpoints.length > 0 ? (
-                    <div className="flex flex-col gap-3">
-                      {projectStatsData.topEndpoints.map((ep: any, idx: number) => (
-                        <div key={idx} className="flex justify-between items-center bg-slate-950/50 p-3 rounded-lg border border-white/[0.02]">
-                          <span className="font-mono text-[10px] text-gray-300 truncate pr-2" title={ep.endpoint}>{ep.endpoint}</span>
-                          <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded">{ep.hits} hits</span>
-                        </div>
-                      ))}
+              ) : projectStatsData ? (
+                <div className="flex flex-col gap-8">
+                  {/* Top Stats Cards */}
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div className="bg-white/[0.02] border border-white/[0.05] p-5 rounded-xl hover:bg-white/[0.04] transition-colors">
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Total API Hits</span>
+                      <p className="text-3xl font-black text-white mt-2">{projectStatsData.totalHits}</p>
                     </div>
-                  ) : (
-                    <div className="text-sm text-gray-500 text-center py-6">No APIs used yet.</div>
-                  )}
-                </div>
+                    <div className="bg-white/[0.02] border border-white/[0.05] p-5 rounded-xl hover:bg-white/[0.04] transition-colors">
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Generated Emails</span>
+                      <p className="text-3xl font-black text-white mt-2">{projectStatsData.totalInboxes}</p>
+                    </div>
+                    <div className="bg-white/[0.02] border border-white/[0.05] p-5 rounded-xl hover:bg-white/[0.04] transition-colors flex flex-col justify-center">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-400">Simple Received:</span>
+                        <span className="text-white font-bold">{projectStatsData.simpleReceived}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm mt-2 pt-2 border-t border-white/[0.05]">
+                        <span className="text-gray-400">Attachments:</span>
+                        <span className="text-amber-400 font-bold">{projectStatsData.attachmentReceived}</span>
+                      </div>
+                    </div>
+                    <div className="bg-white/[0.02] border border-white/[0.05] p-5 rounded-xl hover:bg-white/[0.04] transition-colors">
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Total Received</span>
+                      <p className="text-3xl font-black text-white mt-2">{projectStatsData.totalReceived}</p>
+                    </div>
+                    <div className="bg-white/[0.02] border border-white/[0.05] p-5 rounded-xl hover:bg-white/[0.04] transition-colors">
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Storage Used</span>
+                      <p className="text-3xl font-black text-white mt-2 text-indigo-400">{formatBytes(projectStatsData.totalStorageUsed)}</p>
+                    </div>
+                  </div>
 
-                {/* Recent API Hits */}
-                <div className="col-span-1 lg:col-span-2 bg-white/[0.02] border border-white/[0.05] rounded-xl p-5 flex flex-col">
-                  <h3 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-indigo-400">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Recent API Hits
-                  </h3>
-                  <div className="flex-1 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
-                    {projectStatsData.recentLogs && projectStatsData.recentLogs.length > 0 ? (
-                      <table className="w-full text-left text-xs text-gray-400">
-                        <thead className="sticky top-0 bg-slate-900 z-10 text-[10px] uppercase tracking-wider">
-                          <tr>
-                            <th className="py-2 px-2">Endpoint</th>
-                            <th className="py-2 px-2 w-20">Method</th>
-                            <th className="py-2 px-2 text-right">Time</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/[0.02]">
-                          {projectStatsData.recentLogs.map((log: any, idx: number) => (
-                            <tr key={idx} className="hover:bg-white/[0.02]">
-                              <td className="py-2 px-2 font-mono truncate max-w-[200px]" title={log.endpoint}>{log.endpoint}</td>
-                              <td className="py-2 px-2">
-                                <span className="bg-indigo-500/10 text-indigo-400 px-1.5 py-0.5 rounded text-[9px] font-bold">
-                                  {log.method}
-                                </span>
-                              </td>
-                              <td className="py-2 px-2 text-right">{new Date(log.created_at).toLocaleString()}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                  {/* All Received Emails Table */}
+                  <div className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-5">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-sm font-bold text-gray-300 uppercase tracking-wider flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-emerald-400">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                        </svg>
+                        All Received Emails
+                      </h3>
+                      <div className="flex items-center gap-3">
+                        <select
+                          value={emailFilter}
+                          onChange={(e) => setEmailFilter(e.target.value)}
+                          className="bg-black/20 border border-white/10 text-xs text-gray-300 rounded px-2 py-1.5 outline-none focus:border-emerald-500/50 transition-colors"
+                        >
+                          <option value="all">All Emails</option>
+                          <option value="simple">Simple Only</option>
+                          <option value="attachment">Attachments Only</option>
+                        </select>
+                        <button
+                          onClick={() => fetchProjectEmails(viewingAnalyticsFor.id, emailsPage)}
+                          className="text-xs bg-white/5 hover:bg-white/10 text-gray-300 px-3 py-1.5 rounded transition-colors"
+                        >
+                          Refresh List
+                        </button>
+                      </div>
+                    </div>
+
+                    {loadingEmails ? (
+                      <div className="py-10 flex justify-center">
+                        <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                      </div>
                     ) : (
-                      <div className="text-sm text-gray-500 text-center py-10">No recent API hits.</div>
+                      <div className="overflow-x-auto">
+                        {projectEmailsData && projectEmailsData.data && projectEmailsData.data.length > 0 ? (
+                          <>
+                            <table className="w-full text-left text-xs text-gray-400 min-w-[700px]">
+                              <thead className="text-[10px] uppercase tracking-wider border-b border-white/[0.05]">
+                                <tr>
+                                  <th className="py-2 px-4">Recipient</th>
+                                  <th className="py-2 px-4">Sender</th>
+                                  <th className="py-2 px-4">Subject</th>
+                                  <th className="py-2 px-4 w-24 text-center">Type</th>
+                                  <th className="py-2 px-4 text-right">Size</th>
+                                  <th className="py-2 px-4 text-right">Time</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-white/[0.02]">
+                                {projectEmailsData.data.filter((mail: any) => {
+                                  if (emailFilter === "simple") return !mail.has_attachment;
+                                  if (emailFilter === "attachment") return mail.has_attachment;
+                                  return true;
+                                }).map((mail: any, idx: number) => (
+                                  <tr key={idx} className="hover:bg-white/[0.02]">
+                                    <td className="py-3 px-4 font-mono text-gray-300">{mail.recipient}</td>
+                                    <td className="py-3 px-4 truncate max-w-[150px]">{mail.sender}</td>
+                                    <td className="py-3 px-4 truncate max-w-[200px]">{mail.subject || "(No Subject)"}</td>
+                                    <td className="py-3 px-4 text-center">
+                                      {mail.has_attachment ? (
+                                        <span className="bg-amber-500/10 text-amber-400 px-2 py-1 rounded text-[10px] font-bold flex items-center justify-center gap-1">
+                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" /></svg>
+                                          Media
+                                        </span>
+                                      ) : (
+                                        <span className="bg-white/5 text-gray-400 px-2 py-1 rounded text-[10px] font-bold">
+                                          Simple
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="py-3 px-4 text-right whitespace-nowrap">
+                                      {mail.has_attachment ? <span className="text-gray-400">{formatBytes(mail.attachment_size)}</span> : <span className="text-gray-600">-</span>}
+                                    </td>
+                                    <td className="py-3 px-4 text-right">{new Date(mail.created_at).toLocaleString()}</td>
+                                  </tr>
+                                ))}
+                                {projectEmailsData.data.filter((mail: any) => {
+                                  if (emailFilter === "simple") return !mail.has_attachment;
+                                  if (emailFilter === "attachment") return mail.has_attachment;
+                                  return true;
+                                }).length === 0 && (
+                                  <tr>
+                                    <td colSpan={6} className="py-6 text-center text-sm text-gray-500">
+                                      No emails match the selected filter.
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+
+                            {/* Pagination Controls */}
+                            {projectEmailsData.pagination.totalPages > 1 && (
+                              <div className="flex justify-between items-center mt-4 pt-4 border-t border-white/[0.05]">
+                                <button
+                                  onClick={() => setEmailsPage(p => Math.max(1, p - 1))}
+                                  disabled={emailsPage === 1}
+                                  className="px-3 py-1.5 bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed rounded text-xs text-gray-300 transition-colors"
+                                >
+                                  Previous
+                                </button>
+                                <span className="text-xs text-gray-500">
+                                  Page {emailsPage} of {projectEmailsData.pagination.totalPages}
+                                </span>
+                                <button
+                                  onClick={() => setEmailsPage(p => Math.min(projectEmailsData.pagination.totalPages, p + 1))}
+                                  disabled={emailsPage === projectEmailsData.pagination.totalPages}
+                                  className="px-3 py-1.5 bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed rounded text-xs text-gray-300 transition-colors"
+                                >
+                                  Next
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="text-sm text-gray-500 text-center py-6">No emails received yet.</div>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
-              </div>
-
-              {/* Recent Received Emails */}
-              <div className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-5">
-                <h3 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-4 flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-sky-400">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                  </svg>
-                  Recent Received Emails
-                </h3>
-                <div className="overflow-x-auto">
-                  {projectStatsData.recentReceived && projectStatsData.recentReceived.length > 0 ? (
-                    <table className="w-full text-left text-xs text-gray-400 min-w-[700px]">
-                      <thead className="text-[10px] uppercase tracking-wider border-b border-white/[0.05]">
-                        <tr>
-                          <th className="py-2 px-4">Recipient</th>
-                          <th className="py-2 px-4">Sender</th>
-                          <th className="py-2 px-4">Subject</th>
-                          <th className="py-2 px-4 w-24 text-center">Type</th>
-                          <th className="py-2 px-4 text-right">Time</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/[0.02]">
-                        {projectStatsData.recentReceived.map((mail: any, idx: number) => (
-                          <tr key={idx} className="hover:bg-white/[0.02]">
-                            <td className="py-3 px-4 font-mono text-gray-300">{mail.recipient}</td>
-                            <td className="py-3 px-4 truncate max-w-[150px]">{mail.sender}</td>
-                            <td className="py-3 px-4 truncate max-w-[200px]">{mail.subject || "(No Subject)"}</td>
-                            <td className="py-3 px-4 text-center">
-                              {mail.has_attachment ? (
-                                <span className="bg-amber-500/10 text-amber-400 px-2 py-1 rounded text-[10px] font-bold flex items-center justify-center gap-1">
-                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" /></svg>
-                                  Media
-                                </span>
-                              ) : (
-                                <span className="bg-white/5 text-gray-400 px-2 py-1 rounded text-[10px] font-bold">
-                                  Simple
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-right">{new Date(mail.created_at).toLocaleString()}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : (
-                    <div className="text-sm text-gray-500 text-center py-6">No emails received yet.</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="text-red-400 text-sm text-center py-10">Failed to load analytics data.</div>
+              ) : (
+                <div className="text-red-400 text-sm text-center py-10">Failed to load analytics data.</div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -599,13 +694,12 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
                   <div className="flex items-center justify-end gap-3 mt-4 lg:mt-0">
                     <button
                       onClick={() => handleViewStats(project)}
-                      className="group relative flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500 hover:to-purple-500 text-indigo-300 hover:text-white rounded-xl text-xs font-extrabold transition-all duration-300 shadow-[0_0_15px_rgba(99,102,241,0.05)] hover:shadow-[0_0_25px_rgba(99,102,241,0.3)] overflow-hidden border border-indigo-500/20 hover:border-transparent"
+                      className="group flex items-center gap-2 px-5 py-2.5 bg-transparent border border-indigo-500/50 hover:border-indigo-400 text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 rounded-xl text-xs font-extrabold transition-all duration-300"
                     >
-                      <div className="absolute inset-0 bg-white/[0.15] translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"></div>
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4 h-4 relative z-10 group-hover:scale-110 transition-transform duration-300">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4 h-4 group-hover:scale-110 transition-transform duration-300">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0119.5 16.5h-2.25m-9 0h9l-4.5-5.25L9 16.5z" />
                       </svg>
-                      <span className="relative z-10 tracking-wider">View Analytics</span>
+                      <span className="tracking-wider">View Analytics</span>
                     </button>
                     <button
                       onClick={() => handleDeleteProject(project.id)}

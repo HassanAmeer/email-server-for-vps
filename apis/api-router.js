@@ -27,34 +27,42 @@ function extractEmail(str) {
  */
 export class ApiRouter {
   
-  /**
-   * GET /api/mailbox/generate
-   * Generates a random temporary email address
-   */
-  static generateMailbox(req, res) {
+  static validateApiKey(req, res) {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const apiKey = req.headers['x-api-key'] || url.searchParams.get('apiKey');
 
     if (!apiKey) {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Missing API Key. Provide 'x-api-key' header or 'apiKey' query parameter." }));
-      return;
+      return null;
     }
 
     const project = getProjectByApiKey(apiKey);
     if (!project) {
       res.writeHead(403, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Invalid API Key." }));
-      return;
+      return null;
     }
 
     if (project.is_active === 0) {
       res.writeHead(403, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "API Key is disabled." }));
-      return;
+      return null;
     }
 
-    logProjectApiHit(project.id, "/api/mailbox/generate", "GET");
+    return project;
+  }
+
+  /**
+   * GET /api/mailbox/generate
+   * Generates a random temporary email address
+   */
+  static generateMailbox(req, res) {
+    const project = ApiRouter.validateApiKey(req, res);
+    if (!project) return;
+
+    const endpoint = "/api/mailbox/generate";
+    logProjectApiHit(project.id, endpoint, "GET");
 
     const domain = process.env.DOMAIN || "llamerada.online";
     const randomString = Math.random().toString(36).substring(2, 10);
@@ -73,11 +81,16 @@ export class ApiRouter {
    * Fetches all emails received for the specified mailbox
    */
   static getMailbox(req, res, emailAddress) {
+    const project = ApiRouter.validateApiKey(req, res);
+    if (!project) return;
+
     if (!emailAddress) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Missing email address parameter" }));
       return;
     }
+    
+    logProjectApiHit(project.id, `/api/mailbox/${emailAddress}`, "GET");
 
     try {
       const targetDir = getTargetStorageDir();
@@ -87,7 +100,9 @@ export class ApiRouter {
         return;
       }
 
-      const files = fs.readdirSync(targetDir).filter(file => file.endsWith(".json"));
+      const targetRecipient = emailAddress.toLowerCase().trim();
+      const records = db.query(`SELECT file_name FROM received_emails WHERE recipient LIKE ? ORDER BY created_at DESC`).all(`%${targetRecipient}%`);
+      const files = records.map(r => r.file_name).filter(Boolean);
       const emails = [];
 
       for (const file of files) {
@@ -124,11 +139,16 @@ export class ApiRouter {
    * Fetches extracted numeric OTP codes from mailbox emails
    */
   static getOtps(req, res, emailAddress) {
+    const project = ApiRouter.validateApiKey(req, res);
+    if (!project) return;
+
     if (!emailAddress) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Missing email address parameter" }));
       return;
     }
+
+    logProjectApiHit(project.id, `/api/mailbox/${emailAddress}/otps`, "GET");
 
     try {
       const targetDir = getTargetStorageDir();
@@ -138,7 +158,9 @@ export class ApiRouter {
         return;
       }
 
-      const files = fs.readdirSync(targetDir).filter(file => file.endsWith(".json"));
+      const targetRecipient = emailAddress.toLowerCase().trim();
+      const records = db.query(`SELECT file_name FROM received_emails WHERE recipient LIKE ? ORDER BY created_at DESC`).all(`%${targetRecipient}%`);
+      const files = records.map(r => r.file_name).filter(Boolean);
       const otps = [];
 
       for (const file of files) {
@@ -189,11 +211,16 @@ export class ApiRouter {
    * Deletes all emails matching this mailbox address
    */
   static deleteMailbox(req, res, emailAddress) {
+    const project = ApiRouter.validateApiKey(req, res);
+    if (!project) return;
+
     if (!emailAddress) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Missing email address parameter" }));
       return;
     }
+
+    logProjectApiHit(project.id, `/api/mailbox/${emailAddress}`, "DELETE");
 
     try {
       const targetDir = getTargetStorageDir();
@@ -203,21 +230,19 @@ export class ApiRouter {
         return;
       }
 
-      const files = fs.readdirSync(targetDir).filter(file => file.endsWith(".json"));
+      const targetRecipient = emailAddress.toLowerCase().trim();
+      const records = db.query(`SELECT id, file_name FROM received_emails WHERE recipient LIKE ?`).all(`%${targetRecipient}%`);
       let deletedCount = 0;
 
-      for (const file of files) {
-        const filePath = path.join(targetDir, file);
-        const fileContent = fs.readFileSync(filePath, "utf-8");
-        const parsed = JSON.parse(fileContent);
-        
-        const cleanRecipient = extractEmail(parsed.to);
-        const targetRecipient = emailAddress.toLowerCase().trim();
-
-        if (cleanRecipient === targetRecipient || cleanRecipient.includes(targetRecipient)) {
-          fs.unlinkSync(filePath);
-          deletedCount++;
+      for (const record of records) {
+        if (record.file_name) {
+          const filePath = path.join(targetDir, record.file_name);
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
         }
+        db.query(`DELETE FROM received_emails WHERE id = ?`).run(record.id);
+        deletedCount++;
       }
 
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -233,11 +258,16 @@ export class ApiRouter {
    * Deletes a specific email file from a mailbox
    */
   static deleteMail(req, res, emailAddress, mailId) {
+    const project = ApiRouter.validateApiKey(req, res);
+    if (!project) return;
+
     if (!emailAddress || !mailId) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Missing emailAddress or mailId parameter" }));
       return;
     }
+
+    logProjectApiHit(project.id, `/api/mailbox/${emailAddress}/${mailId}`, "DELETE");
 
     try {
       const targetDir = getTargetStorageDir();
@@ -247,11 +277,16 @@ export class ApiRouter {
         return;
       }
 
-      const files = fs.readdirSync(targetDir).filter(file => file.endsWith(".json"));
+      const targetRecipient = emailAddress.toLowerCase().trim();
+      const records = db.query(`SELECT id, file_name FROM received_emails WHERE recipient LIKE ?`).all(`%${targetRecipient}%`);
+      const files = records.map(r => r.file_name).filter(Boolean);
       let deleted = false;
 
-      for (const file of files) {
-        const filePath = path.join(targetDir, file);
+      for (const record of records) {
+        if (!record.file_name) continue;
+        const filePath = path.join(targetDir, record.file_name);
+        if (!fs.existsSync(filePath)) continue;
+
         const fileContent = fs.readFileSync(filePath, "utf-8");
         const parsed = JSON.parse(fileContent);
 
@@ -260,6 +295,7 @@ export class ApiRouter {
 
         if (parsed.id === mailId && (cleanRecipient === targetRecipient || cleanRecipient.includes(targetRecipient))) {
           fs.unlinkSync(filePath);
+          db.query(`DELETE FROM received_emails WHERE id = ?`).run(record.id);
           deleted = true;
           break;
         }
@@ -351,54 +387,37 @@ export class ApiRouter {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const page = parseInt(url.searchParams.get('page') || '1', 10);
     const limit = parseInt(url.searchParams.get('limit') || '20', 10);
-    const offset = (page - 1) * limit;
 
     try {
       // Dynamic import to avoid top-level issues if not initialized
       const dbModule = await import("../backend/database/db.js");
-      const db = dbModule.default;
+      const { getSystemLogs, clearSystemLogs } = dbModule;
       
-      let query = "";
-      let countQuery = "";
-      let data = [];
-      let total = 0;
-
-      if (logType === "generated") {
-        query = "SELECT * FROM generated_emails ORDER BY created_at DESC LIMIT ? OFFSET ?";
-        countQuery = "SELECT COUNT(*) as count FROM generated_emails";
-        data = db.query(query).all(limit, offset);
-        total = db.query(countQuery).get().count;
-      } else if (logType === "usage") {
-        query = "SELECT * FROM received_emails ORDER BY created_at DESC LIMIT ? OFFSET ?";
-        countQuery = "SELECT COUNT(*) as count FROM received_emails";
-        data = db.query(query).all(limit, offset);
-        total = db.query(countQuery).get().count;
-      } else if (logType === "simple") {
-        query = "SELECT * FROM received_emails WHERE has_attachment = 0 ORDER BY created_at DESC LIMIT ? OFFSET ?";
-        countQuery = "SELECT COUNT(*) as count FROM received_emails WHERE has_attachment = 0";
-        data = db.query(query).all(limit, offset);
-        total = db.query(countQuery).get().count;
-      } else if (logType === "attachments") {
-        query = "SELECT * FROM received_emails WHERE has_attachment = 1 ORDER BY created_at DESC LIMIT ? OFFSET ?";
-        countQuery = "SELECT COUNT(*) as count FROM received_emails WHERE has_attachment = 1";
-        data = db.query(query).all(limit, offset);
-        total = db.query(countQuery).get().count;
-      } else {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Invalid log type" }));
+      if (req.method === "DELETE") {
+        let typeToClear = "ALL";
+        if (logType === "receive") typeToClear = "RECEIVE";
+        else if (logType === "send") typeToClear = "SEND";
+        
+        clearSystemLogs(typeToClear);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true }));
         return;
       }
 
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({
-        data,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit)
-        }
-      }));
+      if (req.method === "GET") {
+        let actualType = "ALL";
+        if (logType === "receive") actualType = "RECEIVE";
+        else if (logType === "send") actualType = "SEND";
+        
+        const logsData = getSystemLogs(actualType, page, limit);
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(logsData));
+        return;
+      }
+      
+      res.writeHead(405, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Method Not Allowed" }));
     } catch (err) {
       console.error("DB Log Fetch Error:", err);
       res.writeHead(500, { "Content-Type": "application/json" });
@@ -531,6 +550,7 @@ export class ApiRouter {
           
           const simpleReceived = db.query("SELECT COUNT(*) as count FROM received_emails WHERE project_id = ? AND has_attachment = 0").get(id).count;
           const attachmentReceived = db.query("SELECT COUNT(*) as count FROM received_emails WHERE project_id = ? AND has_attachment = 1").get(id).count;
+          const totalStorageUsed = db.query("SELECT SUM(attachment_size) as total FROM received_emails WHERE project_id = ?").get(id).total || 0;
 
           const recentLogs = db.query("SELECT endpoint, method, created_at FROM project_api_logs WHERE project_id = ? ORDER BY created_at DESC LIMIT 50").all(id);
           const recentReceived = db.query("SELECT recipient, sender, subject, has_attachment, created_at FROM received_emails WHERE project_id = ? ORDER BY created_at DESC LIMIT 10").all(id);
@@ -543,6 +563,7 @@ export class ApiRouter {
             totalReceived,
             simpleReceived,
             attachmentReceived,
+            totalStorageUsed,
             recentLogs,
             recentReceived,
             topEndpoints
@@ -550,6 +571,28 @@ export class ApiRouter {
         } catch (e) {
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: e.message }));
+        }
+        return;
+      }
+
+      // GET /api/admin/projects/:id/emails
+      if (req.method === "GET" && req.url.match(/\/api\/admin\/projects\/\d+\/emails/)) {
+        const id = req.url.split("/")[4]; // /api/admin/projects/:id/emails
+        const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+        const page = parseInt(parsedUrl.searchParams.get("page") || "1", 10);
+        const limit = parseInt(parsedUrl.searchParams.get("limit") || "20", 10);
+        
+        try {
+          const dbModule = await import("../backend/database/db.js");
+          const { getProjectEmails } = dbModule;
+          const data = getProjectEmails(id, page, limit);
+
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(data));
+        } catch (e) {
+          console.error("Error fetching project emails:", e);
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Internal Server Error" }));
         }
         return;
       }

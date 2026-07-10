@@ -7,7 +7,7 @@ import nodemailer from "nodemailer";
 import { sendOutboundEmail as sendOutboundEmailLive } from "../send-mail-simple/send-mail-from-generated-mail-from-live.js";
 import { sendOutboundEmail as sendOutboundEmailLocal } from "../send-mail-simple/send-mail-from-generated-mail-from-local.js";
 import { ApiRouter } from "../../apis/api-router.js";
-import { logReceivedEmail, getProjectByEmail } from "../database/db.js";
+import { logReceivedEmail, getProjectByEmail, logSystemEvent } from "../database/db.js";
 
 // Load .env file manually if it exists
 const envPath = path.join(process.cwd(), ".env");
@@ -84,7 +84,7 @@ function extractEmail(str) {
 // Folders for local and live emails
 const localMailDir = path.join(process.cwd(), "backend", "storage", "local");
 const liveMailDir = path.join(process.cwd(), "backend", "storage", "live");
-const attachmentsDir = path.join(process.cwd(), "backend", "storage", "media");
+const attachmentsDir = path.join(process.cwd(), "backend", "storage", "media-mails");
 [localMailDir, liveMailDir, attachmentsDir].forEach(dir => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
@@ -100,47 +100,42 @@ const smtpServer = new SMTPServer({
     const isLocal = ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1";
     session.isLocalConnection = isLocal;
 
-    if (isLocal) {
-      addLocalLog(`🔌 Connection opened from local IP: ${ip}`);
-    } else {
-      addLiveLog(`🔌 Connection opened from public IP: ${ip}`);
-    }
+    const msg = `🔌 Connection opened from ${isLocal ? 'local' : 'public'} IP: ${ip}`;
+    if (isLocal) addLocalLog(msg); else addLiveLog(msg);
+    logSystemEvent({ log_type: 'RECEIVE', status: 'INFO', message: 'Connection Opened', details: { ip, isLocal } });
+    
     return callback();
   },
   onMailFrom(address, session, callback) {
-    if (session.isLocalConnection) {
-      addLocalLog(`✉️ MAIL FROM (Sender): ${address.address}`);
-    } else {
-      addLiveLog(`✉️ MAIL FROM (Sender): ${address.address}`);
-    }
+    const msg = `✉️ MAIL FROM (Sender): ${address.address}`;
+    if (session.isLocalConnection) addLocalLog(msg); else addLiveLog(msg);
+    logSystemEvent({ log_type: 'RECEIVE', status: 'INFO', message: 'MAIL FROM received', details: { sender: address.address } });
     return callback();
   },
   onRcptTo(address, session, callback) {
-    if (session.isLocalConnection) {
-      addLocalLog(`➡️ RCPT TO (Recipient): ${address.address}`);
-    } else {
-      addLiveLog(`➡️ RCPT TO (Recipient): ${address.address}`);
-    }
+    const msg = `➡️ RCPT TO (Recipient): ${address.address}`;
+    if (session.isLocalConnection) addLocalLog(msg); else addLiveLog(msg);
+    logSystemEvent({ log_type: 'RECEIVE', status: 'INFO', message: 'RCPT TO received', details: { recipient: address.address } });
     return callback();
   },
   onData(stream, session, callback) {
     const isLocal = session.isLocalConnection;
-    if (isLocal) {
-      addLocalLog("⏳ Receiving email stream data...");
-    } else {
-      addLiveLog("⏳ Receiving email stream data...");
-    }
+    const msg = "⏳ Receiving email stream data...";
+    if (isLocal) addLocalLog(msg); else addLiveLog(msg);
+    logSystemEvent({ log_type: 'RECEIVE', status: 'INFO', message: 'Receiving Data Stream', details: null });
 
     simpleParser(stream, {}, (err, parsed) => {
       if (err) {
-        if (isLocal) addLocalLog(`❌ ERROR parsing local mail: ${err.message}`);
-        else addLiveLog(`❌ ERROR parsing live mail: ${err.message}`);
+        const errMsg = `❌ ERROR parsing mail: ${err.message}`;
+        if (isLocal) addLocalLog(errMsg); else addLiveLog(errMsg);
+        logSystemEvent({ log_type: 'RECEIVE', status: 'ERROR', message: 'Stream Parsing Failed', details: { error: err.message } });
         return callback(err);
       }
 
       const subject = parsed.subject || "(No Subject)";
-      if (isLocal) addLocalLog(`⏳ Local Email Parsed. Subject: "${subject}"`);
-      else addLiveLog(`⏳ Live Email Parsed. Subject: "${subject}"`);
+      const parsedMsg = `⏳ Email Parsed. Subject: "${subject}"`;
+      if (isLocal) addLocalLog(parsedMsg); else addLiveLog(parsedMsg);
+      logSystemEvent({ log_type: 'RECEIVE', status: 'INFO', message: 'Email Parsed Successfully', details: { subject } });
 
       const safeSubject = subject
         .replace(/[^a-z0-9]/gi, "_")
@@ -188,7 +183,10 @@ const smtpServer = new SMTPServer({
       const targetEmailClean = extractEmail(mailData.to);
       const project = getProjectByEmail(targetEmailClean);
       const projectId = project ? project.id : null;
-      logReceivedEmail(mailData.to, mailData.from, mailData.subject, mailData.attachments.length > 0, projectId);
+      const totalAttachmentSize = parsed.attachments?.reduce((sum, att) => sum + (att.size || 0), 0) || 0;
+      logReceivedEmail(mailData.to, mailData.from, mailData.subject, mailData.attachments.length > 0, projectId, totalAttachmentSize, fileName);
+      
+      logSystemEvent({ log_type: 'RECEIVE', status: 'INFO', message: 'Email Saved to Disk', details: { file: fileName, projectId }, project_id: projectId });
 
       // Trigger Webhook if configured
       if (project && project.webhook_url) {
@@ -198,23 +196,27 @@ const smtpServer = new SMTPServer({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ event: "new_email", project_id: project.id, data: mailData })
           }).then(res => {
-            if (isLocal) addLocalLog(`🚀 Webhook delivered to ${project.webhook_url} with status ${res.status}`);
-            else addLiveLog(`🚀 Webhook delivered to ${project.webhook_url} with status ${res.status}`);
+            const webhookMsg = `🚀 Webhook delivered to ${project.webhook_url} with status ${res.status}`;
+            if (isLocal) addLocalLog(webhookMsg); else addLiveLog(webhookMsg);
+            logSystemEvent({ log_type: 'RECEIVE', status: res.ok ? 'SUCCESS' : 'ERROR', message: 'Webhook Triggered', details: { url: project.webhook_url, status: res.status }, project_id: projectId });
           }).catch(err => {
             console.error("Webhook trigger failed:", err.message);
+            logSystemEvent({ log_type: 'RECEIVE', status: 'ERROR', message: 'Webhook Failed', details: { url: project.webhook_url, error: err.message }, project_id: projectId });
           });
         } catch (e) {}
       }
 
+      const finishMsg = `✅ Email Transaction Complete! Subject: "${subject}"`;
       if (isLocal) {
         addLocalLog(`💾 Email saved to: backend/storage/local/${fileName}`);
-        addLocalLog(`✅ Email Transaction Complete! Subject: "${subject}"`);
+        addLocalLog(finishMsg);
         addLocalLog("__________________________________________________");
       } else {
         addLiveLog(`💾 Email saved to: backend/storage/live/${fileName}`);
-        addLiveLog(`✅ Email Transaction Complete! Subject: "${subject}"`);
-        addLocalLog("__________________________________________________");
+        addLiveLog(finishMsg);
+        addLiveLog("__________________________________________________");
       }
+      logSystemEvent({ log_type: 'RECEIVE', status: 'SUCCESS', message: 'Transaction Complete', details: { subject }, project_id: projectId });
 
       return callback();
     });
