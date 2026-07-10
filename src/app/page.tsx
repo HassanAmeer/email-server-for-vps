@@ -7,10 +7,10 @@ import Link from "next/link";
 const apiDocs = {
   generate: {
     title: "Generate Mailbox",
-    desc: "Dynamically allocates a random transient email address under your configured VPS domain.",
-    endpoint: "GET /api/mailbox/generate",
-    curl: "curl -X GET http://your-vps-ip:8081/api/mailbox/generate",
-    js: `fetch("http://your-vps-ip:8081/api/mailbox/generate")\n  .then(res => res.json())\n  .then(data => console.log(data.email));`,
+    desc: "Dynamically allocates a random transient email address. Optionally specify a ?domain= parameter.",
+    endpoint: "GET /api/mailbox/generate?domain=tempemail.vps",
+    curl: "curl -X GET http://your-vps-ip:8081/api/mailbox/generate?domain=tempemail.vps \\\n  -H \"Authorization: Bearer YOUR_API_KEY\"",
+    js: `fetch("http://your-vps-ip:8081/api/mailbox/generate?domain=tempemail.vps", {\n  headers: { "Authorization": "Bearer YOUR_API_KEY" }\n})\n  .then(res => res.json())\n  .then(data => console.log(data.email));`,
     response: `{
   "email": "x9f3q2y8@tempemail.vps"
 }`
@@ -62,6 +62,13 @@ export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeApiTab, setActiveApiTab] = useState<"generate" | "inbox" | "otps">("generate");
   const [apiLang, setApiLang] = useState<"curl" | "javascript">("curl");
+  const [baseUrl, setBaseUrl] = useState("http://localhost:8081");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setBaseUrl(window.location.origin);
+    }
+  }, []);
 
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationLogs, setSimulationLogs] = useState<string[]>([]);
@@ -89,11 +96,11 @@ export default function Home() {
 
     const steps = [
       activeApiTab === "generate"
-        ? `$ curl -X GET http://your-vps-ip:8081/api/mailbox/generate`
+        ? `$ curl -X GET ${baseUrl}/api/mailbox/generate?domain=tempemail.vps`
         : activeApiTab === "inbox"
-          ? `$ curl -X GET http://your-vps-ip:8081/api/mailbox/x9f3q2y8@tempemail.vps`
-          : `$ curl -X GET http://your-vps-ip:8081/api/mailbox/x9f3q2y8@tempemail.vps/otps`,
-      `Connecting to TempMail VPS Node at 127.0.0.1:8081...`,
+          ? `$ curl -X GET ${baseUrl}/api/mailbox/x9f3q2y8@tempemail.vps`
+          : `$ curl -X GET ${baseUrl}/api/mailbox/x9f3q2y8@tempemail.vps/otps`,
+      `Connecting to TempMail VPS Node at ${baseUrl.replace(/^https?:\/\//, '')}...`,
       activeApiTab === "generate"
         ? `Generating dynamic transient address...`
         : activeApiTab === "inbox"
@@ -344,8 +351,8 @@ export default function Home() {
                         )}
                       </button>
                     </div>
-                    <pre className="text-teal-300 whitespace-pre-wrap break-all p-3 rounded-xl bg-[#030712]/50 border border-white/[0.04] font-medium leading-relaxed max-w-full overflow-x-auto">
-                      {apiLang === "curl" ? apiDocs[activeApiTab].curl : apiDocs[activeApiTab].js}
+                    <pre className="text-sm font-mono text-gray-300 leading-relaxed font-bold">
+                      {apiLang === "curl" ? apiDocs[activeApiTab].curl.replace("http://your-vps-ip:8081", baseUrl) : apiDocs[activeApiTab].js.replace(/http:\/\/your-vps-ip:8081/g, baseUrl)}
                     </pre>
                   </div>
 
@@ -431,7 +438,8 @@ export default function Home() {
                   <span>Available REST API Endpoints</span><span>Payload Type</span>
                 </div>
                 {[
-                  { method: "GET", endpoint: "/api/mailbox/generate", type: "JSON Object", color: "emerald" },
+                  { method: "GET", endpoint: "/api/domains", type: "JSON Array [Domains]", color: "emerald" },
+                  { method: "GET", endpoint: "/api/mailbox/generate?domain=...", type: "JSON Object", color: "emerald" },
                   { method: "GET", endpoint: "/api/mailbox/:email", type: "JSON Array [Emails]", color: "emerald" },
                   { method: "GET", endpoint: "/api/mailbox/:email/otps", type: "JSON Array [OTPs]", color: "emerald" },
                   { method: "DELETE", endpoint: "/api/mailbox/:email", type: "JSON Object", color: "rose" },

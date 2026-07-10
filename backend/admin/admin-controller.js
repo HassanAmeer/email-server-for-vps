@@ -24,6 +24,7 @@ function extractEmail(str) {
 // Available APIs config list with category and stats
 const defaultApiSettings = [
   { id: "mailbox-generate", method: "GET", path: "/api/mailbox/generate", desc: "Generate a new random temporary mailbox email address", enabled: true, category: "Mailbox UI", hits: 0 },
+  { id: "api-domains", method: "GET", path: "/api/domains", desc: "List all active domains available for email generation", enabled: true, category: "Mailbox UI", hits: 0 },
   { id: "mailbox-get", method: "GET", path: "/api/mailbox/:email", desc: "Retrieve list of all received emails in a mailbox", enabled: true, category: "Mailbox UI", hits: 0 },
   { id: "mailbox-delete", method: "DELETE", path: "/api/mailbox/:email", desc: "Delete all emails in a mailbox database", enabled: true, category: "Mailbox UI", hits: 0 },
   { id: "mailbox-delete-one", method: "DELETE", path: "/api/mailbox/:email/:mailId", desc: "Delete a specific email from a mailbox database", enabled: true, category: "Mailbox UI", hits: 0 },
@@ -127,6 +128,9 @@ export class AdminController {
       if (a.path === cleanUrl) return true;
 
       // Dynamic pattern matches:
+      if (a.id === "api-domains" && cleanUrl === "/api/domains" && method === "GET") {
+        return true;
+      }
       if (a.id === "mailbox-get" && cleanUrl.startsWith("/api/mailbox/") && !cleanUrl.endsWith("/otps") && method === "GET") {
         const parts = cleanUrl.split("/");
         return parts.length === 4; // /api/mailbox/user@domain.com

@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { AdminController } from "../backend/admin/admin-controller.js";
-import db, { logGeneratedEmail, getProjectByApiKey, logProjectApiHit } from "../backend/database/db.js";
+import db, { logGeneratedEmail, getProjectByApiKey, logProjectApiHit, getActiveDomains } from "../backend/database/db.js";
 
 // Paths config
 const localMailDir = path.join(process.cwd(), "backend", "storage", "local");
@@ -29,11 +29,22 @@ export class ApiRouter {
   
   static validateApiKey(req, res) {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-    const apiKey = req.headers['x-api-key'] || url.searchParams.get('apiKey');
+    
+    // Check Authorization: Bearer token first
+    let apiKey = null;
+    const authHeader = req.headers['authorization'];
+    if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+      apiKey = authHeader.substring(7).trim();
+    }
+    
+    // Fallback to x-api-key or query param
+    if (!apiKey) {
+      apiKey = req.headers['x-api-key'] || url.searchParams.get('apiKey');
+    }
 
     if (!apiKey) {
       res.writeHead(401, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Missing API Key. Provide 'x-api-key' header or 'apiKey' query parameter." }));
+      res.end(JSON.stringify({ error: "Missing API Key. Provide 'Authorization: Bearer <token>' header or 'apiKey' query parameter." }));
       return null;
     }
 
@@ -54,6 +65,25 @@ export class ApiRouter {
   }
 
   /**
+   * GET /api/domains
+   * Returns a list of active domains available for generating temporary emails.
+   */
+  static getDomains(req, res) {
+    // API Key not required to list public active domains
+    // logProjectApiHit is omitted since no project is authenticated
+
+    const domains = getActiveDomains();
+    
+    // Fallback if DB table is empty
+    if (domains.length === 0) {
+      domains.push(process.env.DOMAIN || "llamerada.online");
+    }
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ domains }));
+  }
+
+  /**
    * GET /api/mailbox/generate
    * Generates a random temporary email address
    */
@@ -63,8 +93,23 @@ export class ApiRouter {
 
     const endpoint = "/api/mailbox/generate";
     logProjectApiHit(project.id, endpoint, "GET");
+    
+    const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    const requestedDomain = url.searchParams.get("domain");
 
-    const domain = process.env.DOMAIN || "llamerada.online";
+    let domains = getActiveDomains();
+    if (domains.length === 0) {
+      domains.push(process.env.DOMAIN || "llamerada.online");
+    }
+
+    let domain = domains[0];
+    if (requestedDomain && domains.includes(requestedDomain)) {
+      domain = requestedDomain;
+    } else if (domains.length > 0) {
+      // Pick a random domain if none requested or invalid
+      domain = domains[Math.floor(Math.random() * domains.length)];
+    }
+
     const randomString = Math.random().toString(36).substring(2, 10);
     const email = `${randomString}@${domain}`;
     

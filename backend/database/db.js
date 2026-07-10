@@ -163,6 +163,17 @@ export function getProjectEmails(project_id, page = 1, limit = 20) {
   }
 }
 
+export function getActiveDomains() {
+  try {
+    const stmt = db.prepare("SELECT domain FROM attached_domains WHERE status = 'active' ORDER BY created_at DESC");
+    const records = stmt.all();
+    return records.map(r => r.domain.replace(/^https?:\/\//, '').replace(/\/+$/, ''));
+  } catch (err) {
+    console.error("DB Error fetching active domains:", err);
+    return [];
+  }
+}
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS system_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

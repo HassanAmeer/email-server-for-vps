@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 // ─── Copy Icon ───────────────────────────────────────────────────────────────
 const CopyIcon = () => (
@@ -19,18 +19,35 @@ const CheckIcon = () => (
 // ─── Data ────────────────────────────────────────────────────────────────────
 const endpoints = [
   {
+    id: "get-domains",
+    method: "GET",
+    path: "/api/domains",
+    title: "Get Active Domains",
+    desc: "Fetch a list of all active domains available for generating temporary email addresses. Use this list to let users choose a domain before generation.",
+    payload: null,
+    response: `{
+  "domains": [
+    "llamerada.online",
+    "tempemail.vps"
+  ]
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/domains",
+    returns: "JSON Object",
+    auth: false,
+  },
+  {
     id: "generate",
     method: "GET",
     path: "/api/mailbox/generate",
     title: "Generate Mailbox",
-    desc: "Dynamically allocates a random transient email address under your configured VPS domain. Use this before running automated tests to get a fresh disposable inbox.",
+    desc: "Dynamically allocates a random transient email address. Optionally pass a `domain` query parameter to force generation on a specific active domain.",
     payload: null,
     response: `{
   "email": "a1b2c3d4@tempemail.vps"
 }`,
-    exampleUrl: "http://your-vps-ip:8081/api/mailbox/generate",
+    exampleUrl: "http://your-vps-ip:8081/api/mailbox/generate?domain=tempemail.vps",
     returns: "JSON Object",
-    auth: false,
+    auth: true,
   },
   {
     id: "get-mailbox",
@@ -174,6 +191,14 @@ const methodColors: Record<string, { badge: string; glow: string; dot: string }>
 export default function ApiDocumentation() {
   const [activeTab, setActiveTab] = useState(endpoints[0].id);
   const [copied, setCopied] = useState<string | null>(null);
+  const [baseUrl, setBaseUrl] = useState("http://localhost:8081");
+  const [codeLang, setCodeLang] = useState<"curl" | "js" | "python" | "php">("curl");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setBaseUrl(window.location.origin);
+    }
+  }, []);
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -181,8 +206,52 @@ export default function ApiDocumentation() {
     setTimeout(() => setCopied(null), 2000);
   };
 
+  const generateSnippet = (lang: string, method: string, url: string, auth: boolean, payload: string | null) => {
+    const finalUrl = url.replace('http://your-vps-ip:8081', baseUrl);
+    const headers = auth ? ` \\\n  -H "Authorization: Bearer YOUR_API_KEY"` : "";
+    const headersJs = auth ? `,\n    headers: {\n      "Authorization": "Bearer YOUR_API_KEY"${payload ? ',\n      "Content-Type": "application/json"' : ''}\n    }` : (payload ? `,\n    headers: {\n      "Content-Type": "application/json"\n    }` : "");
+    const headersPy = auth ? `headers = {\n    "Authorization": "Bearer YOUR_API_KEY"${payload ? ',\n    "Content-Type": "application/json"' : ''}\n}\n` : (payload ? `headers = {\n    "Content-Type": "application/json"\n}\n` : "");
+    const headersPhp = auth ? `\n    CURLOPT_HTTPHEADER => array(\n        "Authorization: Bearer YOUR_API_KEY"${payload ? ',\n        "Content-Type": "application/json"' : ''}\n    ),` : (payload ? `\n    CURLOPT_HTTPHEADER => array(\n        "Content-Type: application/json"\n    ),` : "");
+
+    if (lang === "curl") {
+      let cmd = `curl -X ${method} "${finalUrl}"${headers}`;
+      if (payload) cmd += ` \\\n  -H "Content-Type: application/json" \\\n  -d '${payload}'`;
+      return cmd;
+    }
+    if (lang === "js") {
+      if (method === "GET" && !auth && !payload) {
+        return `fetch("${finalUrl}")\n  .then(response => response.json())\n  .then(data => console.log(data));`;
+      }
+      let cmd = `fetch("${finalUrl}", {\n    method: "${method}"${headersJs}`;
+      if (payload) cmd += `,\n    body: JSON.stringify(${payload})`;
+      cmd += `\n  })\n  .then(response => response.json())\n  .then(data => console.log(data));`;
+      return cmd;
+    }
+    if (lang === "python") {
+      let cmd = `import requests\n\nurl = "${finalUrl}"\n${headersPy}`;
+      if (payload) {
+        cmd += `payload = ${payload}\n`;
+        cmd += `response = requests.${method.toLowerCase()}(url, json=payload${headersPy ? ', headers=headers' : ''})`;
+      } else {
+        cmd += `response = requests.${method.toLowerCase()}(url${headersPy ? ', headers=headers' : ''})`;
+      }
+      cmd += `\nprint(response.json())`;
+      return cmd;
+    }
+    if (lang === "php") {
+      let cmd = `<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, array(\n    CURLOPT_URL => "${finalUrl}",\n    CURLOPT_RETURNTRANSFER => true,\n    CURLOPT_CUSTOMREQUEST => "${method}",${headersPhp}`;
+      if (payload) {
+        cmd += `\n    CURLOPT_POSTFIELDS => '${payload}',`;
+      }
+      cmd += `\n));\n\n$response = curl_exec($curl);\ncurl_close($curl);\n\necho $response;`;
+      return cmd;
+    }
+    return "";
+  };
+
   const ep = endpoints.find(e => e.id === activeTab)!;
   const colors = methodColors[ep.method];
+  const activeSnippet = generateSnippet(codeLang, ep.method, ep.exampleUrl, ep.auth, ep.payload);
 
   return (
     <div className="bg-[#020609] text-gray-100 min-h-screen font-sans flex flex-col selection:bg-emerald-500/20">
@@ -241,8 +310,8 @@ export default function ApiDocumentation() {
                   key={e.id}
                   onClick={() => setActiveTab(e.id)}
                   className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center gap-3 transition-all duration-150 cursor-pointer group ${isActive
-                      ? "bg-white/[0.05] border border-white/[0.08]"
-                      : "border border-transparent hover:bg-white/[0.02] hover:border-white/[0.04]"
+                    ? "bg-white/[0.05] border border-white/[0.08]"
+                    : "border border-transparent hover:bg-white/[0.02] hover:border-white/[0.04]"
                     }`}
                 >
                   <span className={`shrink-0 text-[9px] font-black font-mono px-1.5 py-0.5 rounded border uppercase tracking-wider ${c.badge}`}>
@@ -266,7 +335,7 @@ export default function ApiDocumentation() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span className="text-[10px] font-mono text-gray-500">API Server <span className="text-emerald-400 font-bold">:8081</span></span>
+              <span className="text-[10px] font-mono text-gray-500">API Server <span className="text-emerald-400 font-bold">{baseUrl.replace(/^https?:\/\//, '')}</span></span>
             </div>
           </div>
         </aside>
@@ -310,7 +379,7 @@ export default function ApiDocumentation() {
                 </div>
                 <div className="inline-flex items-center gap-2 text-[11px] font-mono bg-white/[0.02] border border-white/[0.05] text-gray-400 px-3 py-1.5 rounded-lg">
                   <svg className="w-3.5 h-3.5 text-gray-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
-                  Auth: <span className="text-emerald-400 font-semibold">None Required</span>
+                  Auth: <span className={ep.auth ? "text-emerald-400 font-semibold" : "text-gray-400 font-semibold"}>{ep.auth ? "API Key Required" : "None Required"}</span>
                 </div>
               </div>
             </div>
@@ -321,32 +390,32 @@ export default function ApiDocumentation() {
               {/* Left: cURL + Payload */}
               <div className="space-y-5">
 
-                {/* cURL Block */}
+                {/* Code Block */}
                 <div className="rounded-2xl border border-white/[0.07] overflow-hidden shadow-xl shadow-black/40">
-                  <div className="flex items-center justify-between px-4 py-3 bg-[#0a0d14] border-b border-white/[0.05]">
-                    <div className="flex items-center gap-3">
-                      <div className="flex gap-1.5">
+                  <div className="flex items-center justify-between px-4 py-2 bg-[#0a0d14] border-b border-white/[0.05]">
+                    <div className="flex items-center gap-4">
+                      <div className="flex gap-1.5 hidden sm:flex">
                         <span className="w-3 h-3 rounded-full bg-[#ff5f56]"></span>
                         <span className="w-3 h-3 rounded-full bg-[#ffbd2e]"></span>
                         <span className="w-3 h-3 rounded-full bg-[#27c93f]"></span>
                       </div>
-                      <span className="text-[10px] font-mono font-bold text-gray-500 uppercase tracking-widest">Shell — cURL</span>
+                      <div className="flex space-x-1">
+                        <button onClick={() => setCodeLang("curl")} className={`px-3 py-1.5 text-[11px] font-mono font-bold rounded-lg transition-all ${codeLang === "curl" ? "bg-white/[0.1] text-white" : "text-gray-500 hover:text-gray-300"}`}>cURL</button>
+                        <button onClick={() => setCodeLang("js")} className={`px-3 py-1.5 text-[11px] font-mono font-bold rounded-lg transition-all ${codeLang === "js" ? "bg-white/[0.1] text-white" : "text-gray-500 hover:text-gray-300"}`}>JS (fetch)</button>
+                        <button onClick={() => setCodeLang("python")} className={`px-3 py-1.5 text-[11px] font-mono font-bold rounded-lg transition-all ${codeLang === "python" ? "bg-white/[0.1] text-white" : "text-gray-500 hover:text-gray-300"}`}>Python</button>
+                        <button onClick={() => setCodeLang("php")} className={`px-3 py-1.5 text-[11px] font-mono font-bold rounded-lg transition-all ${codeLang === "php" ? "bg-white/[0.1] text-white" : "text-gray-500 hover:text-gray-300"}`}>PHP</button>
+                      </div>
                     </div>
                     <button
-                      onClick={() => handleCopy(`curl -X ${ep.method} "${ep.exampleUrl}"`, `curl-${ep.id}`)}
-                      className={`flex items-center gap-1.5 text-[11px] font-mono font-semibold px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer ${copied === `curl-${ep.id}` ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-white/[0.03] border-white/[0.06] text-gray-500 hover:text-white hover:bg-white/[0.06]"}`}
+                      onClick={() => handleCopy(activeSnippet, `code-${ep.id}-${codeLang}`)}
+                      className={`flex items-center gap-1.5 text-[11px] font-mono font-semibold px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer ${copied === `code-${ep.id}-${codeLang}` ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-white/[0.03] border-white/[0.06] text-gray-500 hover:text-white hover:bg-white/[0.06]"}`}
                     >
-                      {copied === `curl-${ep.id}` ? <><CheckIcon /> Copied</> : <><CopyIcon /> Copy</>}
+                      {copied === `code-${ep.id}-${codeLang}` ? <><CheckIcon /> Copied</> : <><CopyIcon /> Copy</>}
                     </button>
                   </div>
                   <div className="p-5 bg-[#070a10] overflow-x-auto">
-                    <pre className="text-sm font-mono leading-relaxed">
-                      <span className="text-gray-600">$ </span>
-                      <span className="text-yellow-300">curl</span>
-                      <span className="text-gray-400"> -X </span>
-                      <span className="text-emerald-400">{ep.method}</span>
-                      <span className="text-gray-400"> </span>
-                      <span className="text-sky-300">&quot;{ep.exampleUrl}&quot;</span>
+                    <pre className="text-sm font-mono leading-relaxed text-gray-300">
+                      {activeSnippet}
                     </pre>
                   </div>
                 </div>

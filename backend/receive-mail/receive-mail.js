@@ -247,6 +247,10 @@ const httpServer = http.createServer((req, res) => {
   const cleanUrl = req.url.split("?")[0];
 
   // Intercept api-router temporary mailbox endpoints
+  if (cleanUrl === "/api/domains" && req.method === "GET") {
+    return ApiRouter.getDomains(req, res);
+  }
+
   if (cleanUrl === "/api/mailbox/generate" && req.method === "GET") {
     return ApiRouter.generateMailbox(req, res);
   }

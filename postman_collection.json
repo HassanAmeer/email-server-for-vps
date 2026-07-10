@@ -1,0 +1,247 @@
+{
+  "info": {
+    "name": "VPS Temp Email Server API",
+    "description": "API collection for managing temporary mailboxes, retrieving emails, and parsing OTPs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Public / Mailbox APIs",
+      "description": "APIs for interacting with temporary mailboxes. Most of these require an API Key.",
+      "item": [
+        {
+          "name": "Get Active Domains",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/domains",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "domains"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Generate Mailbox",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/mailbox/generate?domain=llamerada.online",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "mailbox",
+                "generate"
+              ],
+              "query": [
+                {
+                  "key": "domain",
+                  "value": "llamerada.online",
+                  "description": "Optional: Specify domain"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Fetch Inbox Mails",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/mailbox/test@llamerada.online",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "mailbox",
+                "test@llamerada.online"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Extract OTP Codes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/mailbox/test@llamerada.online/otps",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "mailbox",
+                "test@llamerada.online",
+                "otps"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Mailbox",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/mailbox/test@llamerada.online",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "mailbox",
+                "test@llamerada.online"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Specific Email",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/mailbox/test@llamerada.online/12345678",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "mailbox",
+                "test@llamerada.online",
+                "12345678"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Download Media Attachment",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/storage/media/filename.pdf",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "storage",
+                "media",
+                "filename.pdf"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Global / Live Operations",
+      "item": [
+        {
+          "name": "Get All Emails (Global)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/mails",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "mails"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Send Custom Email (Live)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"from\": \"sender@llamerada.online\",\n  \"to\": \"recipient@example.com\",\n  \"subject\": \"Hello World\",\n  \"text\": \"Plain text body content\",\n  \"html\": \"<p>HTML body <b>content</b></p>\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/send-email/live",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "send-email",
+                "live"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8081",
+      "type": "string"
+    },
+    {
+      "key": "api_key",
+      "value": "YOUR_API_KEY_HERE",
+      "type": "string"
+    }
+  ]
+}

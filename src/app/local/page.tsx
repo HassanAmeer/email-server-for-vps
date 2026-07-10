@@ -30,6 +30,13 @@ export default function LocalConsolePage() {
   const [activeTab, setActiveTab] = useState<string>("inbox-tab");
   const [viewMode, setViewMode] = useState<"html" | "text">("html");
 
+  const [apiKey, setApiKey] = useState("");
+  const [domains, setDomains] = useState<string[]>([]);
+  const [selectedDomain, setSelectedDomain] = useState("");
+  const [generatedEmail, setGeneratedEmail] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [copiedGen, setCopiedGen] = useState(false);
+
   // Log States
   const [receivingLogs, setReceivingLogs] = useState<string>("Initializing receiving logs...");
   const [sendingLogs, setSendingLogs] = useState<string>("Initializing sending logs...");
@@ -61,6 +68,48 @@ export default function LocalConsolePage() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!apiUrl) return;
+    fetch(`${apiUrl}/api/domains`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.domains && data.domains.length > 0) {
+          setDomains(data.domains);
+          setSelectedDomain(data.domains[0]);
+        }
+      })
+      .catch(err => console.error("Error fetching domains:", err));
+  }, [apiUrl]);
+
+  const handleGenerate = async () => {
+    if (!apiUrl || !selectedDomain) return;
+    setIsGenerating(true);
+    try {
+      const headers: any = {};
+      if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+      const res = await fetch(`${apiUrl}/api/mailbox/generate?domain=${selectedDomain}`, { headers });
+      const data = await res.json();
+      if (res.ok && data.email) {
+        setGeneratedEmail(data.email);
+        setEmails([]); 
+      } else {
+        alert("Failed to generate: " + (data.error || "Unknown error"));
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error generating email");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleCopyGen = () => {
+    if (!generatedEmail) return;
+    navigator.clipboard.writeText(generatedEmail);
+    setCopiedGen(true);
+    setTimeout(() => setCopiedGen(false), 2000);
+  };
+
   const playBellSound = () => {
     const audio = new Audio("/bell.wav");
     audio.play().catch((err) => {
@@ -75,8 +124,15 @@ export default function LocalConsolePage() {
       // 1. Fetch Emails
       const resMails = await fetch(`${apiUrl}/api/emails/local`);
       if (resMails.ok) {
-        const mailsData: Email[] = await resMails.json();
+        let mailsData: Email[] = await resMails.json();
         
+        // Filter by generated email if set, otherwise show none
+        if (generatedEmail) {
+          mailsData = mailsData.filter(m => m.to.toLowerCase() === generatedEmail.toLowerCase());
+        } else {
+          mailsData = [];
+        }
+
         // Audio notification check
         if (knownEmailIdsRef.current !== null) {
           let hasNew = false;
@@ -295,6 +351,71 @@ export default function LocalConsolePage() {
             </div>
           </div>
         </header>
+
+        {/* Generate Email Header Component */}
+        <div className="bg-[#0B0F19] border border-white/[0.06] p-5 rounded-2xl flex flex-col md:flex-row gap-5 items-center justify-between shadow-xl">
+          <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto flex-wrap">
+            <div className="flex flex-col gap-1 w-full md:w-auto">
+              <label className="text-[10px] uppercase text-gray-500 font-bold tracking-widest pl-1">API Key (Optional)</label>
+              <input 
+                type="text" 
+                value={apiKey} 
+                onChange={e => setApiKey(e.target.value)}
+                placeholder="Enter API Key"
+                className="bg-slate-900/50 border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50 min-w-[200px]"
+              />
+            </div>
+            <div className="flex flex-col gap-1 w-full md:w-auto">
+              <label className="text-[10px] uppercase text-gray-500 font-bold tracking-widest pl-1">Select Domain</label>
+              <select 
+                value={selectedDomain}
+                onChange={e => setSelectedDomain(e.target.value)}
+                className="bg-slate-900/50 border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50 min-w-[200px]"
+              >
+                {domains.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1 w-full md:w-auto justify-end h-full mt-1 md:mt-4">
+              <button 
+                onClick={handleGenerate}
+                disabled={isGenerating || !selectedDomain}
+                className="bg-purple-500 hover:bg-purple-400 text-slate-900 font-bold px-6 py-2.5 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isGenerating ? "Generating..." : "Generate"}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-grow flex justify-end w-full md:w-auto mt-4 md:mt-0">
+            {generatedEmail ? (
+              <div className="bg-purple-500/10 border border-purple-500/20 px-5 py-3 rounded-xl flex items-center justify-between gap-4 min-w-[280px]">
+                <div className="flex flex-col">
+                  <span className="text-[10px] uppercase text-purple-500 font-bold tracking-widest">Generated Inbox</span>
+                  <span className="text-white font-mono font-medium text-sm">{generatedEmail}</span>
+                </div>
+                <button 
+                  onClick={handleCopyGen}
+                  className="bg-white/5 hover:bg-white/10 p-2 rounded-lg transition-colors text-gray-300"
+                  title="Copy Email"
+                >
+                  {copiedGen ? (
+                    <svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            ) : (
+              <div className="bg-slate-900/50 border border-white/[0.06] px-5 py-3 rounded-xl flex items-center justify-center min-w-[280px]">
+                <span className="text-gray-500 text-xs text-center">Click Generate to get a temporary email</span>
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Navigation Tabs */}
         <nav className="flex gap-3 bg-white/[0.02] p-1.5 rounded-xl border border-white/[0.06] w-fit flex-wrap">
