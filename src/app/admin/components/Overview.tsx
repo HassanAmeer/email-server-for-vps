@@ -21,16 +21,28 @@ interface ApiRouteSetting {
 
 export default function Overview({ apiUrl, stats }: OverviewProps) {
   const [apiRoutes, setApiRoutes] = useState<ApiRouteSetting[]>([]);
+  const [trafficStats, setTrafficStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchApiStats = async () => {
       if (!apiUrl) return;
       try {
-        const res = await fetch(`${apiUrl}/api/admin/api-settings`);
+        const token = localStorage.getItem("admin_token") || "";
+        const headers = { "Authorization": `Bearer ${token}` };
+        
+        const [res, trafficRes] = await Promise.all([
+          fetch(`${apiUrl}/api/admin/api-settings`, { headers }),
+          fetch(`${apiUrl}/api/admin/stats/traffic`, { headers })
+        ]);
+
         if (res.ok) {
           const data = await res.json();
           setApiRoutes(data);
+        }
+        if (trafficRes.ok) {
+          const tData = await trafficRes.json();
+          setTrafficStats(tData);
         }
       } catch (err) {
         console.error("Error fetching overview API stats:", err);
@@ -52,16 +64,30 @@ export default function Overview({ apiUrl, stats }: OverviewProps) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  // SVG Chart Mock Coordinates representing traffic flows
-  const points = [
-    { x: 50, y: 150, day: "Mon" },
-    { x: 120, y: 80, day: "Tue" },
-    { x: 190, y: 110, day: "Wed" },
-    { x: 260, y: 40, day: "Thu" },
-    { x: 330, y: 90, day: "Fri" },
-    { x: 400, y: 60, day: "Sat" },
-    { x: 470, y: 25, day: "Sun" },
-  ];
+  // Dynamically calculate SVG Chart Coordinates from trafficStats
+  const maxTraffic = Math.max(1, ...trafficStats.map(s => s.generated + s.received));
+  
+  // Define chart boundaries
+  const chartWidth = 420;
+  const startX = 50;
+  const xStep = trafficStats.length > 1 ? chartWidth / (trafficStats.length - 1) : chartWidth;
+  const chartHeight = 130;
+  const startY = 155; // Bottom line of the chart
+
+  const points = trafficStats.length === 0 ? [] : trafficStats.map((stat, i) => {
+    const total = stat.generated + stat.received;
+    const heightPercent = total / maxTraffic;
+    const y = startY - (chartHeight * heightPercent);
+    const dateObj = new Date(stat.day);
+    const dayStr = dateObj.toLocaleDateString("en-US", { weekday: 'short' });
+    
+    return {
+      x: startX + (i * xStep),
+      y: y,
+      day: dayStr,
+      total
+    };
+  });
 
   // SVG Path String
   const pathD = points.reduce((acc, p, i) => {
@@ -69,7 +95,7 @@ export default function Overview({ apiUrl, stats }: OverviewProps) {
   }, "");
 
   // Area Path String (closing the shape to the bottom for the gradient fill)
-  const areaD = `${pathD} L 470 170 L 50 170 Z`;
+  const areaD = pathD ? `${pathD} L ${points[points.length - 1].x} 170 L ${points[0].x} 170 Z` : "";
 
   return (
     <div className="flex flex-col gap-8 w-full animate-fade-in">

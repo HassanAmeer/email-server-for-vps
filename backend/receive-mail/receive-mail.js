@@ -7,6 +7,7 @@ import nodemailer from "nodemailer";
 import { sendOutboundEmail as sendOutboundEmailLive } from "../send-mail-simple/send-mail-from-generated-mail-from-live.js";
 import { sendOutboundEmail as sendOutboundEmailLocal } from "../send-mail-simple/send-mail-from-generated-mail-from-local.js";
 import { ApiRouter } from "../../apis/api-router.js";
+import { logReceivedEmail, getProjectByEmail } from "../database/db.js";
 
 // Load .env file manually if it exists
 const envPath = path.join(process.cwd(), ".env");
@@ -72,6 +73,12 @@ function addLiveSendingLog(message) {
   console.log(`[LIVE SENDING] ${formatted}`);
   liveSendingLogs.push(formatted);
   if (liveSendingLogs.length > 200) liveSendingLogs.shift();
+}
+
+function extractEmail(str) {
+  if (!str) return "";
+  const match = str.match(/<([^>]+)>/);
+  return match ? match[1].toLowerCase().trim() : str.toLowerCase().trim();
 }
 
 // Folders for local and live emails
@@ -177,6 +184,28 @@ const smtpServer = new SMTPServer({
         "utf-8"
       );
 
+      // Log to SQLite Database
+      const targetEmailClean = extractEmail(mailData.to);
+      const project = getProjectByEmail(targetEmailClean);
+      const projectId = project ? project.id : null;
+      logReceivedEmail(mailData.to, mailData.from, mailData.subject, mailData.attachments.length > 0, projectId);
+
+      // Trigger Webhook if configured
+      if (project && project.webhook_url) {
+        try {
+          fetch(project.webhook_url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ event: "new_email", project_id: project.id, data: mailData })
+          }).then(res => {
+            if (isLocal) addLocalLog(`🚀 Webhook delivered to ${project.webhook_url} with status ${res.status}`);
+            else addLiveLog(`🚀 Webhook delivered to ${project.webhook_url} with status ${res.status}`);
+          }).catch(err => {
+            console.error("Webhook trigger failed:", err.message);
+          });
+        } catch (e) {}
+      }
+
       if (isLocal) {
         addLocalLog(`💾 Email saved to: backend/storage/local/${fileName}`);
         addLocalLog(`✅ Email Transaction Complete! Subject: "${subject}"`);
@@ -247,8 +276,25 @@ const httpServer = http.createServer((req, res) => {
     return ApiRouter.adminLogin(req, res);
   }
 
+  if (cleanUrl.startsWith("/api/admin/projects")) {
+    return ApiRouter.handleProjectsApi(req, res);
+  }
+
+  if (cleanUrl.startsWith("/api/admin/domains")) {
+    return ApiRouter.handleAttachedDomainsApi(req, res);
+  }
+
   if (cleanUrl === "/api/admin/stats" && req.method === "GET") {
     return ApiRouter.getStats(req, res);
+  }
+
+  if (cleanUrl === "/api/admin/stats/traffic" && req.method === "GET") {
+    return ApiRouter.handleTrafficStatsApi(req, res);
+  }
+  
+  if (cleanUrl.startsWith("/api/admin/dblogs/") && req.method === "GET") {
+    const logType = cleanUrl.split("/").pop();
+    return ApiRouter.getDbLogs(req, res, logType);
   }
 
   if (cleanUrl === "/api/admin/api-settings" && req.method === "GET") {
@@ -270,6 +316,14 @@ const httpServer = http.createServer((req, res) => {
   if (cleanUrl.startsWith("/api/admin/credentials/") && req.method === "DELETE") {
     const username = decodeURIComponent(cleanUrl.split("/api/admin/credentials/")[1]);
     return ApiRouter.deleteCredential(req, res, username);
+  }
+
+  if (cleanUrl === "/api/admin/dkim" && req.method === "GET") {
+    return ApiRouter.getDkimKey(req, res);
+  }
+
+  if (cleanUrl === "/api/admin/dkim/generate" && req.method === "POST") {
+    return ApiRouter.generateDkimKey(req, res);
   }
 
   // API: Get all emails (combined local and live)

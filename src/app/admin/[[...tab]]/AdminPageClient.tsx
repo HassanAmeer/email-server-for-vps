@@ -4,11 +4,12 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import LoginOverlay from "../components/LoginOverlay";
-import CredentialsManager from "../components/CredentialsManager";
 import LiveLogs from "../components/LiveLogs";
 import MailExplorer from "../components/MailExplorer";
 import ApiSettingsManager from "../components/ApiSettingsManager";
 import Overview from "../components/Overview";
+import ProjectsManager from "../components/ProjectsManager";
+import SetupManager from "../components/SetupManager";
 
 const API_BASE = "http://localhost:8081";
 
@@ -34,18 +35,20 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
     overview: "overview-tab",
     settings: "api-tab",
     api: "api-tab",
-    credentials: "credentials-tab",
     explorer: "explorer-tab",
-    logs: "logs-tab"
+    logs: "logs-tab",
+    projects: "projects-tab",
+    setup: "setup-tab"
   };
 
   // Map active tab string to default URL path segment
   const tabStateToPath: Record<string, string> = {
     "overview-tab": "overview",
     "api-tab": "settings",
-    "credentials-tab": "credentials",
     "explorer-tab": "explorer",
-    "logs-tab": "logs"
+    "logs-tab": "logs",
+    "projects-tab": "projects",
+    "setup-tab": "setup"
   };
 
   const activeTab = tabPathMap[currentSegment] || "overview-tab";
@@ -239,54 +242,20 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
           </button>
 
           <button
-            onClick={() => handleTabClick("api-tab")}
+            onClick={() => handleTabClick("projects-tab")}
             className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
-              activeTab === "api-tab" 
+              activeTab === "projects-tab" 
                 ? "rounded-none text-emerald-400 bg-emerald-500/10 shadow-[0_2px_12px_rgba(16,185,129,0.03)]" 
                 : "rounded-none text-gray-400 hover:text-white hover:bg-white/[0.02]"
             }`}
           >
-            {activeTab === "api-tab" && (
+            {activeTab === "projects-tab" && (
               <span className="absolute left-0 inset-y-0 w-[3px] bg-emerald-400"></span>
             )}
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
             </svg>
-            <span>API Route Manager</span>
-          </button>
-
-          <button
-            onClick={() => handleTabClick("credentials-tab")}
-            className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
-              activeTab === "credentials-tab" 
-                ? "rounded-none text-emerald-400 bg-emerald-500/10 shadow-[0_2px_12px_rgba(16,185,129,0.03)]" 
-                : "rounded-none text-gray-400 hover:text-white hover:bg-white/[0.02]"
-            }`}
-          >
-            {activeTab === "credentials-tab" && (
-              <span className="absolute left-0 inset-y-0 w-[3px] bg-emerald-400"></span>
-            )}
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
-            </svg>
-            <span>SMTP Relay Credentials</span>
-          </button>
-
-          <button
-            onClick={() => handleTabClick("explorer-tab")}
-            className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
-              activeTab === "explorer-tab" 
-                ? "rounded-none text-emerald-400 bg-emerald-500/10 shadow-[0_2px_12px_rgba(16,185,129,0.03)]" 
-                : "rounded-none text-gray-400 hover:text-white hover:bg-white/[0.02]"
-            }`}
-          >
-            {activeTab === "explorer-tab" && (
-              <span className="absolute left-0 inset-y-0 w-[3px] bg-emerald-400"></span>
-            )}
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z" />
-            </svg>
-            <span>Global Mail Explorer</span>
+            <span>Projects & Webhooks</span>
           </button>
 
           <button
@@ -304,6 +273,44 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
             </svg>
             <span>Live Server Logs</span>
+          </button>
+
+          <button
+            onClick={() => handleTabClick("setup-tab")}
+            className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
+              activeTab === "setup-tab" 
+                ? "rounded-none text-emerald-400 bg-emerald-500/10 shadow-[0_2px_12px_rgba(16,185,129,0.03)]" 
+                : "rounded-none text-gray-400 hover:text-white hover:bg-white/[0.02]"
+            }`}
+          >
+            {activeTab === "setup-tab" && (
+              <span className="absolute left-0 inset-y-0 w-[3px] bg-emerald-400"></span>
+            )}
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.107-1.204l-.527-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span>System Setup</span>
+          </button>
+
+          {/* Separator before advanced sections */}
+          <div className="mx-4 my-2 border-t border-white/[0.04]"></div>
+
+          <button
+            onClick={() => handleTabClick("api-tab")}
+            className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
+              activeTab === "api-tab" 
+                ? "rounded-none text-emerald-400 bg-emerald-500/10 shadow-[0_2px_12px_rgba(16,185,129,0.03)]" 
+                : "rounded-none text-gray-400 hover:text-white hover:bg-white/[0.02]"
+            }`}
+          >
+            {activeTab === "api-tab" && (
+              <span className="absolute left-0 inset-y-0 w-[3px] bg-emerald-400"></span>
+            )}
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+            </svg>
+            <span>API Route Manager</span>
           </button>
         </nav>
 
@@ -345,9 +352,10 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
             <h1 className="text-xs font-extrabold text-white uppercase tracking-widest font-mono">
               {activeTab === "overview-tab" && "System Ingestion Dashboard"}
               {activeTab === "api-tab" && "API Endpoint Router Settings"}
-              {activeTab === "credentials-tab" && "Outbound SMTP Credentials"}
               {activeTab === "explorer-tab" && "Global Mail Database Explorer"}
               {activeTab === "logs-tab" && "Live SMTP Server Logs"}
+              {activeTab === "projects-tab" && "Projects & API Keys"}
+              {activeTab === "setup-tab" && "System Configuration & Setup"}
             </h1>
           </div>
           
@@ -368,16 +376,16 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
             <Overview apiUrl={apiUrl} stats={stats} />
           )}
 
-          {activeTab === "credentials-tab" && (
-            <CredentialsManager apiUrl={apiUrl} />
-          )}
-
           {activeTab === "logs-tab" && (
             <LiveLogs apiUrl={apiUrl} systemMode={stats.liveModeActive ? "Live" : "Local"} />
           )}
 
-          {activeTab === "explorer-tab" && (
-            <MailExplorer apiUrl={apiUrl} />
+          {activeTab === "projects-tab" && (
+            <ProjectsManager apiUrl={apiUrl} />
+          )}
+
+          {activeTab === "setup-tab" && (
+            <SetupManager apiUrl={apiUrl} />
           )}
 
           {activeTab === "api-tab" && (

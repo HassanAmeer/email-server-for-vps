@@ -41,7 +41,12 @@ const apiSettings = [
  * Controller class to handle all admin actions
  */
 export class AdminController {
-  
+
+  static get adminToken() {
+    const adminPass = process.env.ADMIN_PASSWORD || "1234";
+    return Buffer.from(`admin:${adminPass}`).toString("base64");
+  }
+
   /**
    * Validates credentials for Admin Dashboard
    * Login with: admin / 1234
@@ -108,17 +113,17 @@ export class AdminController {
    */
   static isApiEnabled(url, method) {
     const cleanUrl = url.split("?")[0];
-    
+
     // Always allow configuration APIs to remain active
     if (cleanUrl === "/api/admin/api-settings" || cleanUrl === "/api/admin/api-settings/toggle") {
       return true;
     }
-    
+
     // Find matching API config
     const api = apiSettings.find(a => {
       // Direct path match
       if (a.path === cleanUrl) return true;
-      
+
       // Dynamic pattern matches:
       if (a.id === "mailbox-get" && cleanUrl.startsWith("/api/mailbox/") && !cleanUrl.endsWith("/otps") && method === "GET") {
         const parts = cleanUrl.split("/");
@@ -132,11 +137,11 @@ export class AdminController {
       }
       if (a.id === "delete-local" && cleanUrl.startsWith("/api/emails/delete/local/") && method === "POST") return true;
       if (a.id === "delete-live" && cleanUrl.startsWith("/api/emails/delete/live/") && method === "POST") return true;
-      
+
       // Match logs
       if (a.id === "local-emails" && cleanUrl.startsWith("/api/logs/local") && method === "GET") return true;
       if (a.id === "live-emails" && cleanUrl.startsWith("/api/logs/live") && method === "GET") return true;
-      
+
       return false;
     });
 
@@ -156,7 +161,7 @@ export class AdminController {
     try {
       const localFiles = fs.existsSync(localMailDir) ? fs.readdirSync(localMailDir).filter(f => f.endsWith(".json")).length : 0;
       const liveFiles = fs.existsSync(liveMailDir) ? fs.readdirSync(liveMailDir).filter(f => f.endsWith(".json")).length : 0;
-      
+
       // Calculate disk sizes
       let diskBytes = 0;
       const directories = [localMailDir, liveMailDir, attachmentsDir];
@@ -180,7 +185,7 @@ export class AdminController {
               const fileContent = fs.readFileSync(path.join(dir, file), "utf-8");
               const parsed = JSON.parse(fileContent);
               activeMailboxes.add(extractEmail(parsed.to));
-            } catch (e) {}
+            } catch (e) { }
           });
         }
       };
@@ -212,7 +217,7 @@ export class AdminController {
         res.end(JSON.stringify([]));
         return;
       }
-      
+
       const creds = JSON.parse(fs.readFileSync(credsPath, "utf-8"));
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(creds.users || []));
@@ -288,6 +293,157 @@ export class AdminController {
 
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: true }));
+    } catch (error) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+  }
+
+  /**
+   * Retrieves the current DKIM public key
+   */
+  static getDkimKey(req, res) {
+    try {
+      const dkimPath = path.join(process.cwd(), 'backend', 'dkim-key-for-send-mail', 'public.txt');
+      if (fs.existsSync(dkimPath)) {
+        const key = fs.readFileSync(dkimPath, "utf-8");
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true, key }));
+      } else {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "DKIM key not found" }));
+      }
+    } catch (error) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+  }
+
+  /**
+   * Generates a new DKIM key pair
+   */
+  static generateDkimKey(req, res) {
+    try {
+      const { exec } = require("child_process");
+      exec("bun backend/scripts/generate-dkim.js", (error, stdout, stderr) => {
+        if (error) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: error.message }));
+          return;
+        }
+        // Read the newly generated key
+        const dkimPath = path.join(process.cwd(), 'backend', 'dkim-key-for-send-mail', 'public.txt');
+        if (fs.existsSync(dkimPath)) {
+          const key = fs.readFileSync(dkimPath, "utf-8");
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ success: true, key }));
+        } else {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Failed to read newly generated DKIM key" }));
+        }
+      });
+    } catch (error) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+  }
+  /**
+   * Retrieves all attached domains
+   */
+  static getAttachedDomains(req, res) {
+    try {
+      const db = require('../database/db.js').default;
+      const domains = db.prepare("SELECT * FROM attached_domains ORDER BY created_at DESC").all();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(domains));
+    } catch (error) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+  }
+
+  /**
+   * Adds a new attached domain
+   */
+  static addAttachedDomain(req, res) {
+    let body = "";
+    req.on("data", chunk => body += chunk.toString());
+    req.on("end", () => {
+      try {
+        const { domain } = JSON.parse(body);
+        if (!domain) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Domain name is required" }));
+          return;
+        }
+
+        const db = require('../database/db.js').default;
+        const stmt = db.prepare("INSERT INTO attached_domains (domain) VALUES (?)");
+        stmt.run(domain.toLowerCase().trim());
+        
+        res.writeHead(201, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true }));
+      } catch (err) {
+        if (err.message.includes("UNIQUE constraint failed")) {
+          res.writeHead(409, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Domain is already attached" }));
+        } else {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      }
+    });
+  }
+
+  /**
+   * Updates an attached domain's status
+   */
+  static updateAttachedDomain(req, res, id) {
+    let body = "";
+    req.on("data", chunk => body += chunk.toString());
+    req.on("end", () => {
+      try {
+        const { status } = JSON.parse(body);
+        if (!status) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Status is required" }));
+          return;
+        }
+
+        const db = require('../database/db.js').default;
+        const stmt = db.prepare("UPDATE attached_domains SET status = ? WHERE id = ?");
+        const info = stmt.run(status, id);
+        
+        if (info.changes > 0) {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ success: true }));
+        } else {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Domain not found" }));
+        }
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+  }
+
+  /**
+   * Deletes an attached domain
+   */
+  static deleteAttachedDomain(req, res, id) {
+    try {
+      const db = require('../database/db.js').default;
+      const stmt = db.prepare("DELETE FROM attached_domains WHERE id = ?");
+      const info = stmt.run(id);
+      
+      if (info.changes > 0) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true }));
+      } else {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Domain not found" }));
+      }
     } catch (error) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: error.message }));
