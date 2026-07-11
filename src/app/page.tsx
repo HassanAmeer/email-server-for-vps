@@ -3,6 +3,60 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
+const ParticleCanvas = () => {
+  useEffect(() => {
+    const canvas = document.getElementById("particle-canvas") as HTMLCanvasElement;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const particles: { x: number, y: number, r: number, dx: number, dy: number, alpha: number }[] = [];
+    for (let i = 0; i < 100; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 2 + 1.5,
+        dx: (Math.random() - 0.5) * 0.5,
+        dy: (Math.random() - 0.5) * 0.5,
+        alpha: Math.random() * 0.2 + 0.1
+      });
+    }
+
+    let animationFrameId: number;
+    const render = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach(p => {
+        p.x += p.dx;
+        p.y += p.dy;
+        if (p.x < 0 || p.x > canvas.width) p.dx *= -1;
+        if (p.y < 0 || p.y > canvas.height) p.dy *= -1;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(204, 255, 0, ${p.alpha})`;
+        ctx.fill();
+      });
+      animationFrameId = requestAnimationFrame(render);
+    };
+    render();
+
+    const handleResize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  return <canvas id="particle-canvas" className="absolute inset-0 w-full h-full pointer-events-none z-0 opacity-70"></canvas>;
+};
+
 // API Documentation details matching backend api-router.js
 const apiDocs = {
   generate: {
@@ -140,7 +194,8 @@ export default function Home() {
   };
 
   return (
-    <div className="bg-[#030712] text-gray-100 min-h-screen relative overflow-x-hidden font-sans scroll-smooth">
+    <div className="bg-transparent text-gray-100 min-h-screen relative overflow-x-hidden font-sans">
+      <ParticleCanvas />
       {/* Grid Pattern */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.025)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.025)_1px,transparent_1px)] bg-[size:3.5rem_3.5rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none z-0"></div>
 
@@ -173,7 +228,7 @@ export default function Home() {
 
           <div className="flex items-center gap-3">
             <Link href="/admin/" className="text-xs sm:text-sm font-semibold text-gray-300 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.08] px-4 py-2 rounded-xl transition-all">Login</Link>
-            <button onClick={() => setIsModalOpen(true)} className="text-xs sm:text-sm font-bold text-black bg-emerald-500 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20 px-4 py-2 rounded-xl transition-all cursor-pointer">Sign Up</button>
+            <button onClick={() => setIsModalOpen(true)} className="text-xs sm:text-sm font-bold text-black bg-emerald-500 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20 px-4 py-2 rounded-xl transition-all cursor-pointer shimmer-btn">Sign Up</button>
           </div>
         </div>
       </header>
@@ -204,11 +259,14 @@ export default function Home() {
             </p>
 
             <div className="flex flex-wrap gap-4 pt-3">
-              <Link href="/live/" className="inline-flex items-center justify-center bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-bold text-sm px-6 py-3.5 rounded-xl shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all">
-                Open Live Inbox
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4 h-4 ml-2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                </svg>
+              <Link href="/live/" className="relative inline-flex items-center justify-center p-[2px] rounded-xl shadow-[0_0_15px_rgba(204,255,0,0.2)] group hover:shadow-[0_0_30px_rgba(204,255,0,0.4)] transition-all">
+                <span className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl"></span>
+                <span className="relative flex items-center justify-center w-full h-full bg-[#0b0f19] group-hover:bg-gradient-to-r group-hover:from-emerald-500 group-hover:to-teal-500 text-emerald-400 group-hover:text-black font-bold text-sm px-6 py-3.5 rounded-[10px] transition-all duration-300 shimmer-btn overflow-hidden">
+                  mailer
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                  </svg>
+                </span>
               </Link>
               <Link href="/doc" className="inline-flex items-center justify-center bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] hover:border-white/[0.18] text-gray-300 hover:text-white font-semibold text-sm px-6 py-3.5 rounded-xl transition-all cursor-pointer">
                 View API Docs
@@ -233,7 +291,7 @@ export default function Home() {
           </div>
 
           {/* Hero API Explorer Right */}
-          <div className="lg:col-span-7">
+          <div className="lg:col-span-7 animate-float">
             <div className="bg-[#0b0f19]/70 backdrop-blur-xl border border-white/[0.08] rounded-3xl overflow-hidden shadow-2xl shadow-black/80 relative flex flex-col min-h-[480px]">
 
               {/* API Header Controls */}
@@ -398,7 +456,7 @@ export default function Home() {
             { color: "emerald", icon: "M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.656 48.656 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l-3 3m3-3l3-3", title: "Transient Routing", desc: "Generate random mailbox prefixes on demand. The server captures and routes emails to dynamic addresses instantly without prior inbox setup." },
             { color: "teal", icon: "M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z", title: "DKIM Compliance", desc: "Integrated support for generating cryptographically signed DKIM signatures. Easily test bidirectional mailing integrations with full SPF verification." },
           ].map((card, i) => (
-            <div key={i} className={`bg-slate-900/20 backdrop-blur-xl border border-white/[0.05] hover:border-${card.color}-500/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.02)] p-6 rounded-2xl hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.1)] hover:-translate-y-1 transition-all duration-300 flex flex-col group`}>
+            <div key={i} className={`glass-panel hover-3d border border-white/[0.05] hover:border-${card.color}-500/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.02)] p-6 rounded-2xl transition-all duration-300 flex flex-col group`}>
               <div className={`w-11 h-11 bg-${card.color}-500/5 border border-${card.color}-500/10 group-hover:border-${card.color}-500/30 rounded-xl flex items-center justify-center mb-5 text-${card.color}-400 transition-all`}>
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5">
                   <path strokeLinecap="round" strokeLinejoin="round" d={card.icon} />
@@ -413,7 +471,7 @@ export default function Home() {
 
       {/* Programmatic REST API Section */}
       <section id="api-explorer" className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 border-t border-white/[0.05]">
-        <div className="bg-[#0b0f19]/30 border border-white/[0.06] backdrop-blur-md rounded-3xl p-8 sm:p-12 relative overflow-hidden">
+        <div className="glass-panel hover-3d rounded-3xl p-8 sm:p-12 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/[0.01] rounded-full blur-3xl pointer-events-none"></div>
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
             <div className="lg:col-span-5 space-y-5 text-left">
@@ -471,7 +529,7 @@ export default function Home() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Live Console Card */}
-          <div className="bg-gradient-to-b from-[#0c1a12] via-[#071009] to-[#030a05] border border-emerald-500/20 hover:border-emerald-500/50 p-8 rounded-3xl relative overflow-hidden flex flex-col justify-between shadow-2xl hover:shadow-[0_0_50px_-15px_rgba(16,185,129,0.3)] transition-all duration-300 group">
+          <div className="glass-panel hover-3d border-emerald-500/20 hover:border-emerald-500/50 p-8 rounded-3xl relative overflow-hidden flex flex-col justify-between shadow-2xl transition-all duration-300 group">
             <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none group-hover:bg-emerald-500/10 transition-colors"></div>
             <div>
               <div className="flex items-center justify-between mb-6">
@@ -497,7 +555,7 @@ export default function Home() {
           </div>
 
           {/* Local Sandbox Card */}
-          <div className="bg-gradient-to-b from-[#0d0c1a] via-[#090813] to-[#050408] border border-violet-500/20 hover:border-violet-500/50 p-8 rounded-3xl relative overflow-hidden flex flex-col justify-between shadow-2xl hover:shadow-[0_0_50px_-15px_rgba(139,92,246,0.3)] transition-all duration-300 group">
+          <div className="glass-panel hover-3d border-violet-500/20 hover:border-violet-500/50 p-8 rounded-3xl relative overflow-hidden flex flex-col justify-between shadow-2xl transition-all duration-300 group">
             <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/5 rounded-full blur-3xl pointer-events-none group-hover:bg-violet-500/10 transition-colors"></div>
             <div>
               <div className="flex items-center justify-between mb-6">
@@ -520,7 +578,7 @@ export default function Home() {
           </div>
 
           {/* Admin Panel Card */}
-          <div className="bg-gradient-to-b from-slate-950 via-[#0a0f1d] to-[#050810] border border-white/[0.08] hover:border-white/[0.18] p-8 rounded-3xl relative overflow-hidden flex flex-col justify-between shadow-2xl hover:shadow-[0_0_40px_-15px_rgba(255,255,255,0.08)] transition-all duration-300 group">
+          <div className="glass-panel hover-3d border-white/[0.08] hover:border-white/[0.18] p-8 rounded-3xl relative overflow-hidden flex flex-col justify-between shadow-2xl transition-all duration-300 group">
             <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full blur-2xl pointer-events-none group-hover:bg-white/10 transition-colors"></div>
             <div>
               <div className="flex items-center justify-between mb-6">

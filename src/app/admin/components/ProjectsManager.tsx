@@ -369,7 +369,7 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
           </button>
         </div>
 
-        <div className="bg-slate-900/50 border border-white/[0.05] rounded-2xl p-6">
+        <div className="glass-panel border-white/[0.05] rounded-2xl p-6">
           <div className="flex flex-col gap-1 mb-6">
             <h2 className="text-2xl font-bold text-white flex items-center gap-3">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6 text-indigo-400">
@@ -433,15 +433,15 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
                 <div className="flex flex-col gap-8">
                   {/* Top Stats Cards */}
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    <div className="bg-white/[0.02] border border-white/[0.05] p-5 rounded-xl hover:bg-white/[0.04] transition-colors">
+                    <div className="glass-panel hover-3d border-white/[0.05] p-5 rounded-xl transition-colors">
                       <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Total API Hits</span>
                       <p className="text-3xl font-black text-white mt-2">{projectStatsData.totalHits}</p>
                     </div>
-                    <div className="bg-white/[0.02] border border-white/[0.05] p-5 rounded-xl hover:bg-white/[0.04] transition-colors">
+                    <div className="glass-panel hover-3d border-white/[0.05] p-5 rounded-xl transition-colors">
                       <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Generated Emails</span>
                       <p className="text-3xl font-black text-white mt-2">{projectStatsData.totalInboxes}</p>
                     </div>
-                    <div className="bg-white/[0.02] border border-white/[0.05] p-5 rounded-xl hover:bg-white/[0.04] transition-colors flex flex-col justify-center">
+                    <div className="glass-panel hover-3d border-white/[0.05] p-5 rounded-xl transition-colors flex flex-col justify-center">
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-gray-400">Simple Received:</span>
                         <span className="text-white font-bold">{projectStatsData.simpleReceived}</span>
@@ -451,18 +451,18 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
                         <span className="text-amber-400 font-bold">{projectStatsData.attachmentReceived}</span>
                       </div>
                     </div>
-                    <div className="bg-white/[0.02] border border-white/[0.05] p-5 rounded-xl hover:bg-white/[0.04] transition-colors">
+                    <div className="glass-panel hover-3d border-white/[0.05] p-5 rounded-xl transition-colors">
                       <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Total Received</span>
                       <p className="text-3xl font-black text-white mt-2">{projectStatsData.totalReceived}</p>
                     </div>
-                    <div className="bg-white/[0.02] border border-white/[0.05] p-5 rounded-xl hover:bg-white/[0.04] transition-colors">
+                    <div className="glass-panel hover-3d border-white/[0.05] p-5 rounded-xl transition-colors">
                       <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Storage Used</span>
                       <p className="text-3xl font-black text-white mt-2 text-indigo-400">{formatBytes(projectStatsData.totalStorageUsed)}</p>
                     </div>
                   </div>
 
                   {/* Data Retention Settings */}
-                  <div className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-5">
+                  <div className="glass-panel hover-3d border-white/[0.05] rounded-xl p-5">
                     <h3 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-4 flex items-center gap-2">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-emerald-400">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 9.75v-4.5m0 4.5h4.5m-4.5 0l6-6m-3 18c-8.284 0-15-6.716-15-15V4.5A2.25 2.25 0 014.5 2.25h13.5A2.25 2.25 0 0120.25 4.5v11.25m-18 0C2.25 21.5 9 22.5 15 22.5c1.5 0 3-.225 4.5-.675m-18-6.075v6.075c0 1.243 1.007 2.25 2.25 2.25h11.25" />
@@ -518,7 +518,7 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
                   </div>
 
                   {/* All Received Emails Table */}
-                  <div className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-5">
+                  <div className="glass-panel hover-3d border-white/[0.05] rounded-xl p-5">
                     <div className="flex justify-between items-center mb-4">
                       <h3 className="text-sm font-bold text-gray-300 uppercase tracking-wider flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-emerald-400">
@@ -654,6 +654,108 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
               )}
             </>
           )}
+
+          {/* Files Modal */}
+          {isFilesModalOpen && viewingAnalyticsFor && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="bg-[#0D121F] border border-white/[0.05] w-full max-w-4xl max-h-[85vh] rounded-2xl flex flex-col shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-sky-500"></div>
+                
+                <div className="flex justify-between items-center p-6 border-b border-white/[0.05]">
+                  <div className="flex flex-col">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5 text-emerald-500">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0M12 12.75h.008v.008H12v-.008z" />
+                      </svg>
+                      Project Storage Files
+                    </h2>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Showing physical files (JSON records and Media Attachments) on disk for <span className="text-emerald-400 font-semibold">{(viewingAnalyticsFor as Project).name}</span>
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setIsFilesModalOpen(false)}
+                    className="text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-xl transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="p-6 overflow-y-auto flex-grow flex flex-col gap-6">
+                  {loadingFiles ? (
+                    <div className="py-20 flex flex-col items-center justify-center gap-4">
+                      <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                      <p className="text-sm text-gray-400 font-mono">Scanning storage directory...</p>
+                    </div>
+                  ) : projectFilesData ? (
+                    <>
+                      <div className="bg-[#111726] border border-white/[0.05] p-5 rounded-2xl flex justify-between items-center shadow-inner">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Total Storage Used</span>
+                          <span className="text-2xl font-bold text-emerald-400 font-mono">
+                            {formatBytes(projectFilesData.totalSizeBytes)}
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-1 items-end">
+                          <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Total Files Count</span>
+                          <span className="text-2xl font-bold text-white font-mono">
+                            {projectFilesData.files.length}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="overflow-x-auto rounded-xl border border-white/[0.05] bg-black/20">
+                        <table className="w-full text-left text-xs text-gray-400 min-w-[600px]">
+                          <thead className="text-[10px] uppercase tracking-wider border-b border-white/[0.05] bg-black/40">
+                            <tr>
+                              <th className="py-3 px-4">Filename</th>
+                              <th className="py-3 px-4 w-32 text-center">Type</th>
+                              <th className="py-3 px-4 w-32 text-right">Size</th>
+                              <th className="py-3 px-4 w-48 text-right">Created At</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/[0.02]">
+                            {projectFilesData.files.map((file: any) => (
+                              <tr key={file.id} className="hover:bg-white/[0.02]">
+                                <td className="py-3 px-4 font-mono text-gray-300 break-all">{file.name}</td>
+                                <td className="py-3 px-4 text-center">
+                                  {file.type === "Media Attachment" ? (
+                                    <span className="bg-amber-500/10 text-amber-400 px-2 py-1 rounded text-[10px] font-bold inline-block">
+                                      Attachment
+                                  </span>
+                                  ) : (
+                                    <span className="bg-sky-500/10 text-sky-400 px-2 py-1 rounded text-[10px] font-bold inline-block">
+                                      JSON Record
+                                  </span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-right whitespace-nowrap font-mono">{formatBytes(file.sizeBytes)}</td>
+                                <td className="py-3 px-4 text-right text-gray-500">{new Date(file.createdAt).toLocaleString()}</td>
+                              </tr>
+                            ))}
+                            {projectFilesData.files.length === 0 && (
+                              <tr>
+                                <td colSpan={4} className="py-8 text-center text-sm text-gray-500">
+                                  No physical files found on disk for this project.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="py-20 text-center text-red-400">
+                      Failed to load files data.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
     );
@@ -897,107 +999,6 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
           </div>
         )}
       </div>
-
-      {/* Files Modal */}
-      {isFilesModalOpen && viewingAnalyticsFor && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[#0D121F] border border-white/[0.05] w-full max-w-4xl max-h-[85vh] rounded-2xl flex flex-col shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-sky-500"></div>
-            
-            <div className="flex justify-between items-center p-6 border-b border-white/[0.05]">
-              <div className="flex flex-col">
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5 text-emerald-500">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0M12 12.75h.008v.008H12v-.008z" />
-                  </svg>
-                  Project Storage Files
-                </h2>
-                <p className="text-xs text-gray-400 mt-1">
-                  Showing physical files (JSON records and Media Attachments) on disk for <span className="text-emerald-400 font-semibold">{(viewingAnalyticsFor as Project).name}</span>
-                </p>
-              </div>
-              <button
-                onClick={() => setIsFilesModalOpen(false)}
-                className="text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-xl transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="p-6 overflow-y-auto flex-grow flex flex-col gap-6">
-              {loadingFiles ? (
-                <div className="py-20 flex flex-col items-center justify-center gap-4">
-                  <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-sm text-gray-400 font-mono">Scanning storage directory...</p>
-                </div>
-              ) : projectFilesData ? (
-                <>
-                  <div className="bg-[#111726] border border-white/[0.05] p-5 rounded-2xl flex justify-between items-center shadow-inner">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Total Storage Used</span>
-                      <span className="text-2xl font-bold text-emerald-400 font-mono">
-                        {formatBytes(projectFilesData.totalSizeBytes)}
-                      </span>
-                    </div>
-                    <div className="flex flex-col gap-1 items-end">
-                      <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Total Files Count</span>
-                      <span className="text-2xl font-bold text-white font-mono">
-                        {projectFilesData.files.length}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="overflow-x-auto rounded-xl border border-white/[0.05] bg-black/20">
-                    <table className="w-full text-left text-xs text-gray-400 min-w-[600px]">
-                      <thead className="text-[10px] uppercase tracking-wider border-b border-white/[0.05] bg-black/40">
-                        <tr>
-                          <th className="py-3 px-4">Filename</th>
-                          <th className="py-3 px-4 w-32 text-center">Type</th>
-                          <th className="py-3 px-4 w-32 text-right">Size</th>
-                          <th className="py-3 px-4 w-48 text-right">Created At</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/[0.02]">
-                        {projectFilesData.files.map((file: any) => (
-                          <tr key={file.id} className="hover:bg-white/[0.02]">
-                            <td className="py-3 px-4 font-mono text-gray-300 break-all">{file.name}</td>
-                            <td className="py-3 px-4 text-center">
-                              {file.type === "Media Attachment" ? (
-                                <span className="bg-amber-500/10 text-amber-400 px-2 py-1 rounded text-[10px] font-bold inline-block">
-                                  Attachment
-                               </span>
-                              ) : (
-                                <span className="bg-sky-500/10 text-sky-400 px-2 py-1 rounded text-[10px] font-bold inline-block">
-                                  JSON Record
-                               </span>
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-right whitespace-nowrap font-mono">{formatBytes(file.sizeBytes)}</td>
-                            <td className="py-3 px-4 text-right text-gray-500">{new Date(file.createdAt).toLocaleString()}</td>
-                          </tr>
-                        ))}
-                        {projectFilesData.files.length === 0 && (
-                          <tr>
-                            <td colSpan={4} className="py-8 text-center text-sm text-gray-500">
-                              No physical files found on disk for this project.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              ) : (
-                <div className="py-20 text-center text-red-400">
-                  Failed to load files data.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

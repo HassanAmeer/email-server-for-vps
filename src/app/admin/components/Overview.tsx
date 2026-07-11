@@ -30,7 +30,7 @@ export default function Overview({ apiUrl, stats }: OverviewProps) {
       try {
         const token = localStorage.getItem("admin_token") || "";
         const headers = { "Authorization": `Bearer ${token}` };
-        
+
         const [res, trafficRes] = await Promise.all([
           fetch(`${apiUrl}/api/admin/api-settings`, { headers }),
           fetch(`${apiUrl}/api/admin/stats/traffic`, { headers })
@@ -66,7 +66,7 @@ export default function Overview({ apiUrl, stats }: OverviewProps) {
 
   // Dynamically calculate SVG Chart Coordinates from trafficStats
   const maxTraffic = Math.max(1, ...trafficStats.map(s => s.generated + s.received));
-  
+
   // Define chart boundaries
   const chartWidth = 420;
   const startX = 50;
@@ -80,7 +80,7 @@ export default function Overview({ apiUrl, stats }: OverviewProps) {
     const y = startY - (chartHeight * heightPercent);
     const dateObj = new Date(stat.day);
     const dayStr = dateObj.toLocaleDateString("en-US", { weekday: 'short' });
-    
+
     return {
       x: startX + (i * xStep),
       y: y,
@@ -103,7 +103,7 @@ export default function Overview({ apiUrl, stats }: OverviewProps) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
 
         {/* Metric 1 */}
-        <div className="group relative bg-gradient-to-br from-slate-950/80 to-slate-900/60 border border-white/[0.04] hover:border-emerald-500/30 p-6 rounded-3xl shadow-xl hover:shadow-[0_0_30px_rgba(16,185,129,0.08)] transition-all duration-300 overflow-hidden">
+        <div className="group relative glass-panel hover-3d border border-white/[0.04] p-6 rounded-3xl overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition-colors"></div>
           <div className="flex justify-between items-start">
             <div className="flex flex-col gap-1.5">
@@ -120,7 +120,7 @@ export default function Overview({ apiUrl, stats }: OverviewProps) {
         </div>
 
         {/* Metric 2 */}
-        <div className="group relative bg-gradient-to-br from-slate-950/80 to-slate-900/60 border border-white/[0.04] hover:border-emerald-500/30 p-6 rounded-3xl shadow-xl hover:shadow-[0_0_30px_rgba(16,185,129,0.08)] transition-all duration-300 overflow-hidden">
+        <div className="group relative glass-panel hover-3d border border-white/[0.04] p-6 rounded-3xl overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition-colors"></div>
           <div className="flex justify-between items-start">
             <div className="flex flex-col gap-1.5">
@@ -137,7 +137,7 @@ export default function Overview({ apiUrl, stats }: OverviewProps) {
         </div>
 
         {/* Metric 3 */}
-        <div className="group relative bg-gradient-to-br from-slate-950/80 to-slate-900/60 border border-white/[0.04] hover:border-emerald-500/30 p-6 rounded-3xl shadow-xl hover:shadow-[0_0_30px_rgba(16,185,129,0.08)] transition-all duration-300 overflow-hidden">
+        <div className="group relative glass-panel hover-3d border border-white/[0.04] p-6 rounded-3xl overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition-colors"></div>
           <div className="flex justify-between items-start">
             <div className="flex flex-col gap-1.5">
@@ -154,7 +154,7 @@ export default function Overview({ apiUrl, stats }: OverviewProps) {
         </div>
 
         {/* Metric 4 */}
-        <div className="group relative bg-gradient-to-br from-slate-950/80 to-slate-900/60 border border-white/[0.04] hover:border-emerald-500/30 p-6 rounded-3xl shadow-xl hover:shadow-[0_0_30px_rgba(16,185,129,0.08)] transition-all duration-300 overflow-hidden">
+        <div className="group relative glass-panel hover-3d border border-white/[0.04] p-6 rounded-3xl overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition-colors"></div>
           <div className="flex justify-between items-start">
             <div className="flex flex-col gap-1.5">
@@ -181,7 +181,7 @@ export default function Overview({ apiUrl, stats }: OverviewProps) {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
         {/* API Traffic chart card - spans 7/12 cols */}
-        <div className="lg:col-span-7 bg-gradient-to-b from-[#0E1325] to-[#0A0D18] border border-white/[0.04] p-6 rounded-3xl shadow-xl flex flex-col gap-6 relative overflow-hidden">
+        <div className="lg:col-span-7 glass-panel hover-3d border border-white/[0.04] p-6 rounded-3xl flex flex-col gap-6 relative overflow-hidden">
           <div className="flex justify-between items-center">
             <div>
               <h3 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono">Incoming API Load Traffic</h3>
@@ -254,7 +254,7 @@ export default function Overview({ apiUrl, stats }: OverviewProps) {
         </div>
 
         {/* Server Checklist & Health checks - spans 5/12 cols */}
-        <div className="lg:col-span-5 bg-gradient-to-b from-[#0E1325] to-[#0A0D18] border border-white/[0.04] p-6 rounded-3xl shadow-xl flex flex-col gap-6">
+        <div className="lg:col-span-5 glass-panel hover-3d border border-white/[0.04] p-6 rounded-3xl flex flex-col gap-6">
           <div>
             <h3 className="text-sm font-extrabold text-white tracking-wide uppercase font-mono">Server Status & Health</h3>
             <p className="text-[11px] text-gray-400">Node configurations running inside the VPS.</p>
