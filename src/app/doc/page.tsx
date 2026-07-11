@@ -23,6 +23,7 @@ const endpoints = [
     method: "GET",
     path: "/api/domains",
     title: "Get Active Domains",
+    category: "Receive Mail",
     desc: "Fetch a list of all active domains available for generating temporary email addresses. Use this list to let users choose a domain before generation.",
     payload: null,
     response: `{
@@ -40,6 +41,7 @@ const endpoints = [
     method: "GET",
     path: "/api/mailbox/generate",
     title: "Generate Mailbox",
+    category: "Receive Mail",
     desc: "Dynamically allocates a random transient email address. Optionally pass a `domain` query parameter to force generation on a specific active domain.",
     payload: null,
     response: `{
@@ -54,6 +56,7 @@ const endpoints = [
     method: "GET",
     path: "/api/mailbox/custom",
     title: "Custom Address Mailbox",
+    category: "Receive Mail",
     desc: "Create a custom email address with your chosen name. Pass `name` (required) and optionally `domain`. Returns 409 if the address is already taken. Only letters, numbers, dots, hyphens, and underscores are allowed (1-64 chars).",
     payload: null,
     response: `{
@@ -68,6 +71,7 @@ const endpoints = [
     method: "GET",
     path: "/api/mailbox/:email",
     title: "Fetch Inbox Mails",
+    category: "Receive Mail",
     desc: "Retrieves all captured emails sent to the specified transient mailbox, including parsed sender info, subject, body text, HTML, and any attachment metadata.",
     payload: null,
     response: `[
@@ -97,6 +101,7 @@ const endpoints = [
     method: "GET",
     path: "/api/mailbox/:email/otps",
     title: "Extract OTP Codes",
+    category: "Receive Mail",
     desc: "Scans inbound emails in the specified mailbox and extracts all detected 4-6 digit numeric OTP verification codes via regex. Returns structured objects ready for test assertion.",
     payload: null,
     response: `[
@@ -117,6 +122,7 @@ const endpoints = [
     method: "GET",
     path: "/api/attachments/:filename",
     title: "Download Attachment",
+    category: "Receive Mail",
     desc: "Streams the raw binary payload of a previously saved email attachment. The filename is returned in the attachment metadata from the inbox endpoint.",
     payload: null,
     response: `Binary Data (File Stream)`,
@@ -129,6 +135,7 @@ const endpoints = [
     method: "POST",
     path: "/api/send-email/live",
     title: "Send Custom Email (Live)",
+    category: "Send Mail",
     desc: "Dispatches an outbound email to any public internet address using your VPS SMTP node. Supports plain text and HTML bodies. Optionally include DKIM signing.",
     payload: `{
   "from": "sender@your-domain.com",
@@ -149,6 +156,7 @@ const endpoints = [
     method: "DELETE",
     path: "/api/mailbox/:email",
     title: "Delete Mailbox",
+    category: "Receive Mail",
     desc: "Purges the entire mailbox storage history. Useful for cleanup between test runs.",
     payload: null,
     response: `{
@@ -163,6 +171,7 @@ const endpoints = [
     method: "DELETE",
     path: "/api/mailbox/:email/:mailId",
     title: "Delete Specific Email",
+    category: "Receive Mail",
     desc: "Removes a single email by its ID from the mailbox.",
     payload: null,
     response: `{
@@ -177,6 +186,7 @@ const endpoints = [
     method: "GET",
     path: "/api/mails",
     title: "Get All Emails (Global)",
+    category: "Admin",
     desc: "Returns a combined, date-sorted feed of every email captured across both the Live SMTP listener and Local Sandbox ports. Useful for admin dashboards or global monitoring.",
     payload: null,
     response: `[
@@ -207,10 +217,13 @@ export default function ApiDocumentation() {
   const [copied, setCopied] = useState<string | null>(null);
   const [baseUrl, setBaseUrl] = useState("http://localhost:8081");
   const [codeLang, setCodeLang] = useState<"curl" | "js" | "python" | "php">("curl");
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       setBaseUrl(window.location.origin);
+      const token = localStorage.getItem("admin_token");
+      if (token) setIsAdmin(true);
     }
   }, []);
 
@@ -315,31 +328,73 @@ export default function ApiDocumentation() {
 
           {/* Endpoint List */}
           <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
-            <p className="text-[10px] font-mono font-bold text-gray-600 uppercase tracking-[0.15em] px-2 py-2">Endpoints</p>
-            {endpoints.map((e) => {
-              const c = methodColors[e.method];
-              const isActive = activeTab === e.id;
-              return (
-                <button
-                  key={e.id}
-                  onClick={() => setActiveTab(e.id)}
-                  className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center gap-3 transition-all duration-150 cursor-pointer group ${isActive
-                    ? "bg-white/[0.05] border border-white/[0.08]"
-                    : "border border-transparent hover:bg-white/[0.02] hover:border-white/[0.04]"
-                    }`}
-                >
-                  <span className={`shrink-0 text-[9px] font-black font-mono px-1.5 py-0.5 rounded border uppercase tracking-wider ${c.badge}`}>
-                    {e.method}
-                  </span>
-                  <span className={`text-xs font-medium truncate transition-colors ${isActive ? "text-white" : "text-gray-500 group-hover:text-gray-300"}`}>
-                    {e.title}
-                  </span>
-                  {isActive && (
-                    <span className={`ml-auto w-1.5 h-1.5 rounded-full shrink-0 ${c.dot}`}></span>
-                  )}
-                </button>
-              );
-            })}
+            {isAdmin ? (
+              // Grouped view for admin
+              <>
+                {["Receive Mail", "Send Mail", "Admin"].map(cat => {
+                  const catEndpoints = endpoints.filter(e => e.category === cat);
+                  if (catEndpoints.length === 0) return null;
+                  return (
+                    <div key={cat} className="mb-2">
+                      <p className="text-[10px] font-mono font-bold text-gray-500 uppercase tracking-[0.15em] px-2 py-2 border-l-2 border-emerald-500/50 ml-1">{cat}</p>
+                      {catEndpoints.map((e) => {
+                        const c = methodColors[e.method];
+                        const isActive = activeTab === e.id;
+                        return (
+                          <button
+                            key={e.id}
+                            onClick={() => setActiveTab(e.id)}
+                            className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center gap-3 transition-all duration-150 cursor-pointer group ${isActive
+                              ? "bg-white/[0.05] border border-white/[0.08]"
+                              : "border border-transparent hover:bg-white/[0.02] hover:border-white/[0.04]"
+                              }`}
+                          >
+                            <span className={`shrink-0 text-[9px] font-black font-mono px-1.5 py-0.5 rounded border uppercase tracking-wider ${c.badge}`}>
+                              {e.method}
+                            </span>
+                            <span className={`text-xs font-medium truncate transition-colors ${isActive ? "text-white" : "text-gray-500 group-hover:text-gray-300"}`}>
+                              {e.title}
+                            </span>
+                            {isActive && (
+                              <span className={`ml-auto w-1.5 h-1.5 rounded-full shrink-0 ${c.dot}`}></span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </>
+            ) : (
+              // Flat list for non-admin
+              <>
+                <p className="text-[10px] font-mono font-bold text-gray-600 uppercase tracking-[0.15em] px-2 py-2">Endpoints</p>
+                {endpoints.map((e) => {
+                  const c = methodColors[e.method];
+                  const isActive = activeTab === e.id;
+                  return (
+                    <button
+                      key={e.id}
+                      onClick={() => setActiveTab(e.id)}
+                      className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center gap-3 transition-all duration-150 cursor-pointer group ${isActive
+                        ? "bg-white/[0.05] border border-white/[0.08]"
+                        : "border border-transparent hover:bg-white/[0.02] hover:border-white/[0.04]"
+                        }`}
+                    >
+                      <span className={`shrink-0 text-[9px] font-black font-mono px-1.5 py-0.5 rounded border uppercase tracking-wider ${c.badge}`}>
+                        {e.method}
+                      </span>
+                      <span className={`text-xs font-medium truncate transition-colors ${isActive ? "text-white" : "text-gray-500 group-hover:text-gray-300"}`}>
+                        {e.title}
+                      </span>
+                      {isActive && (
+                        <span className={`ml-auto w-1.5 h-1.5 rounded-full shrink-0 ${c.dot}`}></span>
+                      )}
+                    </button>
+                  );
+                })}
+              </>
+            )}
           </nav>
 
           {/* Footer */}

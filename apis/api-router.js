@@ -647,9 +647,27 @@ export class ApiRouter {
         return;
       }
 
+      // DELETE /api/admin/projects/:id/hits
+      if (req.method === "DELETE" && req.url.match(/\/api\/admin\/projects\/\d+\/hits/)) {
+        const idStr = req.url.split("/")[4];
+        const id = parseInt(idStr, 10);
+        try {
+          const dbModule = await import("../backend/database/db.js");
+          const { resetProjectHits } = dbModule;
+          resetProjectHits(id);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ success: true }));
+        } catch (e) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: e.message }));
+        }
+        return;
+      }
+
       // GET /api/admin/projects/:id/stats
       if (req.method === "GET" && req.url.match(/\/api\/admin\/projects\/\d+\/stats/)) {
-        const id = req.url.split("/")[4]; // /api/admin/projects/:id/stats
+        const idStr = req.url.split("/")[4]; // /api/admin/projects/:id/stats
+        const id = parseInt(idStr, 10);
         try {
           const totalHits = db.query("SELECT COUNT(*) as count FROM project_api_logs WHERE project_id = ?").get(id).count;
           const totalInboxes = db.query("SELECT COUNT(*) as count FROM generated_emails WHERE project_id = ?").get(id).count;
@@ -684,7 +702,8 @@ export class ApiRouter {
 
       // GET /api/admin/projects/:id/emails
       if (req.method === "GET" && req.url.match(/\/api\/admin\/projects\/\d+\/emails/)) {
-        const id = req.url.split("/")[4]; // /api/admin/projects/:id/emails
+        const idStr = req.url.split("/")[4]; // /api/admin/projects/:id/emails
+        const id = parseInt(idStr, 10);
         const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
         const page = parseInt(parsedUrl.searchParams.get("page") || "1", 10);
         const limit = parseInt(parsedUrl.searchParams.get("limit") || "20", 10);
@@ -706,12 +725,18 @@ export class ApiRouter {
 
       // DELETE /api/admin/projects/:id
       if (req.method === "DELETE") {
-        const id = req.url.split("/").pop();
-        const stmt = db.prepare("DELETE FROM projects WHERE id = ?");
-        stmt.run(id);
-        
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: true }));
+        const idStr = req.url.split("/").pop();
+        const id = parseInt(idStr, 10);
+        try {
+          const stmt = db.prepare("DELETE FROM projects WHERE id = ?");
+          stmt.run(id);
+          
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ success: true }));
+        } catch (e) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: e.message }));
+        }
         return;
       }
       

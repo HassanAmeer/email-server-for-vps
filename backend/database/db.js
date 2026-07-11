@@ -118,6 +118,14 @@ export function logProjectApiHit(projectId, endpoint, method = "GET") {
   }
 }
 
+export function resetProjectHits(projectId) {
+  try {
+    db.prepare("DELETE FROM project_api_logs WHERE project_id = ?").run(projectId);
+  } catch (err) {
+    console.error("DB Error resetting project API hits:", err);
+  }
+}
+
 // --- PROJECT HELPERS ---
 export function getProjectByApiKey(apiKey) {
   try {
@@ -253,7 +261,15 @@ export function clearSystemLogs(log_type) {
 
 export function initApiSettings(settingsArray) {
   try {
-    const stmt = db.prepare("INSERT OR IGNORE INTO api_settings (id, method, path, desc, enabled, category, hits) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    const stmt = db.prepare(`
+      INSERT INTO api_settings (id, method, path, desc, enabled, category, hits)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        desc = excluded.desc,
+        path = excluded.path,
+        method = excluded.method,
+        category = excluded.category
+    `);
     for (const api of settingsArray) {
       stmt.run(api.id, api.method, api.path, api.desc, api.enabled ? 1 : 0, api.category, api.hits || 0);
     }
@@ -287,6 +303,14 @@ export function incrementApiHits(id) {
     db.prepare("UPDATE api_settings SET hits = hits + 1 WHERE id = ?").run(id);
   } catch (err) {
     console.error("DB Error incrementing API hit:", err);
+  }
+}
+
+export function resetApiSettingsHits() {
+  try {
+    db.prepare("UPDATE api_settings SET hits = 0").run();
+  } catch (err) {
+    console.error("DB Error resetting API hits:", err);
   }
 }
 

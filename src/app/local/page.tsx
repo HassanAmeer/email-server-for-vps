@@ -91,7 +91,7 @@ export default function LocalConsolePage() {
       const data = await res.json();
       if (res.ok && data.email) {
         setGeneratedEmail(data.email);
-        setEmails([]); 
+        setEmails([]);
       } else {
         alert("Failed to generate: " + (data.error || "Unknown error"));
       }
@@ -125,7 +125,7 @@ export default function LocalConsolePage() {
       const resMails = await fetch(`${apiUrl}/api/emails/local`);
       if (resMails.ok) {
         let mailsData: Email[] = await resMails.json();
-        
+
         // Filter by generated email if set, otherwise show none
         if (generatedEmail) {
           mailsData = mailsData.filter(m => m.to.toLowerCase() === generatedEmail.toLowerCase());
@@ -357,9 +357,9 @@ export default function LocalConsolePage() {
           <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto flex-wrap">
             <div className="flex flex-col gap-1 w-full md:w-auto">
               <label className="text-[10px] uppercase text-gray-500 font-bold tracking-widest pl-1">API Key (Optional)</label>
-              <input 
-                type="text" 
-                value={apiKey} 
+              <input
+                type="text"
+                value={apiKey}
                 onChange={e => setApiKey(e.target.value)}
                 placeholder="Enter API Key"
                 className="bg-slate-900/50 border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50 min-w-[200px]"
@@ -367,7 +367,7 @@ export default function LocalConsolePage() {
             </div>
             <div className="flex flex-col gap-1 w-full md:w-auto">
               <label className="text-[10px] uppercase text-gray-500 font-bold tracking-widest pl-1">Select Domain</label>
-              <select 
+              <select
                 value={selectedDomain}
                 onChange={e => setSelectedDomain(e.target.value)}
                 className="bg-slate-900/50 border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50 min-w-[200px]"
@@ -376,7 +376,7 @@ export default function LocalConsolePage() {
               </select>
             </div>
             <div className="flex flex-col gap-1 w-full md:w-auto justify-end h-full mt-1 md:mt-4">
-              <button 
+              <button
                 onClick={handleGenerate}
                 disabled={isGenerating || !selectedDomain}
                 className="bg-purple-500 hover:bg-purple-400 text-slate-900 font-bold px-6 py-2.5 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
@@ -393,7 +393,7 @@ export default function LocalConsolePage() {
                   <span className="text-[10px] uppercase text-purple-500 font-bold tracking-widest">Generated Inbox</span>
                   <span className="text-white font-mono font-medium text-sm">{generatedEmail}</span>
                 </div>
-                <button 
+                <button
                   onClick={handleCopyGen}
                   className="bg-white/5 hover:bg-white/10 p-2 rounded-lg transition-colors text-gray-300"
                   title="Copy Email"
@@ -421,9 +421,8 @@ export default function LocalConsolePage() {
         <nav className="flex gap-3 bg-white/[0.02] p-1.5 rounded-xl border border-white/[0.06] w-fit flex-wrap">
           <button
             onClick={() => setActiveTab("inbox-tab")}
-            className={`tab-btn flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all ${
-              activeTab === "inbox-tab" ? "text-white bg-white/[0.05]" : "text-gray-400 hover:text-white"
-            }`}
+            className={`tab-btn flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all ${activeTab === "inbox-tab" ? "text-white bg-white/[0.05]" : "text-gray-400 hover:text-white"
+              }`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4.5 h-4.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.008 1.24l.885 1.77a2.25 2.25 0 002.007 1.24h1.98a2.25 2.25 0 002.007-1.24l.885-1.77a2.25 2.25 0 012.007-1.24h3.86m-18 0h18m-18 0V9A2.25 2.25 0 014.5 6.75h15A2.25 2.25 0 0121.75 9v4.5m-18 0V18a2.25 2.25 0 002.25 2.25h13.5A2.25 2.25 0 0021 18v-4.5m-15 0V9a1.5 1.5 0 00-1.5-1.5H5.25A1.5 1.5 0 003.75 9v4.5m16.5 0V9a1.5 1.5 0 00-1.5-1.5h-1.5A1.5 1.5 0 0015.75 9v4.5" />
@@ -432,9 +431,8 @@ export default function LocalConsolePage() {
           </button>
           <button
             onClick={() => setActiveTab("json-tab")}
-            className={`tab-btn flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all ${
-              activeTab === "json-tab" ? "text-white bg-white/[0.05]" : "text-gray-400 hover:text-white"
-            }`}
+            className={`tab-btn flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all ${activeTab === "json-tab" ? "text-white bg-white/[0.05]" : "text-gray-400 hover:text-white"
+              }`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4.5 h-4.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
@@ -443,9 +441,8 @@ export default function LocalConsolePage() {
           </button>
           <button
             onClick={() => setActiveTab("syslog-tab")}
-            className={`tab-btn flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all ${
-              activeTab === "syslog-tab" ? "text-white bg-white/[0.05]" : "text-gray-400 hover:text-white"
-            }`}
+            className={`tab-btn flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all ${activeTab === "syslog-tab" ? "text-white bg-white/[0.05]" : "text-gray-400 hover:text-white"
+              }`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4.5 h-4.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
@@ -454,9 +451,8 @@ export default function LocalConsolePage() {
           </button>
           <button
             onClick={() => setActiveTab("sending-tab")}
-            className={`tab-btn flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all ${
-              activeTab === "sending-tab" ? "text-white bg-white/[0.05]" : "text-gray-400 hover:text-white"
-            }`}
+            className={`tab-btn flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all ${activeTab === "sending-tab" ? "text-white bg-white/[0.05]" : "text-gray-400 hover:text-white"
+              }`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4.5 h-4.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
@@ -465,9 +461,8 @@ export default function LocalConsolePage() {
           </button>
           <button
             onClick={() => setActiveTab("send-tab")}
-            className={`tab-btn flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all ${
-              activeTab === "send-tab" ? "text-white bg-white/[0.05]" : "text-gray-400 hover:text-white"
-            }`}
+            className={`tab-btn flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all ${activeTab === "send-tab" ? "text-white bg-white/[0.05]" : "text-gray-400 hover:text-white"
+              }`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4.5 h-4.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
@@ -589,17 +584,15 @@ export default function LocalConsolePage() {
                       <div className="flex gap-2 border-b border-white/[0.05] pb-2">
                         <button
                           onClick={() => setViewMode("html")}
-                          className={`px-3 py-1 rounded text-xs font-medium cursor-pointer transition-colors ${
-                            viewMode === "html" ? "bg-white/[0.05] text-white" : "text-gray-400 hover:text-white"
-                          }`}
+                          className={`px-3 py-1 rounded text-xs font-medium cursor-pointer transition-colors ${viewMode === "html" ? "bg-white/[0.05] text-white" : "text-gray-400 hover:text-white"
+                            }`}
                         >
                           HTML Preview
                         </button>
                         <button
                           onClick={() => setViewMode("text")}
-                          className={`px-3 py-1 rounded text-xs font-medium cursor-pointer transition-colors ${
-                            viewMode === "text" ? "bg-white/[0.05] text-white" : "text-gray-400 hover:text-white"
-                          }`}
+                          className={`px-3 py-1 rounded text-xs font-medium cursor-pointer transition-colors ${viewMode === "text" ? "bg-white/[0.05] text-white" : "text-gray-400 hover:text-white"
+                            }`}
                         >
                           Plain Text
                         </button>
@@ -779,11 +772,10 @@ export default function LocalConsolePage() {
 
                 {sendAlert && (
                   <div
-                    className={`rounded-lg px-4 py-3 text-sm font-semibold mt-2 ${
-                      sendAlert.type === "success"
-                        ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
-                        : "bg-red-500/10 text-red-600 border border-red-500/20"
-                    }`}
+                    className={`rounded-lg px-4 py-3 text-sm font-semibold mt-2 ${sendAlert.type === "success"
+                      ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                      : "bg-red-500/10 text-red-600 border border-red-500/20"
+                      }`}
                   >
                     {sendAlert.msg}
                   </div>
@@ -860,21 +852,19 @@ export default function LocalConsolePage() {
               <div className="flex border-b border-white/[0.06] bg-[#0A0F1D]">
                 <button
                   onClick={() => setHelpActiveTab("flow")}
-                  className={`flex-1 py-3 text-sm font-semibold transition-all border-b-2 ${
-                    helpActiveTab === "flow"
-                      ? "text-sky-400 border-sky-500 bg-white/[0.02]"
-                      : "text-gray-400 border-transparent hover:text-white"
-                  }`}
+                  className={`flex-1 py-3 text-sm font-semibold transition-all border-b-2 ${helpActiveTab === "flow"
+                    ? "text-sky-400 border-sky-500 bg-white/[0.02]"
+                    : "text-gray-400 border-transparent hover:text-white"
+                    }`}
                 >
                   Local Flow
                 </button>
                 <button
                   onClick={() => setHelpActiveTab("smtp")}
-                  className={`flex-1 py-3 text-sm font-semibold transition-all border-b-2 ${
-                    helpActiveTab === "smtp"
-                      ? "text-sky-400 border-sky-500 bg-white/[0.02]"
-                      : "text-gray-400 border-transparent hover:text-white"
-                  }`}
+                  className={`flex-1 py-3 text-sm font-semibold transition-all border-b-2 ${helpActiveTab === "smtp"
+                    ? "text-sky-400 border-sky-500 bg-white/[0.02]"
+                    : "text-gray-400 border-transparent hover:text-white"
+                    }`}
                 >
                   Local SMTP Testing
                 </button>

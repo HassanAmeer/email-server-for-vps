@@ -23,22 +23,27 @@ function extractEmail(str) {
 
 // Available APIs config list with category and stats
 const defaultApiSettings = [
-  { id: "mailbox-generate", method: "GET", path: "/api/mailbox/generate", desc: "Generate a new random temporary mailbox email address", enabled: true, category: "Mailbox UI", hits: 0 },
-  { id: "api-domains", method: "GET", path: "/api/domains", desc: "List all active domains available for email generation", enabled: true, category: "Mailbox UI", hits: 0 },
-  { id: "mailbox-custom", method: "GET", path: "/api/mailbox/custom", desc: "Generate a custom email with a user-chosen name", enabled: true, category: "Mailbox UI", hits: 0 },
-  { id: "mailbox-get", method: "GET", path: "/api/mailbox/:email", desc: "Retrieve list of all received emails in a mailbox", enabled: true, category: "Mailbox UI", hits: 0 },
-  { id: "mailbox-delete", method: "DELETE", path: "/api/mailbox/:email", desc: "Delete all emails in a mailbox database", enabled: true, category: "Mailbox UI", hits: 0 },
-  { id: "mailbox-delete-one", method: "DELETE", path: "/api/mailbox/:email/:mailId", desc: "Delete a specific email from a mailbox database", enabled: true, category: "Mailbox UI", hits: 0 },
-  { id: "mailbox-otps", method: "GET", path: "/api/mailbox/:email/otps", desc: "Scan mailbox emails and parse numeric OTP codes", enabled: true, category: "Mailbox UI", hits: 0 },
-  { id: "local-emails", method: "GET", path: "/api/emails/local", desc: "Fetch local inbox emails and local SMTP logs", enabled: true, category: "Local Console", hits: 0 },
-  { id: "live-emails", method: "GET", path: "/api/emails/live", desc: "Fetch live inbox emails and live SMTP traffic logs", enabled: true, category: "Live Console", hits: 0 },
-  { id: "delete-local", method: "POST", path: "/api/emails/delete/local/:filename", desc: "Delete a local email JSON file", enabled: true, category: "Local Console", hits: 0 },
-  { id: "delete-live", method: "POST", path: "/api/emails/delete/live/:filename", desc: "Delete a live email JSON file", enabled: true, category: "Live Console", hits: 0 },
-  { id: "send-local", method: "POST", path: "/api/send-email/local", desc: "Dispatch email locally on SMTP Port 2525", enabled: true, category: "Local Console", hits: 0 },
-  { id: "send-live", method: "POST", path: "/api/send-email/live", desc: "Dispatch email publicly using validated relay", enabled: true, category: "Live Console", hits: 0 },
-  { id: "admin-login", method: "POST", path: "/api/admin/login", desc: "Authenticate admin dashboard session credentials", enabled: true, category: "Admin Management", hits: 0 },
-  { id: "admin-stats", method: "GET", path: "/api/admin/stats", desc: "Get server metrics, disk sizes, and account totals", enabled: true, category: "Admin Management", hits: 0 },
-  { id: "admin-credentials", method: "GET/POST/DELETE", path: "/api/admin/credentials", desc: "Manage outbound SMTP relay credentials configuration", enabled: true, category: "Admin Management", hits: 0 }
+  { id: "api-domains", method: "GET", path: "/api/domains", desc: "Fetch a list of all active domains available for generating temporary email addresses. Use this list to let users choose a domain before generation.", enabled: true, category: "Mailbox UI", hits: 0, auth: false, variables: "None" },
+  { id: "mailbox-generate", method: "GET", path: "/api/mailbox/generate", desc: "Dynamically allocates a random transient email address. Optionally pass a `domain` query parameter to force generation on a specific active domain.", enabled: true, category: "Mailbox UI", hits: 0, auth: true, variables: "?domain=example.com (Optional)" },
+  { id: "mailbox-custom", method: "GET", path: "/api/mailbox/custom", desc: "Create a custom email address with your chosen name. Pass `name` (required) and optionally `domain`. Returns 409 if the address is already taken. Only letters, numbers, dots, hyphens, and underscores are allowed (1-64 chars).", enabled: true, category: "Mailbox UI", hits: 0, auth: true, variables: "?name=username & domain=example.com" },
+  { id: "mailbox-get", method: "GET", path: "/api/mailbox/:email", desc: "Retrieves all captured emails sent to the specified transient mailbox, including parsed sender info, subject, body text, HTML, and any attachment metadata.", enabled: true, category: "Mailbox UI", hits: 0, auth: true, variables: "Params: :email" },
+  { id: "mailbox-otps", method: "GET", path: "/api/mailbox/:email/otps", desc: "Scans inbound emails in the specified mailbox and extracts all detected 4-6 digit numeric OTP verification codes via regex. Returns structured objects ready for test assertion.", enabled: true, category: "Mailbox UI", hits: 0, auth: true, variables: "Params: :email" },
+  { id: "get-attachment", method: "GET", path: "/api/attachments/:filename", desc: "Streams the raw binary payload of a previously saved email attachment. The filename is returned in the attachment metadata from the inbox endpoint.", enabled: true, category: "Mailbox UI", hits: 0, auth: false, variables: "Params: :filename" },
+  { id: "mailbox-delete", method: "DELETE", path: "/api/mailbox/:email", desc: "Purges the entire mailbox storage history. Useful for cleanup between test runs.", enabled: true, category: "Mailbox UI", hits: 0, auth: true, variables: "Params: :email" },
+  { id: "mailbox-delete-one", method: "DELETE", path: "/api/mailbox/:email/:mailId", desc: "Delete a specific email from a mailbox database", enabled: true, category: "Mailbox UI", hits: 0, auth: true, variables: "Params: :email, :mailId" },
+  
+  // Local & Live Consoles
+  { id: "local-emails", method: "GET", path: "/api/emails/local", desc: "Fetch local inbox emails and local SMTP logs", enabled: true, category: "Local Console", hits: 0, auth: true, variables: "None" },
+  { id: "live-emails", method: "GET", path: "/api/emails/live", desc: "Fetch live inbox emails and live SMTP traffic logs", enabled: true, category: "Live Console", hits: 0, auth: true, variables: "None" },
+  { id: "delete-local", method: "POST", path: "/api/emails/delete/local/:filename", desc: "Delete a local email JSON file", enabled: true, category: "Local Console", hits: 0, auth: true, variables: "Params: :filename" },
+  { id: "delete-live", method: "POST", path: "/api/emails/delete/live/:filename", desc: "Delete a live email JSON file", enabled: true, category: "Live Console", hits: 0, auth: true, variables: "Params: :filename" },
+  { id: "send-local", method: "POST", path: "/api/send-email/local", desc: "Dispatch email locally on SMTP Port 2525", enabled: true, category: "Local Console", hits: 0, auth: true, variables: "Body: JSON {from, to, subject, text, html}" },
+  { id: "send-live", method: "POST", path: "/api/send-email/live", desc: "Dispatches an outbound email to any public internet address using your VPS SMTP node. Supports plain text and HTML bodies. Optionally include DKIM signing.", enabled: true, category: "Live Console", hits: 0, auth: false, variables: "Body: JSON {from, to, subject, text, html}" },
+  
+  // Admin Management
+  { id: "admin-login", method: "POST", path: "/api/admin/login", desc: "Authenticate admin dashboard session credentials", enabled: true, category: "Admin Management", hits: 0, auth: false, variables: "Body: JSON {username, password}" },
+  { id: "admin-stats", method: "GET", path: "/api/admin/stats", desc: "Get server metrics, disk sizes, and account totals", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "None" },
+  { id: "admin-credentials", method: "GET/POST/DELETE", path: "/api/admin/credentials", desc: "Manage outbound SMTP relay credentials configuration", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "GET/POST/DELETE variations" }
 ];
 
 // Initialize settings in database
@@ -84,8 +89,17 @@ export class AdminController {
 
   static getApiSettings(req, res) {
     const list = getApiSettingsList();
+    // Merge static fields (auth, variables) that aren't stored in DB
+    const enrichedList = list.map(item => {
+      const staticData = defaultApiSettings.find(s => s.id === item.id);
+      return {
+        ...item,
+        auth: staticData ? staticData.auth : false,
+        variables: staticData ? staticData.variables : "None"
+      };
+    });
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(list));
+    res.end(JSON.stringify(enrichedList));
   }
 
   /**
@@ -112,6 +126,18 @@ export class AdminController {
         res.end(JSON.stringify({ error: "Invalid JSON body" }));
       }
     });
+  }
+
+  static resetApiSettingsHits(req, res) {
+    try {
+      const { resetApiSettingsHits } = require('../database/db.js');
+      resetApiSettingsHits();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Failed to reset API hits" }));
+    }
   }
 
   static isApiEnabled(url, method) {

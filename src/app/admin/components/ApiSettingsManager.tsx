@@ -10,6 +10,8 @@ interface ApiRouteSetting {
   enabled: boolean;
   category: string;
   hits: number;
+  auth?: boolean;
+  variables?: string;
 }
 
 interface ApiSettingsProps {
@@ -48,7 +50,7 @@ export default function ApiSettingsManager({ apiUrl }: ApiSettingsProps) {
 
   const handleToggle = async (id: string, currentStatus: boolean) => {
     if (!apiUrl) return;
-    
+
     // Optimistic UI update
     setRoutes(prev =>
       prev.map(r => (r.id === id ? { ...r, enabled: !currentStatus } : r))
@@ -71,6 +73,24 @@ export default function ApiSettingsManager({ apiUrl }: ApiSettingsProps) {
         prev.map(r => (r.id === id ? { ...r, enabled: currentStatus } : r))
       );
       alert(`Error toggling API: ${err.message}`);
+    }
+  };
+
+  const handleResetHits = async () => {
+    if (!apiUrl) return;
+    if (!window.confirm("Are you sure you want to reset all API hits to 0?")) return;
+
+    try {
+      const res = await fetch(`${apiUrl}/api/admin/api-settings/reset-hits`, {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to reset hits");
+      }
+      fetchSettings();
+    } catch (err: any) {
+      alert(`Error resetting hits: ${err.message}`);
     }
   };
 
@@ -123,14 +143,32 @@ export default function ApiSettingsManager({ apiUrl }: ApiSettingsProps) {
             <h2 className="text-lg font-bold text-white">Dynamic API Manager</h2>
             <p className="text-xs text-gray-400">Toggle API router paths on/off and inspect real-time transaction hits.</p>
           </div>
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search routes..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-[#090C15] border border-white/[0.06] rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-emerald-500/50 w-52 placeholder:text-gray-600 font-mono"
-            />
+          <div className="flex items-center gap-3">
+            <a
+              href="/doc"
+              target="_blank"
+              className="flex items-center gap-1.5 text-purple-400 hover:text-purple-300 font-semibold text-xs px-3 py-2 border border-purple-500/30 hover:border-purple-500/50 rounded-xl transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-3.5 h-3.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+              </svg>
+              API Docs
+            </a>
+            <button
+              onClick={handleResetHits}
+              className="text-red-400 hover:text-red-300 font-semibold text-xs px-3 py-2 bg-red-500/10 hover:bg-red-500/20 rounded-xl transition-colors"
+            >
+              Reset All Hits
+            </button>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search routes..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-[#090C15] border border-white/[0.06] rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-emerald-500/50 w-52 placeholder:text-gray-600 font-mono"
+              />
+            </div>
           </div>
         </div>
 
@@ -144,68 +182,93 @@ export default function ApiSettingsManager({ apiUrl }: ApiSettingsProps) {
         ) : filteredRoutes.length === 0 ? (
           <div className="p-16 text-center text-gray-500 text-xs">No matching API endpoints found.</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-white/[0.06] bg-black/[0.15] text-[10px] uppercase font-bold text-gray-400 tracking-wider font-mono">
-                  <th className="py-4 px-6">Route Endpoint</th>
-                  <th className="py-4 px-4">Method</th>
-                  <th className="py-4 px-4">Category</th>
-                  <th className="py-4 px-4 text-center">Hits</th>
-                  <th className="py-4 px-4 text-center">Status</th>
-                  <th className="py-4 px-6 text-right">Switch</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/[0.04] text-xs">
-                {filteredRoutes.map((route) => (
-                  <tr key={route.id} className="hover:bg-white/[0.01] transition-colors">
-                    <td className="py-4 px-6">
-                      <div className="flex flex-col gap-1">
-                        <span className="font-mono text-emerald-300 font-semibold select-all">{route.path}</span>
-                        <span className="text-[11px] text-gray-400">{route.desc}</span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getMethodBadgeColor(route.method)}`}>
-                        {route.method}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className="text-[10px] text-gray-400 font-semibold bg-white/[0.02] border border-white/[0.05] px-2 py-0.5 rounded">
-                        {route.category}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-center font-mono text-gray-300 font-bold">
-                      {route.hits}
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      {route.enabled ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                          Active
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
-                          Offline
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-4 px-6 text-right">
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={route.enabled}
-                          onChange={() => handleToggle(route.id, route.enabled)}
-                          className="sr-only peer"
-                        />
-                        <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-white"></div>
-                      </label>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="flex flex-col p-6 gap-8">
+            {[
+              { title: "Receive Email APIs", routes: filteredRoutes.filter(r => r.category === "Mailbox UI") },
+              { title: "Send Email APIs", routes: filteredRoutes.filter(r => r.id.startsWith("send-")) },
+              { title: "Admin, System & Tools APIs", routes: filteredRoutes.filter(r => r.category !== "Mailbox UI" && !r.id.startsWith("send-")) },
+            ].map(group => group.routes.length > 0 && (
+              <div key={group.title} className="flex flex-col gap-3">
+                <h3 className="text-sm font-bold text-gray-300 uppercase tracking-wider pl-1 border-l-4 border-emerald-500">{group.title}</h3>
+                <div className="overflow-x-auto rounded-xl border border-white/[0.05] bg-black/20">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-white/[0.06] bg-black/[0.15] text-[10px] uppercase font-bold text-gray-400 tracking-wider font-mono">
+                        <th className="py-4 px-6">Route Endpoint</th>
+                        <th className="py-4 px-4 text-center">Auth</th>
+                        <th className="py-4 px-4">Method</th>
+                        <th className="py-4 px-4">Category</th>
+                        <th className="py-4 px-4 text-center">Hits</th>
+                        <th className="py-4 px-4 text-center">Status</th>
+                        <th className="py-4 px-6 text-right">Switch</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.04] text-xs">
+                      {group.routes.map((route) => (
+                        <tr key={route.id} className="hover:bg-white/[0.01] transition-colors">
+                          <td className="py-4 px-6">
+                            <div className="flex flex-col gap-1">
+                              <span className="font-mono text-emerald-300 font-semibold select-all">
+                                {route.path}{route.variables && route.variables !== "None" && <span className="text-gray-500">{route.variables.startsWith("?") || route.variables.startsWith("Params") ? "" : " — "}{route.variables}</span>}
+                              </span>
+                              <span className="text-[11px] text-gray-400">{route.desc}</span>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4 text-center">
+                            {route.auth ? (
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded border border-white/[0.08] bg-white/[0.02]">
+                                <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded border border-white/[0.08] bg-white/[0.02]">
+                                <svg className="w-3 h-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getMethodBadgeColor(route.method)}`}>
+                              {route.method}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className="text-[10px] text-gray-400 font-semibold bg-white/[0.02] border border-white/[0.05] px-2 py-0.5 rounded">
+                              {route.category}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4 text-center font-mono text-gray-300 font-bold">
+                            {route.hits}
+                          </td>
+                          <td className="py-4 px-4 text-center">
+                            {route.enabled ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                Active
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                                Offline
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-4 px-6 text-right">
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={route.enabled}
+                                onChange={() => handleToggle(route.id, route.enabled)}
+                                className="sr-only peer"
+                              />
+                              <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-white"></div>
+                            </label>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

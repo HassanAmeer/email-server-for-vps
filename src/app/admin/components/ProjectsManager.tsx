@@ -244,6 +244,27 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
     }
   };
 
+  const handleResetProjectHits = async (project: Project) => {
+    if (!window.confirm(`Are you sure you want to reset API hits for project "${project.name}"?`)) return;
+    try {
+      const token = localStorage.getItem("admin_token") || "";
+      const res = await fetch(`${apiUrl}/api/admin/projects/${project.id}/hits`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        // Refresh stats
+        await handleViewStats(project);
+      } else {
+        const err = await res.json();
+        alert(err.error || "Failed to reset hits");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Error resetting hits");
+    }
+  };
+
   useEffect(() => {
     if (viewingAnalyticsFor && activeAnalyticsTab === "receive") {
       fetchProjectEmails(viewingAnalyticsFor.id, emailsPage);
@@ -280,6 +301,13 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
               <span>API Key: <code className="text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded font-mono">{viewingAnalyticsFor.api_key}</code></span>
               <span>•</span>
               <span>Status: <span className={viewingAnalyticsFor.is_active ? "text-emerald-400" : "text-rose-400"}>{viewingAnalyticsFor.is_active ? "Active" : "Disabled"}</span></span>
+              <span>•</span>
+              <button
+                onClick={() => handleResetProjectHits(viewingAnalyticsFor)}
+                className="text-red-400 hover:text-red-300 font-semibold text-xs px-2 py-1 bg-red-500/10 hover:bg-red-500/20 rounded transition-colors"
+              >
+                Reset API Hits
+              </button>
             </div>
           </div>
 

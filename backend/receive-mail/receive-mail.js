@@ -315,6 +315,10 @@ const httpServer = http.createServer((req, res) => {
     return ApiRouter.toggleApiSetting(req, res);
   }
 
+  if (cleanUrl === "/api/admin/api-settings/reset-hits" && req.method === "POST") {
+    return ApiRouter.resetApiSettingsHits(req, res);
+  }
+
   if (cleanUrl === "/api/admin/credentials" && req.method === "GET") {
     return ApiRouter.getCredentials(req, res);
   }
