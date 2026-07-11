@@ -66,6 +66,9 @@ try { db.exec(`ALTER TABLE received_emails ADD COLUMN project_id INTEGER;`); } c
 try { db.exec(`ALTER TABLE received_emails ADD COLUMN attachment_size INTEGER DEFAULT 0;`); } catch (e) { }
 try { db.exec(`ALTER TABLE received_emails ADD COLUMN file_name TEXT;`); } catch (e) { }
 try { db.exec(`ALTER TABLE projects ADD COLUMN is_active BOOLEAN DEFAULT 1;`); } catch (e) { }
+try { db.exec(`ALTER TABLE projects ADD COLUMN retention_generated_emails INTEGER DEFAULT 0;`); } catch (e) { }
+try { db.exec(`ALTER TABLE projects ADD COLUMN retention_simple_mails INTEGER DEFAULT 0;`); } catch (e) { }
+try { db.exec(`ALTER TABLE projects ADD COLUMN retention_attachments INTEGER DEFAULT 0;`); } catch (e) { }
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS attached_domains (
@@ -150,6 +153,102 @@ export function getProjectByEmail(email) {
   } catch (err) {
     console.error("DB Error finding project by email:", err);
     return null;
+  }
+}
+
+export function getProjectApisList() {
+  try {
+    const list = db.prepare("SELECT id, name, api_key, is_active, created_at, retention_generated_emails, retention_simple_mails, retention_attachments FROM projects").all();
+    
+    // Attach statistics
+    return list.map(project => {
+      const generatedCount = db.prepare("SELECT COUNT(*) as count FROM generated_emails WHERE project_id = ?").get(project.id).count;
+      const receivedCount = db.prepare("SELECT COUNT(*) as count FROM received_emails WHERE project_id = ?").get(project.id).count;
+      const apiHits = db.prepare("SELECT COUNT(*) as count FROM project_api_logs WHERE project_id = ?").get(project.id).count;
+      
+      return {
+        ...project,
+        stats: {
+          generatedEmails: generatedCount,
+          receivedEmails: receivedCount,
+          apiHits: apiHits
+        }
+      };
+    });
+  } catch (err) {
+    console.error("DB Error getting project APIs:", err);
+    return [];
+  }
+}
+
+export function updateProjectRetention(projectId, settings) {
+  try {
+    const { retention_generated_emails = 0, retention_simple_mails = 0, retention_attachments = 0 } = settings;
+    const stmt = db.prepare(`
+      UPDATE projects 
+      SET retention_generated_emails = ?, 
+          retention_simple_mails = ?, 
+          retention_attachments = ? 
+      WHERE id = ?
+    `);
+    stmt.run(retention_generated_emails, retention_simple_mails, retention_attachments, projectId);
+    return true;
+  } catch (err) {
+    console.error("DB Error updating project retention:", err);
+    return false;
+  }
+}
+
+export function runDataRetentionCleanupJob() {
+  try {
+    console.log("Running Data Retention Cleanup Job...");
+    const targetDir = path.join(process.cwd(), "backend", "storage", "live");
+    
+    // Get all projects with active retention policies
+    const projects = db.prepare("SELECT id, retention_generated_emails, retention_simple_mails, retention_attachments FROM projects").all();
+    
+    let deletedGenerated = 0;
+    let deletedReceived = 0;
+    
+    for (const project of projects) {
+      const { id, retention_generated_emails, retention_simple_mails, retention_attachments } = project;
+      
+      // Cleanup Generated Emails
+      if (retention_generated_emails && retention_generated_emails > 0) {
+        const result = db.prepare(`DELETE FROM generated_emails WHERE project_id = ? AND created_at < datetime('now', ?)`).run(id, `-${retention_generated_emails} days`);
+        deletedGenerated += result.changes || 0;
+      }
+      
+      // Cleanup Simple Mails
+      if (retention_simple_mails && retention_simple_mails > 0) {
+        const records = db.prepare(`SELECT id, file_name FROM received_emails WHERE project_id = ? AND has_attachment = 0 AND created_at < datetime('now', ?)`).all(id, `-${retention_simple_mails} days`);
+        for (const record of records) {
+          if (record.file_name) {
+             const filePath = path.join(targetDir, record.file_name);
+             if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+          }
+          db.prepare(`DELETE FROM received_emails WHERE id = ?`).run(record.id);
+          deletedReceived++;
+        }
+      }
+      
+      // Cleanup Attachments Mails
+      if (retention_attachments && retention_attachments > 0) {
+        const records = db.prepare(`SELECT id, file_name FROM received_emails WHERE project_id = ? AND has_attachment = 1 AND created_at < datetime('now', ?)`).all(id, `-${retention_attachments} days`);
+        for (const record of records) {
+          if (record.file_name) {
+             const filePath = path.join(targetDir, record.file_name);
+             if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+          }
+          db.prepare(`DELETE FROM received_emails WHERE id = ?`).run(record.id);
+          deletedReceived++;
+        }
+      }
+    }
+    
+    console.log(`Data Retention Cleanup Completed: Removed ${deletedGenerated} generated emails, ${deletedReceived} received emails.`);
+  } catch (err) {
+    console.error("DB Error running data retention cleanup job:", err);
   }
 }
 

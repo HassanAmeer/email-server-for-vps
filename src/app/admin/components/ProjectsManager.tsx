@@ -9,6 +9,9 @@ interface Project {
   webhook_url: string | null;
   is_active: boolean | number;
   created_at: string;
+  retention_generated_emails: number | null;
+  retention_simple_mails: number | null;
+  retention_attachments: number | null;
 }
 
 interface ProjectsManagerProps {
@@ -36,6 +39,11 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
   const [emailsPage, setEmailsPage] = useState(1);
   const [loadingEmails, setLoadingEmails] = useState(false);
   const [emailFilter, setEmailFilter] = useState("all");
+
+  const [retentionGenerated, setRetentionGenerated] = useState<string>("");
+  const [retentionSimple, setRetentionSimple] = useState<string>("");
+  const [retentionAttachments, setRetentionAttachments] = useState<string>("");
+  const [isSavingRetention, setIsSavingRetention] = useState(false);
 
   const fetchProjects = async () => {
     if (!apiUrl) return;
@@ -222,6 +230,12 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
     setViewingAnalyticsFor(project);
     setActiveAnalyticsTab("receive");
     setEmailsPage(1);
+    
+    // Set initial retention values
+    setRetentionGenerated(project.retention_generated_emails ? project.retention_generated_emails.toString() : "");
+    setRetentionSimple(project.retention_simple_mails ? project.retention_simple_mails.toString() : "");
+    setRetentionAttachments(project.retention_attachments ? project.retention_attachments.toString() : "");
+
     setLoadingStats(true);
     try {
       const token = localStorage.getItem("admin_token") || "";
@@ -241,6 +255,49 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
       setProjectStatsData(null);
     } finally {
       setLoadingStats(false);
+    }
+  };
+
+  const handleSaveRetention = async () => {
+    if (!viewingAnalyticsFor) return;
+    setIsSavingRetention(true);
+    try {
+      const token = localStorage.getItem("admin_token") || "";
+      const res = await fetch(`${apiUrl}/api/admin/projects/${viewingAnalyticsFor.id}/retention`, {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          retention_generated_emails: retentionGenerated ? parseInt(retentionGenerated) : 0,
+          retention_simple_mails: retentionSimple ? parseInt(retentionSimple) : 0,
+          retention_attachments: retentionAttachments ? parseInt(retentionAttachments) : 0,
+        })
+      });
+
+      if (res.ok) {
+        // Optimistically update the local state to avoid refetching
+        setProjects(prev => prev.map(p => {
+          if (p.id === viewingAnalyticsFor.id) {
+            return {
+              ...p,
+              retention_generated_emails: retentionGenerated ? parseInt(retentionGenerated) : 0,
+              retention_simple_mails: retentionSimple ? parseInt(retentionSimple) : 0,
+              retention_attachments: retentionAttachments ? parseInt(retentionAttachments) : 0,
+            };
+          }
+          return p;
+        }));
+        alert("Data retention settings saved successfully!");
+      } else {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to update retention settings");
+      }
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    } finally {
+      setIsSavingRetention(false);
     }
   };
 
@@ -375,6 +432,62 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
                     <div className="bg-white/[0.02] border border-white/[0.05] p-5 rounded-xl hover:bg-white/[0.04] transition-colors">
                       <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Storage Used</span>
                       <p className="text-3xl font-black text-white mt-2 text-indigo-400">{formatBytes(projectStatsData.totalStorageUsed)}</p>
+                    </div>
+                  </div>
+
+                  {/* Data Retention Settings */}
+                  <div className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-5">
+                    <h3 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-4 flex items-center gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-emerald-400">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 9.75v-4.5m0 4.5h4.5m-4.5 0l6-6m-3 18c-8.284 0-15-6.716-15-15V4.5A2.25 2.25 0 014.5 2.25h13.5A2.25 2.25 0 0120.25 4.5v11.25m-18 0C2.25 21.5 9 22.5 15 22.5c1.5 0 3-.225 4.5-.675m-18-6.075v6.075c0 1.243 1.007 2.25 2.25 2.25h11.25" />
+                      </svg>
+                      Data Retention Settings
+                    </h3>
+                    <p className="text-xs text-gray-500 mb-4">Set how many days to keep data before automatically deleting it. Leave empty or 0 to keep data forever.</p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[11px] text-gray-400 uppercase font-bold tracking-wider">Keep Generated Emails (Days)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={retentionGenerated}
+                          onChange={(e) => setRetentionGenerated(e.target.value)}
+                          placeholder="Forever"
+                          className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[11px] text-gray-400 uppercase font-bold tracking-wider">Keep Simple Emails (Days)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={retentionSimple}
+                          onChange={(e) => setRetentionSimple(e.target.value)}
+                          placeholder="Forever"
+                          className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[11px] text-gray-400 uppercase font-bold tracking-wider">Keep Emails with Attachments (Days)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={retentionAttachments}
+                          onChange={(e) => setRetentionAttachments(e.target.value)}
+                          placeholder="Forever"
+                          className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        onClick={handleSaveRetention}
+                        disabled={isSavingRetention}
+                        className="text-xs bg-emerald-500 hover:bg-emerald-400 text-black px-4 py-2 rounded-lg font-bold transition-all disabled:opacity-50"
+                      >
+                        {isSavingRetention ? "Saving..." : "Save Settings"}
+                      </button>
                     </div>
                   </div>
 

@@ -647,6 +647,26 @@ export class ApiRouter {
         return;
       }
 
+      // PUT /api/admin/projects/:id/retention (Update data retention settings)
+      if (req.method === "PUT" && req.url.endsWith("/retention")) {
+        const urlParts = req.url.split("/");
+        const id = urlParts[urlParts.length - 2];
+        let body = "";
+        req.on("data", chunk => body += chunk.toString());
+        req.on("end", () => {
+          try {
+            const parsed = JSON.parse(body);
+            dbModule.updateProjectRetention(id, parsed);
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ success: true }));
+          } catch (e) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: e.message }));
+          }
+        });
+        return;
+      }
+
       // DELETE /api/admin/projects/:id/hits
       if (req.method === "DELETE" && req.url.match(/\/api\/admin\/projects\/\d+\/hits/)) {
         const idStr = req.url.split("/")[4];

@@ -333,41 +333,16 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
         {/* Glow Background */}
         <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-full h-[500px] bg-radial from-[rgba(16,185,129,0.04)] via-[rgba(5,150,105,0.01)] to-transparent pointer-events-none z-0 rounded-full"></div>
 
-        {/* Top Navbar */}
-        <header className="p-6 border-b border-white/[0.04] flex justify-between items-center relative z-10 flex-wrap gap-4 bg-[#090C16]/75 backdrop-blur-md">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden text-gray-400 hover:text-white p-2 rounded-xl border border-white/[0.06] bg-slate-900/40 hover:bg-slate-900 transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5.5 h-5.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-              </svg>
-            </button>
-            <Link href="/" className="text-gray-400 hover:text-white transition-colors" title="Back to Home">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-5.5 h-5.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-              </svg>
-            </Link>
-            <h1 className="text-xs font-extrabold text-white uppercase tracking-widest font-mono">
-              {activeTab === "overview-tab" && "System Ingestion Dashboard"}
-              {activeTab === "api-tab" && "API Endpoint Router Settings"}
-              {activeTab === "explorer-tab" && "Global Mail Database Explorer"}
-              {activeTab === "logs-tab" && "Server Logs"}
-              {activeTab === "projects-tab" && "Projects & API Keys"}
-              {activeTab === "setup-tab" && "System Configuration & Setup"}
-            </h1>
-          </div>
-          
-          <div className="flex gap-3 items-center">
-            <div className="bg-emerald-500/5 border border-emerald-500/15 px-4 py-2 rounded-full flex items-center gap-2.5 text-xs text-emerald-400 font-bold uppercase tracking-wider font-mono shadow-[0_0_15px_rgba(16,185,129,0.05)]">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span>Uptime Status: <strong className="font-mono text-white">100%</strong></span>
-            </div>
-          </div>
+        {/* Top Navbar - Only visible on mobile for sidebar toggle */}
+        <header className="lg:hidden p-4 border-b border-white/[0.04] flex items-center relative z-10 bg-[#090C16]/75 backdrop-blur-md">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="text-gray-400 hover:text-white p-2 rounded-xl border border-white/[0.06] bg-slate-900/40 hover:bg-slate-900 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5.5 h-5.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+            </svg>
+          </button>
         </header>
 
         {/* Page Content Body */}

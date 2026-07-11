@@ -202,6 +202,259 @@ const endpoints = [
     exampleUrl: "http://your-vps-ip:8081/api/mails",
     returns: "JSON Array",
     auth: false,
+  },
+  // ─── Send Mail (Local) ───
+  {
+    id: "send-mail-local",
+    method: "POST",
+    path: "/api/send-email/local",
+    title: "Send Email (Local SMTP)",
+    category: "Send Mail",
+    desc: "Dispatch email locally through the sandbox SMTP Port 2525. Useful for testing email flows without hitting external servers.",
+    payload: `{
+  "from": "test@localhost",
+  "to": "user@localhost",
+  "subject": "Test Email",
+  "text": "Hello from local"
+}`,
+    response: `{
+  "success": true
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/send-email/local",
+    returns: "JSON Object",
+    auth: true,
+  },
+  // ─── Admin Management APIs ───
+  {
+    id: "admin-login",
+    method: "POST",
+    path: "/api/admin/login",
+    title: "Admin Login",
+    category: "Admin",
+    desc: "Authenticate admin dashboard session. Returns a Bearer token for accessing protected admin endpoints.",
+    payload: `{
+  "username": "admin",
+  "password": "your_password"
+}`,
+    response: `{
+  "success": true,
+  "token": "YWRtaW46MTIzNA=="
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/admin/login",
+    returns: "JSON Object",
+    auth: false,
+  },
+  {
+    id: "admin-stats",
+    method: "GET",
+    path: "/api/admin/stats",
+    title: "Server Stats",
+    category: "Admin",
+    desc: "Get server metrics including disk usage, total emails, generated addresses count, and system uptime.",
+    payload: null,
+    response: `{
+  "totalEmails": 42,
+  "totalGenerated": 15,
+  "diskUsage": "128 MB"
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/admin/stats",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
+    id: "admin-stats-traffic",
+    method: "GET",
+    path: "/api/admin/stats/traffic",
+    title: "Traffic Stats",
+    category: "Admin",
+    desc: "Get real-time traffic statistics and API usage analytics for the server dashboard.",
+    payload: null,
+    response: `{
+  "totalRequests": 1250,
+  "todayRequests": 48
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/admin/stats/traffic",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
+    id: "admin-projects",
+    method: "GET",
+    path: "/api/admin/projects",
+    title: "Manage Projects",
+    category: "Admin",
+    desc: "CRUD operations for API projects. GET lists all projects, POST creates a new project with API key. Supports project stats and email tracking.",
+    payload: `{
+  "name": "My Project",
+  "description": "Test project"
+}`,
+    response: `[
+  {
+    "id": 1,
+    "name": "My Project",
+    "api_key": "abc123...",
+    "is_active": 1
+  }
+]`,
+    exampleUrl: "http://your-vps-ip:8081/api/admin/projects",
+    returns: "JSON Array",
+    auth: true,
+  },
+  {
+    id: "admin-domains",
+    method: "GET",
+    path: "/api/admin/domains",
+    title: "Manage Attached Domains",
+    category: "Admin",
+    desc: "CRUD operations for domains attached to the server. GET lists all, POST adds a new domain, DELETE removes a domain.",
+    payload: `{
+  "domain": "example.com"
+}`,
+    response: `[
+  {
+    "id": 1,
+    "domain": "llamerada.online",
+    "status": "active"
+  }
+]`,
+    exampleUrl: "http://your-vps-ip:8081/api/admin/domains",
+    returns: "JSON Array",
+    auth: true,
+  },
+  {
+    id: "admin-api-settings",
+    method: "GET",
+    path: "/api/admin/api-settings",
+    title: "API Settings",
+    category: "Admin",
+    desc: "View all API endpoint settings including enabled/disabled status, hit counters, and auth requirements.",
+    payload: null,
+    response: `[
+  {
+    "id": "mailbox-generate",
+    "method": "GET",
+    "path": "/api/mailbox/generate",
+    "enabled": true,
+    "hits": 42
+  }
+]`,
+    exampleUrl: "http://your-vps-ip:8081/api/admin/api-settings",
+    returns: "JSON Array",
+    auth: true,
+  },
+  {
+    id: "admin-api-settings-toggle",
+    method: "POST",
+    path: "/api/admin/api-settings/toggle",
+    title: "Toggle API Endpoint",
+    category: "Admin",
+    desc: "Enable or disable a specific API endpoint by its ID. Disabled endpoints return 503 Service Unavailable.",
+    payload: `{
+  "id": "mailbox-generate",
+  "enabled": false
+}`,
+    response: `{
+  "success": true,
+  "api": { "id": "mailbox-generate", "enabled": false }
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/admin/api-settings/toggle",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
+    id: "admin-credentials",
+    method: "GET",
+    path: "/api/admin/credentials",
+    title: "SMTP Credentials",
+    category: "Admin",
+    desc: "Manage outbound SMTP relay credentials. GET lists all, POST adds new credentials, DELETE removes by username.",
+    payload: `{
+  "username": "smtp_user",
+  "password": "smtp_pass",
+  "host": "smtp.example.com",
+  "port": 587
+}`,
+    response: `[
+  {
+    "username": "smtp_user",
+    "host": "smtp.example.com",
+    "port": 587
+  }
+]`,
+    exampleUrl: "http://your-vps-ip:8081/api/admin/credentials",
+    returns: "JSON Array",
+    auth: true,
+  },
+  {
+    id: "admin-dkim",
+    method: "GET",
+    path: "/api/admin/dkim",
+    title: "DKIM Key Management",
+    category: "Admin",
+    desc: "GET retrieves current DKIM public key. POST /api/admin/dkim/generate creates a new DKIM keypair for email signing.",
+    payload: null,
+    response: `{
+  "publicKey": "v=DKIM1; k=rsa; p=MIIBIjAN..."
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/admin/dkim",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
+    id: "admin-dblogs",
+    method: "GET",
+    path: "/api/admin/dblogs/:type",
+    title: "Database Logs",
+    category: "Admin",
+    desc: "Fetch system logs from the database. Type can be: SMTP_IN, SMTP_OUT, ERROR, or ALL.",
+    payload: null,
+    response: `{
+  "data": [...],
+  "pagination": { "total": 100, "page": 1, "limit": 50 }
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/admin/dblogs/SMTP_IN",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
+    id: "local-emails-api",
+    method: "GET",
+    path: "/api/emails/local",
+    title: "Local Inbox Emails",
+    category: "Send Mail",
+    desc: "Fetch all emails received on the local SMTP sandbox. Returns email list and SMTP transaction logs.",
+    payload: null,
+    response: `[
+  {
+    "id": "...",
+    "from": "test@localhost",
+    "to": "user@localhost",
+    "subject": "Test"
+  }
+]`,
+    exampleUrl: "http://your-vps-ip:8081/api/emails/local",
+    returns: "JSON Array",
+    auth: true,
+  },
+  {
+    id: "live-emails-api",
+    method: "GET",
+    path: "/api/emails/live",
+    title: "Live Inbox Emails",
+    category: "Send Mail",
+    desc: "Fetch all emails received on the live SMTP listener. Returns email list and SMTP traffic logs.",
+    payload: null,
+    response: `[
+  {
+    "id": "...",
+    "from": "sender@example.com",
+    "to": "you@yourdomain.com",
+    "subject": "Hello"
+  }
+]`,
+    exampleUrl: "http://your-vps-ip:8081/api/emails/live",
+    returns: "JSON Array",
+    auth: true,
   }
 ];
 
@@ -368,8 +621,8 @@ export default function ApiDocumentation() {
             ) : (
               // Flat list for non-admin
               <>
-                <p className="text-[10px] font-mono font-bold text-gray-600 uppercase tracking-[0.15em] px-2 py-2">Endpoints</p>
-                {endpoints.map((e) => {
+                <p className="text-[10px] font-mono font-bold text-gray-600 uppercase tracking-[0.15em] px-2 py-2">Receive Mail Endpoints</p>
+                {endpoints.filter(e => e.category === "Receive Mail").map((e) => {
                   const c = methodColors[e.method];
                   const isActive = activeTab === e.id;
                   return (

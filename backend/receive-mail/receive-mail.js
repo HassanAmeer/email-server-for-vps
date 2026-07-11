@@ -7,7 +7,7 @@ import nodemailer from "nodemailer";
 import { sendOutboundEmail as sendOutboundEmailLive } from "../send-mail-simple/send-mail-from-generated-mail-from-live.js";
 import { sendOutboundEmail as sendOutboundEmailLocal } from "../send-mail-simple/send-mail-from-generated-mail-from-local.js";
 import { ApiRouter } from "../../apis/api-router.js";
-import { logReceivedEmail, getProjectByEmail, logSystemEvent } from "../database/db.js";
+import { logReceivedEmail, getProjectByEmail, logSystemEvent, runDataRetentionCleanupJob } from "../database/db.js";
 
 // Load .env file manually if it exists
 const envPath = path.join(process.cwd(), ".env");
@@ -705,3 +705,10 @@ httpServer.listen(HTTP_PORT, () => {
   console.log(`🌐 [WEB UI] Currently used port for Web Dashboard: ${HTTP_PORT} (${envText})`);
   console.log(`==========================================`);
 });
+
+// Start Background Data Retention Cleanup Job (Runs every 24 hours)
+setInterval(() => {
+  runDataRetentionCleanupJob();
+}, 24 * 60 * 60 * 1000);
+// Also run once on startup
+setTimeout(runDataRetentionCleanupJob, 5000);
