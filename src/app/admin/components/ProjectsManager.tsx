@@ -45,6 +45,10 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
   const [retentionAttachments, setRetentionAttachments] = useState<string>("");
   const [isSavingRetention, setIsSavingRetention] = useState(false);
 
+  const [isFilesModalOpen, setIsFilesModalOpen] = useState(false);
+  const [projectFilesData, setProjectFilesData] = useState<any | null>(null);
+  const [loadingFiles, setLoadingFiles] = useState(false);
+
   const fetchProjects = async () => {
     if (!apiUrl) return;
     try {
@@ -222,6 +226,28 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
       setProjectEmailsData(null);
     } finally {
       setLoadingEmails(false);
+    }
+  };
+
+  const fetchProjectFiles = async (projectId: number) => {
+    setLoadingFiles(true);
+    setIsFilesModalOpen(true);
+    try {
+      const token = localStorage.getItem("admin_token") || "";
+      const res = await fetch(`${apiUrl}/api/admin/projects/${projectId}/files`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProjectFilesData(data);
+      } else {
+        setProjectFilesData(null);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setProjectFilesData(null);
+    } finally {
+      setLoadingFiles(false);
     }
   };
 
@@ -501,15 +527,28 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
                         All Received Emails
                       </h3>
                       <div className="flex items-center gap-3">
-                        <select
-                          value={emailFilter}
-                          onChange={(e) => setEmailFilter(e.target.value)}
-                          className="bg-black/20 border border-white/10 text-xs text-gray-300 rounded px-2 py-1.5 outline-none focus:border-emerald-500/50 transition-colors"
+                        <div className="relative">
+                          <select
+                            value={emailFilter}
+                            onChange={(e) => setEmailFilter(e.target.value)}
+                            className="appearance-none bg-[#0D121F] border border-white/10 hover:border-emerald-500/30 text-xs text-gray-300 rounded-lg pl-3 pr-8 py-1.5 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all cursor-pointer font-semibold shadow-sm"
+                          >
+                            <option value="all" className="bg-[#0D121F]">All Emails</option>
+                            <option value="simple" className="bg-[#0D121F]">Simple Only</option>
+                            <option value="attachment" className="bg-[#0D121F]">Attachments Only</option>
+                          </select>
+                          <div className="absolute inset-y-0 right-0 flex items-center pr-2.5 pointer-events-none text-gray-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3.5 h-3.5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                            </svg>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => fetchProjectFiles(viewingAnalyticsFor.id)}
+                          className="text-xs bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded transition-colors font-semibold"
                         >
-                          <option value="all">All Emails</option>
-                          <option value="simple">Simple Only</option>
-                          <option value="attachment">Attachments Only</option>
-                        </select>
+                          View All Files
+                        </button>
                         <button
                           onClick={() => fetchProjectEmails(viewingAnalyticsFor.id, emailsPage)}
                           className="text-xs bg-white/5 hover:bg-white/10 text-gray-300 px-3 py-1.5 rounded transition-colors"
@@ -858,6 +897,107 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
           </div>
         )}
       </div>
+
+      {/* Files Modal */}
+      {isFilesModalOpen && viewingAnalyticsFor && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#0D121F] border border-white/[0.05] w-full max-w-4xl max-h-[85vh] rounded-2xl flex flex-col shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-sky-500"></div>
+            
+            <div className="flex justify-between items-center p-6 border-b border-white/[0.05]">
+              <div className="flex flex-col">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5 text-emerald-500">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0M12 12.75h.008v.008H12v-.008z" />
+                  </svg>
+                  Project Storage Files
+                </h2>
+                <p className="text-xs text-gray-400 mt-1">
+                  Showing physical files (JSON records and Media Attachments) on disk for <span className="text-emerald-400 font-semibold">{(viewingAnalyticsFor as Project).name}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => setIsFilesModalOpen(false)}
+                className="text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-xl transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-grow flex flex-col gap-6">
+              {loadingFiles ? (
+                <div className="py-20 flex flex-col items-center justify-center gap-4">
+                  <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-sm text-gray-400 font-mono">Scanning storage directory...</p>
+                </div>
+              ) : projectFilesData ? (
+                <>
+                  <div className="bg-[#111726] border border-white/[0.05] p-5 rounded-2xl flex justify-between items-center shadow-inner">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Total Storage Used</span>
+                      <span className="text-2xl font-bold text-emerald-400 font-mono">
+                        {formatBytes(projectFilesData.totalSizeBytes)}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1 items-end">
+                      <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Total Files Count</span>
+                      <span className="text-2xl font-bold text-white font-mono">
+                        {projectFilesData.files.length}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-xl border border-white/[0.05] bg-black/20">
+                    <table className="w-full text-left text-xs text-gray-400 min-w-[600px]">
+                      <thead className="text-[10px] uppercase tracking-wider border-b border-white/[0.05] bg-black/40">
+                        <tr>
+                          <th className="py-3 px-4">Filename</th>
+                          <th className="py-3 px-4 w-32 text-center">Type</th>
+                          <th className="py-3 px-4 w-32 text-right">Size</th>
+                          <th className="py-3 px-4 w-48 text-right">Created At</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/[0.02]">
+                        {projectFilesData.files.map((file: any) => (
+                          <tr key={file.id} className="hover:bg-white/[0.02]">
+                            <td className="py-3 px-4 font-mono text-gray-300 break-all">{file.name}</td>
+                            <td className="py-3 px-4 text-center">
+                              {file.type === "Media Attachment" ? (
+                                <span className="bg-amber-500/10 text-amber-400 px-2 py-1 rounded text-[10px] font-bold inline-block">
+                                  Attachment
+                               </span>
+                              ) : (
+                                <span className="bg-sky-500/10 text-sky-400 px-2 py-1 rounded text-[10px] font-bold inline-block">
+                                  JSON Record
+                               </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-right whitespace-nowrap font-mono">{formatBytes(file.sizeBytes)}</td>
+                            <td className="py-3 px-4 text-right text-gray-500">{new Date(file.createdAt).toLocaleString()}</td>
+                          </tr>
+                        ))}
+                        {projectFilesData.files.length === 0 && (
+                          <tr>
+                            <td colSpan={4} className="py-8 text-center text-sm text-gray-500">
+                              No physical files found on disk for this project.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : (
+                <div className="py-20 text-center text-red-400">
+                  Failed to load files data.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -94,6 +94,60 @@ export default function ApiSettingsManager({ apiUrl }: ApiSettingsProps) {
     }
   };
 
+  const handleDownloadPostman = () => {
+    const baseUrl = window.location.origin;
+    
+    const postmanCollection = {
+      info: {
+        name: "Llamerada Email Server API",
+        description: "Postman collection for all available endpoints",
+        schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+      },
+      item: routes.map(route => {
+        let urlPath = route.path;
+        urlPath = urlPath.replace(/:([a-zA-Z]+)/g, "{{$1}}");
+        
+        return {
+          name: route.id,
+          request: {
+            method: route.method === "GET/POST" ? "GET" : route.method.split(",")[0].trim(),
+            header: [
+              ...(route.auth ? [
+                { key: "Authorization", value: "Bearer {{admin_token}}", type: "text" }
+              ] : [])
+            ],
+            url: {
+              raw: `{{base_url}}${urlPath}`,
+              host: ["{{base_url}}"],
+              path: urlPath.split('/').filter(p => p)
+            },
+            description: route.desc
+          }
+        };
+      }),
+      variable: [
+        {
+          key: "base_url",
+          value: baseUrl,
+          type: "string"
+        },
+        {
+          key: "admin_token",
+          value: "replace_with_your_admin_token",
+          type: "string"
+        }
+      ]
+    };
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(postmanCollection, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "llamerada_api_postman_collection.json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  };
+
   const getMethodBadgeColor = (method: string) => {
     if (method.includes("GET") && method.includes("POST")) return "bg-purple-500/10 text-purple-400 border-purple-500/20";
     if (method === "GET") return "bg-sky-500/10 text-sky-400 border-sky-500/20";
@@ -154,6 +208,15 @@ export default function ApiSettingsManager({ apiUrl }: ApiSettingsProps) {
               </svg>
               API Docs
             </a>
+            <button
+              onClick={handleDownloadPostman}
+              className="flex items-center gap-1.5 text-orange-400 hover:text-orange-300 font-semibold text-xs px-3 py-2 border border-orange-500/30 hover:border-orange-500/50 rounded-xl transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-3.5 h-3.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Export Postman
+            </button>
             <button
               onClick={handleResetHits}
               className="text-red-400 hover:text-red-300 font-semibold text-xs px-3 py-2 bg-red-500/10 hover:bg-red-500/20 rounded-xl transition-colors"

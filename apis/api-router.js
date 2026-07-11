@@ -743,6 +743,26 @@ export class ApiRouter {
         return;
       }
 
+      // GET /api/admin/projects/:id/files
+      if (req.method === "GET" && req.url.match(/\/api\/admin\/projects\/\d+\/files/)) {
+        const idStr = req.url.split("/")[4]; // /api/admin/projects/:id/files
+        const id = parseInt(idStr, 10);
+        
+        try {
+          const dbModule = await import("../backend/database/db.js");
+          const { getProjectFilesList } = dbModule;
+          const data = getProjectFilesList(id);
+
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(data));
+        } catch (e) {
+          console.error("Error fetching project files:", e);
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Internal Server Error" }));
+        }
+        return;
+      }
+
       // DELETE /api/admin/projects/:id
       if (req.method === "DELETE") {
         const idStr = req.url.split("/").pop();

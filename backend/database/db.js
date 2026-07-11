@@ -270,6 +270,76 @@ export function getProjectEmails(project_id, page = 1, limit = 20) {
   }
 }
 
+export function getProjectFilesList(project_id) {
+  try {
+    const filesList = [];
+    let totalSize = 0;
+    
+    const records = db.prepare(`SELECT id, file_name, created_at, has_attachment FROM received_emails WHERE project_id = ?`).all(project_id);
+    
+    const liveDir = path.join(process.cwd(), "backend", "storage", "live");
+    const localDir = path.join(process.cwd(), "backend", "storage", "local");
+    const mediaDir = path.join(process.cwd(), "backend", "storage", "media-mails");
+
+    for (const record of records) {
+      if (record.file_name) {
+        let filePath = path.join(liveDir, record.file_name);
+        if (!fs.existsSync(filePath)) {
+          filePath = path.join(localDir, record.file_name);
+        }
+
+        if (fs.existsSync(filePath)) {
+          const stats = fs.statSync(filePath);
+          filesList.push({
+            id: `json-${record.id}`,
+            name: record.file_name,
+            type: 'JSON Email Data',
+            sizeBytes: stats.size,
+            createdAt: record.created_at
+          });
+          totalSize += stats.size;
+          
+          if (record.has_attachment) {
+            try {
+              const fileContent = fs.readFileSync(filePath, "utf-8");
+              const parsed = JSON.parse(fileContent);
+              if (parsed.attachments && Array.isArray(parsed.attachments)) {
+                for (const att of parsed.attachments) {
+                  if (att.url) {
+                    const attFilename = att.url.split("/").pop();
+                    const attPath = path.join(mediaDir, attFilename);
+                    if (fs.existsSync(attPath)) {
+                      const attStats = fs.statSync(attPath);
+                      filesList.push({
+                        id: `att-${record.id}-${attFilename}`,
+                        name: attFilename,
+                        type: 'Media Attachment',
+                        sizeBytes: attStats.size,
+                        createdAt: record.created_at
+                      });
+                      totalSize += attStats.size;
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              // ignore parse errors
+            }
+          }
+        }
+      }
+    }
+    
+    // Sort files by newest first
+    filesList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
+    return { files: filesList, totalSizeBytes: totalSize };
+  } catch (err) {
+    console.error("DB Error fetching project files:", err);
+    return { files: [], totalSizeBytes: 0 };
+  }
+}
+
 export function getActiveDomains() {
   try {
     const stmt = db.prepare("SELECT domain FROM attached_domains WHERE status = 'active' ORDER BY created_at DESC");
