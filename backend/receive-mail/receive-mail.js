@@ -7,7 +7,7 @@ import nodemailer from "nodemailer";
 import { sendOutboundEmail as sendOutboundEmailLive } from "../send-mail-simple/send-mail-from-generated-mail-from-live.js";
 import { sendOutboundEmail as sendOutboundEmailLocal } from "../send-mail-simple/send-mail-from-generated-mail-from-local.js";
 import { ApiRouter } from "../../apis/api-router.js";
-import { logReceivedEmail, getProjectByEmail, logSystemEvent, runDataRetentionCleanupJob } from "../database/db.js";
+import { logReceivedEmail, getProjectByEmail, logSystemEvent, runDataRetentionCleanupJob, validateRecipientCatchAll } from "../database/db.js";
 
 // Load .env file manually if it exists
 const envPath = path.join(process.cwd(), ".env");
@@ -116,6 +116,16 @@ const smtpServer = new SMTPServer({
     const msg = `➡️ RCPT TO (Recipient): ${address.address}`;
     if (session.isLocalConnection) addLocalLog(msg); else addLiveLog(msg);
     logSystemEvent({ log_type: 'RECEIVE', status: 'INFO', message: 'RCPT TO received', details: { recipient: address.address } });
+    
+    // Check Catch-All validation
+    const isValid = validateRecipientCatchAll(address.address);
+    if (!isValid) {
+      const rejectMsg = `❌ Rejected RCPT TO: Mailbox unavailable (Catch-All disabled for this domain)`;
+      if (session.isLocalConnection) addLocalLog(rejectMsg); else addLiveLog(rejectMsg);
+      logSystemEvent({ log_type: 'RECEIVE', status: 'WARNING', message: 'Rejected Recipient (Catch-All OFF)', details: { recipient: address.address } });
+      return callback(new Error("550 Requested action not taken: mailbox unavailable"));
+    }
+    
     return callback();
   },
   onData(stream, session, callback) {

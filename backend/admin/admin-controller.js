@@ -446,23 +446,39 @@ export class AdminController {
   }
 
   /**
-   * Updates an attached domain's status
+   * Updates an attached domain's status or catch_all setting
    */
   static updateAttachedDomain(req, res, id) {
     let body = "";
     req.on("data", chunk => body += chunk.toString());
     req.on("end", () => {
       try {
-        const { status } = JSON.parse(body);
-        if (!status) {
+        const payload = JSON.parse(body);
+        if (payload.status === undefined && payload.catch_all === undefined) {
           res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Status is required" }));
+          res.end(JSON.stringify({ error: "No fields to update" }));
           return;
         }
 
         const db = require('../database/db.js').default;
-        const stmt = db.prepare("UPDATE attached_domains SET status = ? WHERE id = ?");
-        const info = stmt.run(status, id);
+        
+        let updates = [];
+        let values = [];
+        
+        if (payload.status !== undefined) {
+          updates.push("status = ?");
+          values.push(payload.status);
+        }
+        
+        if (payload.catch_all !== undefined) {
+          updates.push("catch_all = ?");
+          values.push(payload.catch_all === true || payload.catch_all === 1 ? 1 : 0);
+        }
+        
+        values.push(id);
+        
+        const stmt = db.prepare(`UPDATE attached_domains SET ${updates.join(", ")} WHERE id = ?`);
+        const info = stmt.run(...values);
         
         if (info.changes > 0) {
           res.writeHead(200, { "Content-Type": "application/json" });

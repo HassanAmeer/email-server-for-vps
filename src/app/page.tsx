@@ -59,62 +59,28 @@ const ParticleCanvas = () => {
 
 // API Documentation details matching backend api-router.js
 const apiDocs = {
+  domains: {
+    title: "List Active Domains",
+    desc: "Fetch a list of all active domains available for generating temporary email addresses.",
+    endpoint: "GET /api/domains",
+    curl: "curl -X GET http://your-vps-ip:8081/api/domains",
+    js: `fetch("http://your-vps-ip:8081/api/domains")\n  .then(res => res.json())\n  .then(data => console.log(data.domains));`,
+    response: `{\n  "domains": [\n    "tempemail.vps"\n  ]\n}`
+  },
   generate: {
     title: "Generate Mailbox",
     desc: "Dynamically allocates a random transient email address. Optionally specify a ?domain= parameter.",
-    endpoint: "GET /api/mailbox/generate?domain=tempemail.vps",
-    curl: "curl -X GET http://your-vps-ip:8081/api/mailbox/generate?domain=tempemail.vps \\\n  -H \"Authorization: Bearer YOUR_API_KEY\"",
-    js: `fetch("http://your-vps-ip:8081/api/mailbox/generate?domain=tempemail.vps", {\n  headers: { "Authorization": "Bearer YOUR_API_KEY" }\n})\n  .then(res => res.json())\n  .then(data => console.log(data.email));`,
-    response: `{
-  "email": "x9f3q2y8@tempemail.vps"
-}`
-  },
-  inbox: {
-    title: "Fetch Mailbox Inbox",
-    desc: "Retrieves all captured emails sent to the specific transient email mailbox, including parsed attachments details.",
-    endpoint: "GET /api/mailbox/:email",
-    curl: "curl -X GET http://your-vps-ip:8081/api/mailbox/x9f3q2y8@tempemail.vps",
-    js: `fetch("http://your-vps-ip:8081/api/mailbox/x9f3q2y8@tempemail.vps")\n  .then(res => res.json())\n  .then(emails => console.log(emails));`,
-    response: `[
-  {
-    "id": "msg_9a8f2",
-    "from": "noreply@github.com",
-    "to": "x9f3q2y8@tempemail.vps",
-    "subject": "Your verification code",
-    "text": "Your verification code is 849302.",
-    "date": "2026-07-07T10:17:02Z",
-    "attachments": [
-      {
-        "filename": "invoice.pdf",
-        "size": 14205,
-        "url": "/storage/media/invoice.pdf"
-      }
-    ]
-  }
-]`
-  },
-  otps: {
-    title: "Extract OTP Codes",
-    desc: "Retrieves extracted 4-6 digit numeric OTP verification codes from incoming email objects instantly.",
-    endpoint: "GET /api/mailbox/:email/otps",
-    curl: "curl -X GET http://your-vps-ip:8081/api/mailbox/x9f3q2y8@tempemail.vps/otps",
-    js: `fetch("http://your-vps-ip:8081/api/mailbox/x9f3q2y8@tempemail.vps/otps")\n  .then(res => res.json())\n  .then(otps => console.log(otps));`,
-    response: `[
-  {
-    "otp": "849302",
-    "from": "noreply@github.com",
-    "subject": "Your verification code",
-    "date": "2026-07-07T10:17:02Z",
-    "mailId": "msg_9a8f2"
-  }
-]`
+    endpoint: "GET /api/mailbox/generate",
+    curl: "curl -X GET http://your-vps-ip:8081/api/mailbox/generate \\\n  -H \"Authorization: Bearer demo\"",
+    js: `fetch("http://your-vps-ip:8081/api/mailbox/generate", {\n  headers: { "Authorization": "Bearer demo" }\n})\n  .then(res => res.json())\n  .then(data => console.log(data.email));`,
+    response: `{\n  "email": "x9f3q2y8@tempemail.vps"\n}`
   }
 };
 
 export default function Home() {
   const [copied, setCopied] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [activeApiTab, setActiveApiTab] = useState<"generate" | "inbox" | "otps">("generate");
+  const [activeApiTab, setActiveApiTab] = useState<"domains" | "generate">("domains");
   const [apiLang, setApiLang] = useState<"curl" | "javascript">("curl");
   const [baseUrl, setBaseUrl] = useState("http://localhost:8081");
 
@@ -142,38 +108,56 @@ export default function Home() {
     }
   };
 
-  const startSimulation = () => {
+  const [liveResponse, setLiveResponse] = useState<string | null>(null);
+
+  const runApi = async () => {
     if (isSimulating) return;
     setIsSimulating(true);
     setSimulationLogs([]);
     setSimulationStep(1);
+    setLiveResponse(null);
 
-    const steps = [
-      activeApiTab === "generate"
-        ? `$ curl -X GET ${baseUrl}/api/mailbox/generate?domain=tempemail.vps`
-        : activeApiTab === "inbox"
-          ? `$ curl -X GET ${baseUrl}/api/mailbox/x9f3q2y8@tempemail.vps`
-          : `$ curl -X GET ${baseUrl}/api/mailbox/x9f3q2y8@tempemail.vps/otps`,
-      `Connecting to TempMail VPS Node at ${baseUrl.replace(/^https?:\/\//, '')}...`,
-      activeApiTab === "generate"
-        ? `Generating dynamic transient address...`
-        : activeApiTab === "inbox"
-          ? `Querying database for 'x9f3q2y8@tempemail.vps'...`
-          : `Parsing raw MIME streams for 4-6 digit numeric OTP patterns...`,
-      `HTTP/1.1 200 OK\nContent-Type: application/json\nAccess-Control-Allow-Origin: *`,
-      apiDocs[activeApiTab].response
-    ];
+    let logs: string[] = [];
+    const isGenerate = activeApiTab === "generate";
+    
+    logs.push(isGenerate 
+      ? `$ curl -X GET ${baseUrl}/api/mailbox/generate -H "Authorization: Bearer demo"`
+      : `$ curl -X GET ${baseUrl}/api/domains`);
+    logs.push(`Connecting to Live API Node at ${baseUrl.replace(/^https?:\/\//, '')}...`);
+    
+    if (isGenerate) {
+      logs.push(`Requesting new dynamic transient address...`);
+    } else {
+      logs.push(`Querying active domain list...`);
+    }
+    
+    setSimulationLogs([...logs]);
 
-    let current = 0;
-    const timer = setInterval(() => {
-      if (current < steps.length) {
-        setSimulationLogs(prev => [...prev, steps[current]]);
-        current++;
+    try {
+      let res;
+      if (isGenerate) {
+        res = await fetch(`${baseUrl}/api/mailbox/generate`, {
+          headers: { "Authorization": "Bearer demo" }
+        });
       } else {
-        clearInterval(timer);
-        setIsSimulating(false);
+        res = await fetch(`${baseUrl}/api/domains`);
       }
-    }, 600);
+      
+      const data = await res.json();
+      setTimeout(() => {
+        setLiveResponse(JSON.stringify(data, null, 2));
+        logs.push(`HTTP/1.1 ${res.status} OK\nContent-Type: application/json\nAccess-Control-Allow-Origin: *`);
+        setSimulationLogs([...logs]);
+        setIsSimulating(false);
+      }, 600);
+
+    } catch (err: any) {
+      setTimeout(() => {
+        logs.push(`Error: Failed to fetch from API. Is the server running? ${err.message}`);
+        setSimulationLogs([...logs]);
+        setIsSimulating(false);
+      }, 600);
+    }
   };
 
   const projectName = process.env.NEXT_PUBLIC_PROJECT_NAME || "TempMail VPS";
@@ -298,26 +282,19 @@ export default function Home() {
               <div className="bg-[#050a14]/80 px-4 py-3 border-b border-white/[0.06] flex items-center justify-between flex-wrap gap-2.5">
                 <div className="flex gap-2">
                   <button
-                    onClick={() => { setActiveApiTab("generate"); setSimulationStep(0); }}
+                    onClick={() => { setActiveApiTab("domains"); setSimulationStep(0); setLiveResponse(null); }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${activeApiTab === "domains" && simulationStep === 0
+                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-md shadow-emerald-500/5"
+                      : "text-gray-400 hover:text-white bg-transparent border border-transparent"
+                      }`}
+                  >GET /domains</button>
+                  <button
+                    onClick={() => { setActiveApiTab("generate"); setSimulationStep(0); setLiveResponse(null); }}
                     className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${activeApiTab === "generate" && simulationStep === 0
                       ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-md shadow-emerald-500/5"
                       : "text-gray-400 hover:text-white bg-transparent border border-transparent"
                       }`}
                   >GET /generate</button>
-                  <button
-                    onClick={() => { setActiveApiTab("inbox"); setSimulationStep(0); }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${activeApiTab === "inbox" && simulationStep === 0
-                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-md shadow-emerald-500/5"
-                      : "text-gray-400 hover:text-white bg-transparent border border-transparent"
-                      }`}
-                  >GET /mailbox</button>
-                  <button
-                    onClick={() => { setActiveApiTab("otps"); setSimulationStep(0); }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${activeApiTab === "otps" && simulationStep === 0
-                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-md shadow-emerald-500/5"
-                      : "text-gray-400 hover:text-white bg-transparent border border-transparent"
-                      }`}
-                  >GET /otps</button>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -332,13 +309,13 @@ export default function Home() {
                     >Fetch JS</button>
                   </div>
                   <button
-                    onClick={startSimulation}
+                    onClick={runApi}
                     disabled={isSimulating}
                     className={`px-3 py-1 text-[10px] font-mono font-bold rounded-lg cursor-pointer transition-all border ${isSimulating
                       ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 animate-pulse"
                       : "bg-emerald-500 hover:bg-emerald-400 text-slate-950 border-emerald-500 hover:border-emerald-400 font-extrabold shadow-lg shadow-emerald-500/10"
                       }`}
-                  >{isSimulating ? "Running..." : "Try Request ⚡"}</button>
+                  >{isSimulating ? "Running..." : "Run API ⚡"}</button>
                 </div>
               </div>
 
@@ -364,7 +341,6 @@ export default function Home() {
                     {simulationLogs.map((log, index) => {
                       const isCommand = log.startsWith("$");
                       const isHeader = log.includes("HTTP/1.1") || log.includes("Content-Type");
-                      const isJson = log.startsWith("{") || log.startsWith("[");
                       return (
                         <div key={index} className="leading-relaxed">
                           {isCommand ? (
@@ -372,9 +348,7 @@ export default function Home() {
                               <span className="text-emerald-500 select-none mr-2">$</span>{log.substring(2)}
                             </div>
                           ) : isHeader ? (
-                            <pre className="text-cyan-400/90 whitespace-pre-wrap">{log}</pre>
-                          ) : isJson ? (
-                            <pre className="text-teal-300 bg-[#030712]/60 p-3 rounded-lg border border-white/[0.04] whitespace-pre overflow-x-auto max-w-full">{log}</pre>
+                            <pre className="text-cyan-400/90 whitespace-pre-wrap">{log.replace(/\\n/g, '\n')}</pre>
                           ) : (
                             <div className="text-gray-400 flex items-center gap-2">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/60 animate-ping"></span>{log}
@@ -383,6 +357,11 @@ export default function Home() {
                         </div>
                       );
                     })}
+                    {liveResponse && (
+                      <pre className="text-teal-300 bg-[#030712]/60 p-3 rounded-lg border border-white/[0.04] whitespace-pre overflow-x-auto max-w-full">
+                        {liveResponse}
+                      </pre>
+                    )}
                     {isSimulating && (
                       <div className="flex items-center gap-1">
                         <span className="text-emerald-500 select-none mr-2">&gt;</span>

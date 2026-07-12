@@ -69,6 +69,7 @@ try { db.exec(`ALTER TABLE projects ADD COLUMN is_active BOOLEAN DEFAULT 1;`); }
 try { db.exec(`ALTER TABLE projects ADD COLUMN retention_generated_emails INTEGER DEFAULT 0;`); } catch (e) { }
 try { db.exec(`ALTER TABLE projects ADD COLUMN retention_simple_mails INTEGER DEFAULT 0;`); } catch (e) { }
 try { db.exec(`ALTER TABLE projects ADD COLUMN retention_attachments INTEGER DEFAULT 0;`); } catch (e) { }
+try { db.exec(`ALTER TABLE attached_domains ADD COLUMN catch_all BOOLEAN DEFAULT 1;`); } catch (e) { }
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS attached_domains (
@@ -348,6 +349,31 @@ export function getActiveDomains() {
   } catch (err) {
     console.error("DB Error fetching active domains:", err);
     return [];
+  }
+}
+
+export function validateRecipientCatchAll(email) {
+  if (!email) return false;
+  const match = email.match(/@(.+)$/);
+  if (!match) return false;
+  const domain = match[1].toLowerCase().trim();
+
+  try {
+    const domainRecord = db.prepare("SELECT catch_all FROM attached_domains WHERE domain = ?").get(domain);
+    
+    // If not found, default to accepting it (backward compatibility for unattached domains)
+    if (!domainRecord) return true;
+
+    // If catch_all is explicitly ON
+    if (domainRecord.catch_all === 1) return true;
+
+    // If catch_all is OFF, check if email was explicitly generated
+    const exactEmail = db.prepare("SELECT id FROM generated_emails WHERE email = ?").get(email.toLowerCase().trim());
+    return !!exactEmail;
+
+  } catch (err) {
+    console.error("DB Error validating catch_all:", err);
+    return true; // Failsafe
   }
 }
 

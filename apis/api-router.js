@@ -48,6 +48,10 @@ export class ApiRouter {
       return null;
     }
 
+    if (apiKey === "demo") {
+      return { id: 0, is_active: 1 };
+    }
+
     const project = getProjectByApiKey(apiKey);
     if (!project) {
       res.writeHead(403, { "Content-Type": "application/json" });

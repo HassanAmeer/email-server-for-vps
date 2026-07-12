@@ -21,6 +21,7 @@ export default function SetupManager({ apiUrl }: SetupManagerProps) {
     id: number;
     domain: string;
     status: string;
+    catch_all: number;
     created_at: string;
   }
   const [domains, setDomains] = useState<AttachedDomain[]>([]);
@@ -161,6 +162,26 @@ export default function SetupManager({ apiUrl }: SetupManagerProps) {
       }
     } catch (err: any) {
       alert("Failed to update status");
+    }
+  };
+
+  const handleUpdateDomainCatchAll = async (id: number, currentCatchAll: number) => {
+    const newCatchAll = currentCatchAll === 1 ? 0 : 1;
+    try {
+      const token = localStorage.getItem("admin_token") || "";
+      const res = await fetch(`${apiUrl}/api/admin/domains/${id}`, {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ catch_all: newCatchAll })
+      });
+      if (res.ok) {
+        await fetchDomains();
+      }
+    } catch (err: any) {
+      alert("Failed to update Catch-All status");
     }
   };
 
@@ -543,15 +564,27 @@ export default function SetupManager({ apiUrl }: SetupManagerProps) {
                         <span>{new Date(domain.created_at).toLocaleString()}</span>
                       </div>
 
-                      <button
-                        onClick={() => handleUpdateDomainStatus(domain.id, domain.status)}
-                        className={`px-2.5 py-1 rounded-md font-bold uppercase tracking-wider text-[10px] transition-colors ${domain.status === "active"
-                          ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
-                          : "bg-gray-500/10 text-gray-400 hover:bg-gray-500/20"
-                          }`}
-                      >
-                        {domain.status}
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleUpdateDomainCatchAll(domain.id, domain.catch_all)}
+                          className={`px-2.5 py-1 rounded-md font-bold uppercase tracking-wider text-[10px] transition-colors ${domain.catch_all === 1
+                            ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                            : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                            }`}
+                          title="Toggle whether this domain accepts emails for any random address, or only explicitly generated addresses."
+                        >
+                          CATCH-ALL: {domain.catch_all === 1 ? "ON" : "OFF"}
+                        </button>
+                        <button
+                          onClick={() => handleUpdateDomainStatus(domain.id, domain.status)}
+                          className={`px-2.5 py-1 rounded-md font-bold uppercase tracking-wider text-[10px] transition-colors ${domain.status === "active"
+                            ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                            : "bg-gray-500/10 text-gray-400 hover:bg-gray-500/20"
+                            }`}
+                        >
+                          {domain.status}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}

@@ -182,7 +182,7 @@ export default function LiveConsolePage() {
     fetchData();
     const interval = setInterval(fetchData, 3000);
     return () => clearInterval(interval);
-  }, [apiUrl, selectedMail?.id]);
+  }, [apiUrl, selectedMail?.id, generatedEmail]);
 
   // Read email marking
   const selectEmail = (email: Email) => {

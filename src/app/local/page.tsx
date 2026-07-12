@@ -177,7 +177,7 @@ export default function LocalConsolePage() {
     fetchData();
     const interval = setInterval(fetchData, 3000);
     return () => clearInterval(interval);
-  }, [apiUrl, selectedMail?.id]);
+  }, [apiUrl, selectedMail?.id, generatedEmail]);
 
   // Checkbox management
   const handleSelectMail = (id: string) => {
