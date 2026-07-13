@@ -14,6 +14,7 @@ export default function WebmailInbox() {
   const [composeSubject, setComposeSubject] = useState("");
   const [composeMessage, setComposeMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [readEmails, setReadEmails] = useState<Set<number>>(new Set());
   const router = useRouter();
 
   useEffect(() => {
@@ -27,6 +28,10 @@ export default function WebmailInbox() {
 
     try {
       setUser(JSON.parse(userStr));
+      const storedRead = localStorage.getItem("webmail_read_emails");
+      if (storedRead) {
+        setReadEmails(new Set(JSON.parse(storedRead)));
+      }
       fetchEmails(token);
     } catch (e) {
       handleLogout();
@@ -94,6 +99,15 @@ export default function WebmailInbox() {
 
   const handleViewEmail = async (emailRecord: any) => {
     setShowCompose(false);
+    
+    // Mark as read immediately in UI and localStorage
+    setReadEmails(prev => {
+      const next = new Set(prev);
+      next.add(emailRecord.id);
+      localStorage.setItem("webmail_read_emails", JSON.stringify(Array.from(next)));
+      return next;
+    });
+
     try {
       const token = localStorage.getItem("webmail_token");
       const res = await fetch(`/api/webmail/inbox/${emailRecord.id}`, {
@@ -306,6 +320,7 @@ export default function WebmailInbox() {
               <div className="flex flex-col bg-[#0b0f19]/50">
                 {emails.map(email => {
                   const isSelected = selectedEmail?.id === email.id;
+                  const isRead = readEmails.has(email.id);
                   const { name: senderName } = parseSender(email.sender);
                   return (
                     <div 
@@ -323,9 +338,14 @@ export default function WebmailInbox() {
                       )}
                       
                       <div className="flex justify-between items-baseline mb-1 gap-2">
-                        <span className={`font-bold truncate flex-1 text-base ${isSelected ? 'text-violet-300' : 'text-gray-100'}`}>
-                          {senderName}
-                        </span>
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {!isRead && (
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] flex-shrink-0"></span>
+                          )}
+                          <span className={`font-bold truncate text-base ${isSelected ? 'text-violet-300' : (isRead ? 'text-gray-400' : 'text-gray-50')}`}>
+                            {senderName}
+                          </span>
+                        </div>
                         <span className={`text-xs font-medium font-mono whitespace-nowrap ${isSelected ? 'text-violet-400' : 'text-gray-500'}`}>
                           {formatDate(email.created_at)}
                         </span>
