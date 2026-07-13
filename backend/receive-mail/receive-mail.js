@@ -639,9 +639,9 @@ const httpServer = http.createServer((req, res) => {
     reqPath = "/doc/index.html";
   } else if (reqPath.startsWith("/webmail/")) {
     if (reqPath.startsWith("/webmail/inbox")) {
-      reqPath = "/webmail/inbox.html";
+      reqPath = "/webmail/inbox/index.html";
     } else {
-      reqPath = "/webmail.html";
+      reqPath = "/webmail/index.html";
     }
   } else if (reqPath === "/") {
     reqPath = "/index.html";
