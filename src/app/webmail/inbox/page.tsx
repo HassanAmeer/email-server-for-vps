@@ -261,7 +261,7 @@ export default function WebmailInbox() {
               </button>
               <button
                 onClick={() => { setSelectedEmail(null); setShowCompose(true); }}
-                className="flex items-center gap-2 text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-400 px-4 py-2 rounded-lg transition-colors shadow-[0_0_15px_rgba(16,185,129,0.3)] text-black"
+                className="flex items-center gap-2 text-sm font-bold text-black bg-emerald-500 hover:bg-emerald-400 px-4 py-2 rounded-lg transition-colors shadow-[0_0_15px_rgba(16,185,129,0.3)]"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-black">
                   <path d="M21.731 2.269a2.625 2.625 0 00-3.712 0l-1.157 1.158 3.712 3.712 1.158-1.157a2.625 2.625 0 000-3.712zM19.513 8.199l-3.712-3.712-12.15 12.15a5.25 5.25 0 00-1.32 2.214l-.8 2.685a.75.75 0 00.933.933l2.685-.8a5.25 5.25 0 002.214-1.32L19.513 8.2z" />
@@ -479,16 +479,16 @@ export default function WebmailInbox() {
                   <div className="max-w-4xl">
                     {/* HTML Content */}
                     {selectedEmail.details.html ? (
-                      <div className="bg-white rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10">
+                      <div className="bg-[#111827] rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10">
                         {/* Fake macOS window bar for aesthetic */}
-                        <div className="h-8 bg-[#f1f1f1] border-b border-gray-200 flex items-center px-4 gap-2">
+                        <div className="h-8 bg-[#1f2937] border-b border-white/[0.05] flex items-center px-4 gap-2">
                           <div className="w-3 h-3 rounded-full bg-rose-400"></div>
                           <div className="w-3 h-3 rounded-full bg-amber-400"></div>
                           <div className="w-3 h-3 rounded-full bg-emerald-400"></div>
                         </div>
                         <iframe 
-                          srcDoc={selectedEmail.details.html} 
-                          className="w-full min-h-[600px] border-0 bg-white" 
+                          srcDoc={`<style>body{background-color:#111827;color:#e5e7eb;} a{color:#34d399;}</style>` + selectedEmail.details.html} 
+                          className="w-full min-h-[600px] border-0 bg-[#111827]" 
                           title="Email Content"
                           sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"
                         />
