@@ -10,11 +10,11 @@ interface mailboxUser {
   created_at: string;
 }
 
-interface mailboxManagerProps {
+interface MailboxManagerProps {
   apiUrl: string;
 }
 
-export default function mailboxManager({ apiUrl }: mailboxManagerProps) {
+export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
   const [users, setUsers] = useState<mailboxUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

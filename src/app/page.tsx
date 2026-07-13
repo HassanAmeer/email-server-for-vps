@@ -541,7 +541,7 @@ export default function Home() {
                 <span className="text-xs font-bold font-mono text-violet-400 uppercase tracking-widest bg-violet-500/10 px-3 py-1 rounded-full border border-violet-500/25">Sandbox Env</span>
                 <span className="text-[10px] text-gray-500 font-mono">Port 1025</span>
               </div>
-              <h3 className="text-2xl font-extrabold text-white mb-3 group-hover:text-violet-400 transition-colors">Local Console</h3>
+              <h3 className="text-2xl font-extrabold text-white mb-3 group-hover:text-violet-400 transition-colors">Mail Box</h3>
               <p className="text-sm text-gray-400 leading-relaxed">A sandbox console listening for local application loops. Best for developers writing integration test scripts or local server code sending outgoing emails.</p>
               <div className="grid grid-cols-2 gap-3 mt-6 mb-8 py-3 px-4 rounded-xl bg-black/40 border border-white/[0.04] text-[11px] font-mono text-gray-500 select-none">
                 <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse"></span><span>Port: 1025 (Local)</span></div>
@@ -553,7 +553,7 @@ export default function Home() {
                 <div className="text-right text-gray-400">INBOUND</div>
               </div>
             </div>
-            <Link href="/local/" className="w-full text-center bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm py-3.5 rounded-xl shadow-lg shadow-violet-500/15 hover:shadow-violet-500/25 transition-all font-sans">Launch Local Sandbox</Link>
+            <Link href="/webmail/inbox" className="w-full text-center bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm py-3.5 rounded-xl shadow-lg shadow-violet-500/15 hover:shadow-violet-500/25 transition-all font-sans">Open Mail Box</Link>
           </div>
 
           {/* Admin Panel Card */}

@@ -10,7 +10,7 @@ import ApiSettingsManager from "../components/ApiSettingsManager";
 import Overview from "../components/Overview";
 import ProjectsManager from "../components/ProjectsManager";
 import SetupManager from "../components/SetupManager";
-import mailboxManager from "../components/mailboxManager";
+import MailboxManager from "../components/MailboxManager";
 
 const API_BASE = "http://localhost:8081";
 
@@ -380,7 +380,7 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
           )}
 
           {activeTab === "mailbox-tab" && (
-            <mailboxManager apiUrl={apiUrl} />
+            <MailboxManager apiUrl={apiUrl} />
           )}
 
           {activeTab === "setup-tab" && (
