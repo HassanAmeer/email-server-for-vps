@@ -588,7 +588,7 @@ export class ApiRouter {
       const db = dbModule.default;
 
       // GET /api/admin/projects
-      if (req.method === "GET") {
+      if (req.method === "GET" && req.url.split("?")[0] === "/api/admin/projects") {
         const projects = db.query("SELECT * FROM projects ORDER BY created_at DESC").all();
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(projects));
@@ -596,7 +596,7 @@ export class ApiRouter {
       }
 
       // POST /api/admin/projects (Create project)
-      if (req.method === "POST") {
+      if (req.method === "POST" && req.url.split("?")[0] === "/api/admin/projects") {
         let body = "";
         req.on("data", chunk => body += chunk.toString());
         req.on("end", () => {
@@ -800,6 +800,60 @@ export class ApiRouter {
           res.end(JSON.stringify({ success: true }));
         } catch (e) {
           res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: e.message }));
+        }
+        return;
+        return;
+      }
+
+      // GET /api/admin/projects/:id/webmail
+      if (req.method === "GET" && req.url.match(/^\/api\/admin\/projects\/\d+\/webmail$/)) {
+        const idStr = req.url.split("/")[4];
+        const id = parseInt(idStr, 10);
+        try {
+          const users = db.query("SELECT id, email, created_at FROM webmail_users WHERE project_id = ? ORDER BY created_at DESC").all(id);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ users }));
+        } catch (e) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: e.message }));
+        }
+        return;
+      }
+
+      // POST /api/admin/projects/:id/webmail
+      if (req.method === "POST" && req.url.match(/^\/api\/admin\/projects\/\d+\/webmail$/)) {
+        const idStr = req.url.split("/")[4];
+        const id = parseInt(idStr, 10);
+        let body = "";
+        req.on("data", chunk => body += chunk.toString());
+        req.on("end", async () => {
+          try {
+            const { email, password } = JSON.parse(body);
+            if (!email || !password) throw new Error("Email and password are required");
+            const hash = await Bun.password.hash(password);
+            db.prepare("INSERT INTO webmail_users (email, password_hash, project_id) VALUES (?, ?, ?)").run(email, hash, id);
+            res.writeHead(201, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ success: true }));
+          } catch (e) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: e.message }));
+          }
+        });
+        return;
+      }
+
+      // DELETE /api/admin/projects/:id/webmail/:userId
+      if (req.method === "DELETE" && req.url.match(/^\/api\/admin\/projects\/\d+\/webmail\/\d+$/)) {
+        const urlParts = req.url.split("/");
+        const projectId = parseInt(urlParts[4], 10);
+        const userId = parseInt(urlParts[6], 10);
+        try {
+          db.prepare("DELETE FROM webmail_users WHERE id = ? AND project_id = ?").run(userId, projectId);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ success: true }));
+        } catch (e) {
+          res.writeHead(500, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: e.message }));
         }
         return;
