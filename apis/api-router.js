@@ -858,6 +858,45 @@ export class ApiRouter {
         }
         return;
       }
+      // GET /api/admin/projects/:id/files
+      if (req.method === "GET" && req.url.match(/^\/api\/admin\/projects\/\d+\/files$/)) {
+        const idStr = req.url.split("/")[4];
+        const id = parseInt(idStr, 10);
+        try {
+          const filesRecords = db.query("SELECT id, file_name, has_attachment, created_at FROM received_emails WHERE project_id = ? AND file_name IS NOT NULL ORDER BY created_at DESC").all(id);
+          
+          let totalSizeBytes = 0;
+          const files = [];
+          
+          const fs = await import("fs");
+          const path = await import("path");
+          const targetDir = path.join(process.cwd(), "backend", "storage", "live");
+          
+          for (const record of filesRecords) {
+            const filePath = path.join(targetDir, record.file_name);
+            let size = 0;
+            if (fs.existsSync(filePath)) {
+               const stat = fs.statSync(filePath);
+               size = stat.size;
+               totalSizeBytes += size;
+            }
+            files.push({
+               id: record.id,
+               name: record.file_name,
+               type: record.has_attachment ? "Media Attachment" : "JSON Record",
+               sizeBytes: size,
+               createdAt: record.created_at
+            });
+          }
+
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ totalSizeBytes, files }));
+        } catch (e) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: e.message }));
+        }
+        return;
+      }
       
       res.writeHead(405, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Method Not Allowed" }));
