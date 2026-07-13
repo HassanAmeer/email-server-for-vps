@@ -116,6 +116,21 @@ export class ApiRouter {
 
     const randomString = Math.random().toString(36).substring(2, 10);
     const email = `${randomString}@${domain}`;
+
+    // Ensure it doesn't conflict with any Webmail User account
+    try {
+      const dbModule = require("../backend/database/db.js");
+      const db = dbModule.default;
+      const existingWebmail = db.prepare("SELECT id FROM webmail_users WHERE email = ?").get(email);
+      if (existingWebmail) {
+        // Very rare collision with generated string, but just in case, return error so client retries
+        res.writeHead(409, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Generated address collision. Please try again." }));
+        return;
+      }
+    } catch (err) {
+      console.error("DB Error checking reserved webmail:", err);
+    }
     
     // Capture IP
     const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || "Unknown";
@@ -169,6 +184,16 @@ export class ApiRouter {
 
     // Check if this email was already generated
     try {
+      const dbModule = require("../backend/database/db.js");
+      const db = dbModule.default;
+      
+      const existingWebmail = db.prepare("SELECT id FROM webmail_users WHERE email = ?").get(email);
+      if (existingWebmail) {
+        res.writeHead(409, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "This email address is reserved for a Webmail Account. Please choose a different name.", email }));
+        return;
+      }
+
       const existing = db.prepare("SELECT id FROM generated_emails WHERE email = ?").get(email);
       if (existing) {
         res.writeHead(409, { "Content-Type": "application/json" });
@@ -908,6 +933,97 @@ export class ApiRouter {
   }
 
   // ==========================================
+  // NEW ADMIN WEBMAIL USERS API
+  // ==========================================
+
+  static async handleAdminWebmailUsersApi(req, res) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ") || authHeader.split(" ")[1] !== AdminController.adminToken) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    try {
+      const dbModule = await import("../backend/database/db.js");
+      const db = dbModule.default;
+      const cleanUrl = req.url.split("?")[0];
+
+      // GET /api/admin/webmail-users
+      if (req.method === "GET" && cleanUrl === "/api/admin/webmail-users") {
+        const users = db.query(`
+          SELECT w.id, w.email, w.project_id, w.created_at, p.name as project_name 
+          FROM webmail_users w
+          LEFT JOIN projects p ON w.project_id = p.id
+          ORDER BY w.created_at DESC
+        `).all();
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(users));
+        return;
+      }
+
+      // POST /api/admin/webmail-users
+      if (req.method === "POST" && cleanUrl === "/api/admin/webmail-users") {
+        let body = "";
+        req.on("data", chunk => body += chunk.toString());
+        req.on("end", () => {
+          try {
+            const { email, password, project_id } = JSON.parse(body);
+            if (!email || !password) {
+              res.writeHead(400, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ error: "Email and password are required" }));
+              return;
+            }
+
+            const hash = Bun.password.hashSync(password, {
+              algorithm: "bcrypt",
+              cost: 10,
+            });
+            const projectIdVal = project_id || null;
+
+            const stmt = db.prepare("INSERT INTO webmail_users (email, password_hash, project_id) VALUES (?, ?, ?)");
+            const result = stmt.run(email, hash, projectIdVal);
+            
+            res.writeHead(201, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ id: result.lastInsertRowid, email, project_id: projectIdVal }));
+          } catch (err) {
+            if (err.message && err.message.includes("UNIQUE constraint failed")) {
+              res.writeHead(409, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ error: "Webmail user with this email already exists" }));
+            } else {
+              res.writeHead(500, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ error: err.message }));
+            }
+          }
+        });
+        return;
+      }
+
+      // DELETE /api/admin/webmail-users/:id
+      if (req.method === "DELETE" && cleanUrl.startsWith("/api/admin/webmail-users/")) {
+        const id = cleanUrl.split("/").pop();
+        if (!id) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Missing ID parameter" }));
+          return;
+        }
+
+        db.prepare("DELETE FROM webmail_users WHERE id = ?").run(id);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true }));
+        return;
+      }
+
+      res.writeHead(405, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Method Not Allowed" }));
+    } catch (err) {
+      console.error("Admin Webmail Users API Error:", err);
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Internal Server Error" }));
+    }
+  }
+
+  // ==========================================
   // NEW TRAFFIC ANALYTICS API
   // ==========================================
   static async handleTrafficStatsApi(req, res) {
@@ -1039,6 +1155,56 @@ export class ApiRouter {
         const data = getWebmailInbox(userEmail, page, limit);
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(data));
+        return;
+      }
+
+      // POST /api/webmail/send
+      if (cleanUrl === "/api/webmail/send" && req.method === "POST") {
+        let body = "";
+        req.on("data", chunk => body += chunk.toString());
+        req.on("end", async () => {
+          try {
+            const data = JSON.parse(body);
+            const { to, subject, message } = data;
+            
+            if (!to || !message) {
+              res.writeHead(400, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ error: "'to' and 'message' fields are required" }));
+              return;
+            }
+
+            const IS_LIVE = process.env.live !== "false";
+            
+            if (IS_LIVE) {
+              const { sendOutboundEmail: sendOutboundEmailLive } = await import("../backend/send-mail-simple/send-mail-from-generated-mail-from-live.js");
+              await sendOutboundEmailLive({
+                from: userEmail,
+                to,
+                subject: subject || "",
+                text: message,
+                html: "",
+                attachments: []
+              });
+            } else {
+              const { sendOutboundEmail: sendOutboundEmailLocal } = await import("../backend/send-mail-simple/send-mail-from-generated-mail-from-local.js");
+              await sendOutboundEmailLocal({
+                from: userEmail,
+                to,
+                subject: subject || "",
+                text: message,
+                html: "",
+                attachments: []
+              });
+            }
+
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ success: true }));
+          } catch (error) {
+            console.error("Webmail Send Error:", error);
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: error.message }));
+          }
+        });
         return;
       }
 

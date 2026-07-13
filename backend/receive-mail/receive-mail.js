@@ -300,6 +300,10 @@ const httpServer = http.createServer((req, res) => {
     return ApiRouter.handleProjectsApi(req, res);
   }
 
+  if (cleanUrl.startsWith("/api/admin/webmail-users")) {
+    return ApiRouter.handleAdminWebmailUsersApi(req, res);
+  }
+
   if (cleanUrl.startsWith("/api/webmail")) {
     return ApiRouter.handleWebmailApi(req, res);
   }

@@ -9,6 +9,11 @@ export default function WebmailInbox() {
   const [error, setError] = useState("");
   const [user, setUser] = useState<any>(null);
   const [selectedEmail, setSelectedEmail] = useState<any>(null);
+  const [showCompose, setShowCompose] = useState(false);
+  const [composeTo, setComposeTo] = useState("");
+  const [composeSubject, setComposeSubject] = useState("");
+  const [composeMessage, setComposeMessage] = useState("");
+  const [sending, setSending] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -41,8 +46,9 @@ export default function WebmailInbox() {
       }
       
       if (res.ok) {
-        const data = await res.json();
-        setEmails(data);
+        const responseData = await res.json();
+        // The API returns { data: [...], pagination: {...} }
+        setEmails(responseData.data || []);
       } else {
         const err = await res.json();
         setError(err.error || "Failed to load emails");
@@ -61,6 +67,7 @@ export default function WebmailInbox() {
   };
 
   const handleViewEmail = async (emailRecord: any) => {
+    setShowCompose(false);
     try {
       const token = localStorage.getItem("webmail_token");
       const res = await fetch(`/api/webmail/inbox/${emailRecord.id}`, {
@@ -75,6 +82,41 @@ export default function WebmailInbox() {
       }
     } catch (err) {
       alert("Error loading email");
+    }
+  };
+
+  const handleSendEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSending(true);
+    try {
+      const token = localStorage.getItem("webmail_token");
+      const res = await fetch("/api/webmail/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          to: composeTo,
+          subject: composeSubject,
+          message: composeMessage
+        })
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to send email");
+      }
+
+      alert("Email sent successfully!");
+      setShowCompose(false);
+      setComposeTo("");
+      setComposeSubject("");
+      setComposeMessage("");
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setSending(false);
     }
   };
 
@@ -121,7 +163,7 @@ export default function WebmailInbox() {
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 flex gap-6 overflow-hidden h-[calc(100vh-4rem)]">
         
         {/* Email List */}
-        <div className="w-full md:w-1/3 lg:w-2/5 flex flex-col glass-panel border-white/[0.05] rounded-2xl overflow-hidden h-full">
+        <div className={`w-full md:w-1/3 lg:w-2/5 flex flex-col glass-panel border-white/[0.05] rounded-2xl overflow-hidden h-full ${(selectedEmail || showCompose) ? 'hidden md:flex' : 'flex'}`}>
           <div className="p-4 border-b border-white/[0.05] flex justify-between items-center bg-black/20">
             <h2 className="font-bold text-white flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5 text-purple-400">
@@ -129,21 +171,40 @@ export default function WebmailInbox() {
               </svg>
               Inbox
             </h2>
-            <button 
-              onClick={() => fetchEmails(localStorage.getItem("webmail_token") || "")}
-              className="text-gray-400 hover:text-white p-1 rounded hover:bg-white/10 transition-colors"
-              title="Refresh"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => fetchEmails(localStorage.getItem("webmail_token") || "")}
+                className="text-gray-400 hover:text-white p-1.5 rounded hover:bg-white/10 transition-colors"
+                title="Refresh"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                </svg>
+              </button>
+              <button
+                onClick={() => { setSelectedEmail(null); setShowCompose(true); }}
+                className="flex items-center gap-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-500 px-3 py-1.5 rounded-lg transition-colors shadow-sm"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3.5 h-3.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" />
+                </svg>
+                Compose
+              </button>
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto">
             {loading ? (
-              <div className="flex justify-center p-8">
-                <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+              <div className="flex flex-col gap-2 p-4">
+                {[1,2,3,4,5,6].map(i => (
+                  <div key={i} className="animate-pulse flex flex-col gap-3 p-4 border border-white/[0.05] rounded-xl bg-white/[0.02] shadow-sm">
+                    <div className="flex justify-between items-center gap-4">
+                      <div className="h-4 bg-white/[0.08] rounded-md w-1/3"></div>
+                      <div className="h-3 bg-white/[0.05] rounded-md w-16"></div>
+                    </div>
+                    <div className="h-3 bg-white/[0.05] rounded-md w-2/3"></div>
+                  </div>
+                ))}
               </div>
             ) : error ? (
               <div className="p-4 text-center text-red-400 text-sm">{error}</div>
@@ -187,13 +248,86 @@ export default function WebmailInbox() {
           </div>
         </div>
 
-        {/* Email Viewer */}
-        <div className="hidden md:flex flex-1 flex-col glass-panel border-white/[0.05] rounded-2xl overflow-hidden h-full relative">
-          {selectedEmail ? (
+        {/* Email Viewer / Compose Pane */}
+        <div className={`flex-1 flex-col glass-panel border-white/[0.05] rounded-2xl overflow-hidden h-full relative ${(selectedEmail || showCompose) ? 'flex' : 'hidden md:flex'}`}>
+          {showCompose ? (
+            <div className="flex flex-col h-full bg-[#0a0a0a]">
+              <div className="p-6 border-b border-white/[0.05] bg-black/20 flex justify-between items-center">
+                <h2 className="text-xl font-bold text-white flex items-center gap-3">
+                  <button onClick={() => setShowCompose(false)} className="md:hidden flex items-center justify-center text-gray-400 hover:text-white transition-colors bg-white/5 hover:bg-white/10 rounded-full w-8 h-8">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
+                  </button>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5 text-purple-400">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                  </svg>
+                  Compose New Email
+                </h2>
+                <button onClick={() => setShowCompose(false)} className="text-gray-400 hover:text-white">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-6 h-6">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <form onSubmit={handleSendEmail} className="flex flex-col flex-1 p-6 gap-4 overflow-y-auto">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">To</label>
+                  <input
+                    type="email"
+                    value={composeTo}
+                    onChange={e => setComposeTo(e.target.value)}
+                    required
+                    placeholder="recipient@example.com"
+                    className="bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Subject</label>
+                  <input
+                    type="text"
+                    value={composeSubject}
+                    onChange={e => setComposeSubject(e.target.value)}
+                    placeholder="Enter subject..."
+                    className="bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5 flex-1">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Message</label>
+                  <textarea
+                    value={composeMessage}
+                    onChange={e => setComposeMessage(e.target.value)}
+                    required
+                    placeholder="Write your email here..."
+                    className="bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 flex-1 resize-none font-mono"
+                  ></textarea>
+                </div>
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={sending}
+                    className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold px-8 py-2.5 rounded-xl transition-all shadow-lg disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {sending ? (
+                      <span className="animate-spin w-4 h-4 border-2 border-white/20 border-t-white rounded-full"></span>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                      </svg>
+                    )}
+                    Send Email
+                  </button>
+                </div>
+              </form>
+            </div>
+          ) : selectedEmail ? (
             <>
               {/* Email Header Info */}
               <div className="p-6 border-b border-white/[0.05] bg-black/20">
-                <h2 className="text-2xl font-bold text-white mb-4 leading-tight">{selectedEmail.subject || "(No Subject)"}</h2>
+                <div className="flex items-start gap-4 mb-4">
+                  <button onClick={() => setSelectedEmail(null)} className="md:hidden mt-1 flex-shrink-0 flex items-center justify-center text-gray-400 hover:text-white transition-colors bg-white/5 hover:bg-white/10 rounded-full w-8 h-8">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
+                  </button>
+                  <h2 className="text-2xl font-bold text-white leading-tight flex-1">{selectedEmail.subject || "(No Subject)"}</h2>
+                </div>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center text-white font-bold text-lg shadow-inner">
@@ -282,17 +416,16 @@ export default function WebmailInbox() {
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-gray-500 p-8">
-              <div className="w-20 h-20 rounded-full bg-white/[0.02] flex items-center justify-center mb-4">
+              <div className="w-20 h-20 rounded-full bg-white/[0.02] flex items-center justify-center mb-6 shadow-inner border border-white/[0.05]">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1" stroke="currentColor" className="w-10 h-10 text-gray-600">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                 </svg>
               </div>
-              <p className="text-lg font-medium text-gray-400">Select an email to read</p>
-              <p className="text-sm mt-1">Choose an email from the list on the left to view its contents.</p>
+              <p className="text-lg font-medium text-white mb-2">No email selected</p>
+              <p className="text-sm">Select an email from the inbox list to read its contents, or compose a new email.</p>
             </div>
           )}
         </div>
-        
       </main>
     </div>
   );
