@@ -110,7 +110,26 @@ export default function LiveConsolePage() {
 
   const handleCopyGen = () => {
     if (!generatedEmail) return;
-    navigator.clipboard.writeText(generatedEmail);
+    
+    // Fallback for non-HTTPS environments (like accessing via IP) where navigator.clipboard is blocked
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(generatedEmail);
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = generatedEmail;
+      textArea.style.position = "absolute";
+      textArea.style.left = "-999999px";
+      document.body.prepend(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+      } catch (error) {
+        console.error(error);
+      } finally {
+        textArea.remove();
+      }
+    }
+    
     setCopiedGen(true);
     setTimeout(() => setCopiedGen(false), 2000);
   };
@@ -408,7 +427,7 @@ export default function LiveConsolePage() {
             {generatedEmail ? (
               <div className="bg-emerald-500/10 border border-emerald-500/20 px-5 py-3 rounded-xl flex items-center justify-between gap-4 min-w-[280px]">
                 <div className="flex flex-col">
-                  <span className="text-[10px] uppercase text-emerald-500 font-bold tracking-widest">Generated Inbox</span>
+                  <span className="text-[10px] uppercase text-emerald-500 font-bold tracking-widest">Generated mail</span>
                   <span className="text-white font-mono font-medium text-sm">{generatedEmail}</span>
                 </div>
                 <button 
