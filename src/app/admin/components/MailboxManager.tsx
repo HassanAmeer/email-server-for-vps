@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-interface WebmailUser {
+interface mailboxUser {
   id: number;
   email: string;
   project_id: number | null;
@@ -10,12 +10,12 @@ interface WebmailUser {
   created_at: string;
 }
 
-interface WebmailManagerProps {
+interface mailboxManagerProps {
   apiUrl: string;
 }
 
-export default function WebmailManager({ apiUrl }: WebmailManagerProps) {
-  const [users, setUsers] = useState<WebmailUser[]>([]);
+export default function mailboxManager({ apiUrl }: mailboxManagerProps) {
+  const [users, setUsers] = useState<mailboxUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [newUsername, setNewUsername] = useState("");
@@ -27,7 +27,7 @@ export default function WebmailManager({ apiUrl }: WebmailManagerProps) {
   const fetchUsers = async () => {
     if (!apiUrl) return;
     try {
-      const res = await fetch(`${apiUrl}/api/admin/webmail-users`, {
+      const res = await fetch(`${apiUrl}/api/admin/mailbox-users`, {
         headers: {
           "Authorization": `Bearer ${localStorage.getItem("admin_token")}`
         }
@@ -37,10 +37,10 @@ export default function WebmailManager({ apiUrl }: WebmailManagerProps) {
         setUsers(data);
         setError("");
       } else {
-        throw new Error("Failed to load webmail users");
+        throw new Error("Failed to load mailbox users");
       }
     } catch (err: any) {
-      setError(err.message || "Failed to load webmail users");
+      setError(err.message || "Failed to load mailbox users");
     } finally {
       setLoading(false);
     }
@@ -84,7 +84,7 @@ export default function WebmailManager({ apiUrl }: WebmailManagerProps) {
     const fullEmail = `${newUsername}@${selectedDomain}`;
     
     try {
-      const res = await fetch(`${apiUrl}/api/admin/webmail-users`, {
+      const res = await fetch(`${apiUrl}/api/admin/mailbox-users`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -93,13 +93,13 @@ export default function WebmailManager({ apiUrl }: WebmailManagerProps) {
         body: JSON.stringify({
           email: fullEmail,
           password: newPassword,
-          project_id: null // Global Webmail User
+          project_id: null // Global mailbox User
         })
       });
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Failed to create webmail user");
+        throw new Error(data.error || "Failed to create mailbox user");
       }
 
       setNewUsername("");
@@ -113,10 +113,10 @@ export default function WebmailManager({ apiUrl }: WebmailManagerProps) {
   };
 
   const handleDelete = async (id: number, email: string) => {
-    if (!window.confirm(`Are you sure you want to delete webmail user ${email}?`)) return;
+    if (!window.confirm(`Are you sure you want to delete mailbox user ${email}?`)) return;
 
     try {
-      const res = await fetch(`${apiUrl}/api/admin/webmail-users/${id}`, {
+      const res = await fetch(`${apiUrl}/api/admin/mailbox-users/${id}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${localStorage.getItem("admin_token")}`
@@ -144,15 +144,15 @@ export default function WebmailManager({ apiUrl }: WebmailManagerProps) {
   return (
     <div className="flex flex-col gap-6 p-6 lg:p-10 flex-grow overflow-y-auto max-h-screen">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold text-white tracking-tight">Global Webmail Accounts</h1>
+        <h1 className="text-2xl font-bold text-white tracking-tight">Global mailbox Accounts</h1>
         <p className="text-sm text-gray-400">Manage permanent email addresses that can send and receive emails.</p>
       </div>
 
       <div className="bg-[#0D121F] border border-white/[0.05] rounded-2xl p-6 shadow-2xl">
-        <h2 className="text-lg font-bold text-white mb-4">Create New Webmail Account</h2>
+        <h2 className="text-lg font-bold text-white mb-4">Create New mailbox Account</h2>
         {domains.length === 0 ? (
           <div className="text-sm text-amber-400 bg-amber-500/10 p-4 rounded-xl border border-amber-500/20">
-            Please add at least one domain in the Setup tab before creating Webmail accounts.
+            Please add at least one domain in the Setup tab before creating mailbox accounts.
           </div>
         ) : (
           <form onSubmit={handleCreate} className="flex flex-col sm:flex-row gap-4 items-end">
@@ -217,7 +217,7 @@ export default function WebmailManager({ apiUrl }: WebmailManagerProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
               </svg>
             </div>
-            <h3 className="text-white font-bold mb-1">No Webmail Accounts</h3>
+            <h3 className="text-white font-bold mb-1">No mailbox Accounts</h3>
             <p className="text-sm text-gray-400 max-w-sm">Create an account above to start receiving and sending emails globally.</p>
           </div>
         ) : (

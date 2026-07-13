@@ -18,17 +18,17 @@ export default function WebmailInbox() {
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem("webmail_token");
-    const userStr = localStorage.getItem("webmail_user");
+    const token = localStorage.getItem("mailbox_token");
+    const userStr = localStorage.getItem("mailbox_user");
     
     if (!token || !userStr) {
-      router.push("/webmail");
+      router.push("/mailbox");
       return;
     }
 
     try {
       setUser(JSON.parse(userStr));
-      const storedRead = localStorage.getItem("webmail_read_emails");
+      const storedRead = localStorage.getItem("mailbox_read_emails");
       if (storedRead) {
         setReadEmails(new Set(JSON.parse(storedRead)));
       }
@@ -41,7 +41,7 @@ export default function WebmailInbox() {
   // Auto-fetch emails every 10 seconds silently
   useEffect(() => {
     if (!user) return;
-    const token = localStorage.getItem("webmail_token");
+    const token = localStorage.getItem("mailbox_token");
     if (!token) return;
     
     const interval = setInterval(() => {
@@ -53,7 +53,7 @@ export default function WebmailInbox() {
 
   const fetchEmailsSilent = async (token: string) => {
     try {
-      const res = await fetch("/api/webmail/inbox", {
+      const res = await fetch("/api/mailbox/inbox", {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {
@@ -68,7 +68,7 @@ export default function WebmailInbox() {
   const fetchEmails = async (token: string) => {
     try {
       setLoading(true);
-      const res = await fetch("/api/webmail/inbox", {
+      const res = await fetch("/api/mailbox/inbox", {
         headers: { "Authorization": `Bearer ${token}` }
       });
       
@@ -92,9 +92,9 @@ export default function WebmailInbox() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("webmail_token");
-    localStorage.removeItem("webmail_user");
-    router.push("/webmail");
+    localStorage.removeItem("mailbox_token");
+    localStorage.removeItem("mailbox_user");
+    router.push("/mailbox");
   };
 
   const handleViewEmail = async (emailRecord: any) => {
@@ -104,13 +104,13 @@ export default function WebmailInbox() {
     setReadEmails(prev => {
       const next = new Set(prev);
       next.add(emailRecord.id);
-      localStorage.setItem("webmail_read_emails", JSON.stringify(Array.from(next)));
+      localStorage.setItem("mailbox_read_emails", JSON.stringify(Array.from(next)));
       return next;
     });
 
     try {
-      const token = localStorage.getItem("webmail_token");
-      const res = await fetch(`/api/webmail/inbox/${emailRecord.id}`, {
+      const token = localStorage.getItem("mailbox_token");
+      const res = await fetch(`/api/mailbox/inbox/${emailRecord.id}`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       
@@ -129,8 +129,8 @@ export default function WebmailInbox() {
     e.preventDefault();
     setSending(true);
     try {
-      const token = localStorage.getItem("webmail_token");
-      const res = await fetch("/api/webmail/send", {
+      const token = localStorage.getItem("mailbox_token");
+      const res = await fetch("/api/mailbox/send", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -231,7 +231,7 @@ export default function WebmailInbox() {
                 <path d="M22.5 6.908V6.75a3 3 0 00-3-3h-15a3 3 0 00-3 3v.158l9.714 5.978a1.5 1.5 0 001.572 0L22.5 6.908z" />
               </svg>
             </div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Mail<span className="text-emerald-400">Pro</span></h1>
+            <h1 className="text-xl font-bold text-white tracking-tight">Mail<span className="text-emerald-400">Box</span></h1>
           </div>
           
           <div className="flex items-center gap-4">
@@ -265,7 +265,7 @@ export default function WebmailInbox() {
             </h2>
             <div className="flex items-center gap-2 relative z-10">
               <button 
-                onClick={() => fetchEmails(localStorage.getItem("webmail_token") || "")}
+                onClick={() => fetchEmails(localStorage.getItem("mailbox_token") || "")}
                 className="text-gray-400 hover:text-emerald-400 p-2 rounded-lg hover:bg-white/[0.04] transition-colors bg-white/[0.02] border border-white/[0.06] shadow-sm"
                 title="Refresh"
               >

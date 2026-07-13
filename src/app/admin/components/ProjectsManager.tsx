@@ -261,7 +261,7 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
     setLoadingWebmailUsers(true);
     try {
       const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/projects/${projectId}/webmail`, {
+      const res = await fetch(`${apiUrl}/api/admin/projects/${projectId}/mailbox`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {
@@ -285,7 +285,7 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
     setIsCreatingWebmail(true);
     try {
       const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/projects/${viewingAnalyticsFor.id}/webmail`, {
+      const res = await fetch(`${apiUrl}/api/admin/projects/${viewingAnalyticsFor.id}/mailbox`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -314,7 +314,7 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
 
     try {
       const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/projects/${viewingAnalyticsFor.id}/webmail/${userId}`, {
+      const res = await fetch(`${apiUrl}/api/admin/projects/${viewingAnalyticsFor.id}/mailbox/${userId}`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` }
       });

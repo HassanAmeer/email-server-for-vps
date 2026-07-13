@@ -654,8 +654,8 @@ export default function LiveConsolePage() {
                       <div className="flex-grow bg-black/30 rounded-xl border border-white/[0.05] overflow-hidden min-h-[250px] flex">
                         {viewMode === "html" && selectedMail.html ? (
                           <iframe
-                            srcDoc={selectedMail.html.replace(/"/g, "&quot;")}
-                            className="w-full h-full border-none bg-white"
+                            srcDoc={`<style>body{background-color:transparent;color:#e5e7eb;} a{color:#60a5fa;}</style>` + selectedMail.html}
+                            className="w-full h-full border-none bg-transparent"
                             sandbox="allow-same-origin"
                             title="Email content"
                           />

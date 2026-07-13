@@ -304,7 +304,7 @@ const httpServer = http.createServer((req, res) => {
     return ApiRouter.handleAdminWebmailUsersApi(req, res);
   }
 
-  if (cleanUrl.startsWith("/api/webmail")) {
+  if (cleanUrl.startsWith("/api/mailbox")) {
     return ApiRouter.handleWebmailApi(req, res);
   }
 

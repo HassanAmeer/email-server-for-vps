@@ -11,9 +11,9 @@ export default function WebmailLogin() {
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem("webmail_token");
+    const token = localStorage.getItem("mailbox_token");
     if (token) {
-      router.push("/webmail/inbox");
+      router.push("/mailbox/inbox");
     }
   }, [router]);
 
@@ -23,7 +23,7 @@ export default function WebmailLogin() {
     setError("");
 
     try {
-      const res = await fetch("/api/webmail/login", {
+      const res = await fetch("/api/mailbox/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password })
@@ -31,9 +31,9 @@ export default function WebmailLogin() {
 
       const data = await res.json();
       if (res.ok) {
-        localStorage.setItem("webmail_token", data.token);
-        localStorage.setItem("webmail_user", JSON.stringify(data.user));
-        router.push("/webmail/inbox");
+        localStorage.setItem("mailbox_token", data.token);
+        localStorage.setItem("mailbox_user", JSON.stringify(data.user));
+        router.push("/mailbox/inbox");
       } else {
         setError(data.error || "Login failed");
       }
@@ -57,7 +57,7 @@ export default function WebmailLogin() {
           </div>
         </div>
         
-        <h2 className="text-3xl font-black text-center text-white mb-2 tracking-tight">Webmail Login</h2>
+        <h2 className="text-3xl font-black text-center text-white mb-2 tracking-tight">Mailbox Login</h2>
         <p className="text-gray-400 text-center mb-8 text-sm">Access your project inbox</p>
 
         {error && (

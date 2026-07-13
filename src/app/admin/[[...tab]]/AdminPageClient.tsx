@@ -10,7 +10,7 @@ import ApiSettingsManager from "../components/ApiSettingsManager";
 import Overview from "../components/Overview";
 import ProjectsManager from "../components/ProjectsManager";
 import SetupManager from "../components/SetupManager";
-import WebmailManager from "../components/WebmailManager";
+import mailboxManager from "../components/mailboxManager";
 
 const API_BASE = "http://localhost:8081";
 
@@ -39,7 +39,7 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
     explorer: "explorer-tab",
     logs: "logs-tab",
     projects: "projects-tab",
-    webmail: "webmail-tab",
+    mailbox: "mailbox-tab",
     setup: "setup-tab"
   };
 
@@ -50,7 +50,7 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
     "explorer-tab": "explorer",
     "logs-tab": "logs",
     "projects-tab": "projects",
-    "webmail-tab": "webmail",
+    "mailbox-tab": "mailbox",
     "setup-tab": "setup"
   };
 
@@ -262,20 +262,20 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
           </button>
 
           <button
-            onClick={() => handleTabClick("webmail-tab")}
+            onClick={() => handleTabClick("mailbox-tab")}
             className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
-              activeTab === "webmail-tab" 
+              activeTab === "mailbox-tab" 
                 ? "rounded-none text-emerald-400 bg-emerald-500/10 shadow-[0_2px_12px_rgba(16,185,129,0.03)]" 
                 : "rounded-none text-gray-400 hover:text-white hover:bg-white/[0.02]"
             }`}
           >
-            {activeTab === "webmail-tab" && (
+            {activeTab === "mailbox-tab" && (
               <span className="absolute left-0 inset-y-0 w-[3px] bg-emerald-400"></span>
             )}
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
             </svg>
-            <span>Webmail Users</span>
+            <span>mailbox Users</span>
           </button>
 
           <button
@@ -379,8 +379,8 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
             <ProjectsManager apiUrl={apiUrl} />
           )}
 
-          {activeTab === "webmail-tab" && (
-            <WebmailManager apiUrl={apiUrl} />
+          {activeTab === "mailbox-tab" && (
+            <mailboxManager apiUrl={apiUrl} />
           )}
 
           {activeTab === "setup-tab" && (
