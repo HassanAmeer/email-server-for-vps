@@ -178,6 +178,18 @@ export default function WebmailInbox() {
     });
   };
 
+  const parseSender = (senderStr: string) => {
+    if (!senderStr) return { name: "Unknown", email: "" };
+    // Example: "Hasan ameer" <hasanameer386@gmail.com> or Hasan <test@test.com> or just email@test.com
+    const match = senderStr.match(/^(?:["']?([^"']+)["']?\s*)?<?([^>\s]+@[^>\s]+)>?$/);
+    if (match) {
+      const name = match[1] ? match[1].trim() : match[2];
+      const email = match[2] ? match[2].trim() : "";
+      return { name, email };
+    }
+    return { name: senderStr, email: "" };
+  };
+
   // Helper to get initials for avatar
   const getInitials = (name: string, email: string) => {
     if (name && name.length > 0) return name.charAt(0).toUpperCase();
@@ -284,6 +296,7 @@ export default function WebmailInbox() {
               <div className="flex flex-col bg-white">
                 {emails.map(email => {
                   const isSelected = selectedEmail?.id === email.id;
+                  const { name: senderName } = parseSender(email.sender);
                   return (
                     <div 
                       key={email.id} 
@@ -301,7 +314,7 @@ export default function WebmailInbox() {
                       
                       <div className="flex justify-between items-baseline mb-1 gap-2">
                         <span className={`font-bold truncate flex-1 text-base ${isSelected ? 'text-blue-900' : 'text-slate-900'}`}>
-                          {email.sender}
+                          {senderName}
                         </span>
                         <span className={`text-xs font-semibold whitespace-nowrap ${isSelected ? 'text-blue-600' : 'text-slate-500'}`}>
                           {formatDate(email.created_at)}
@@ -420,17 +433,25 @@ export default function WebmailInbox() {
                 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-2xl shadow-inner border border-blue-200 flex-shrink-0">
-                      {getInitials(selectedEmail.sender, selectedEmail.sender)}
-                    </div>
-                    <div className="flex flex-col">
-                      <div className="text-slate-900 font-bold text-lg flex items-center gap-2">
-                        {selectedEmail.sender}
-                      </div>
-                      <div className="text-sm text-slate-500 mt-0.5 font-medium flex items-center gap-1">
-                        to <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200">{selectedEmail.recipient}</span>
-                      </div>
-                    </div>
+                    {(() => {
+                      const { name, email } = parseSender(selectedEmail.sender);
+                      return (
+                        <>
+                          <div className="w-14 h-14 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-2xl shadow-inner border border-blue-200 flex-shrink-0">
+                            {getInitials(name, email)}
+                          </div>
+                          <div className="flex flex-col">
+                            <div className="text-slate-900 font-bold text-lg flex items-center gap-2">
+                              {name}
+                              {email && name !== email && <span className="text-sm font-normal text-slate-500">&lt;{email}&gt;</span>}
+                            </div>
+                            <div className="text-sm text-slate-500 mt-0.5 font-medium flex items-center gap-1">
+                              to <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200">{selectedEmail.recipient}</span>
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                   <div className="text-sm text-slate-500 font-medium text-right flex flex-col items-end">
                     <span>{formatDate(selectedEmail.created_at)}</span>
