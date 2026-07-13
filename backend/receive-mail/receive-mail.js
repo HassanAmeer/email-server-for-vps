@@ -300,6 +300,10 @@ const httpServer = http.createServer((req, res) => {
     return ApiRouter.handleProjectsApi(req, res);
   }
 
+  if (cleanUrl.startsWith("/api/webmail")) {
+    return ApiRouter.handleWebmailApi(req, res);
+  }
+
   if (cleanUrl.startsWith("/api/admin/domains")) {
     return ApiRouter.handleAttachedDomainsApi(req, res);
   }
@@ -618,7 +622,7 @@ const httpServer = http.createServer((req, res) => {
   let reqPath = req.url.split("?")[0];
 
   // Redirect to trailing slash for proper directory asset loading of static routes
-  if (reqPath === "/admin" || reqPath === "/local" || reqPath === "/live" || reqPath === "/doc") {
+  if (reqPath === "/admin" || reqPath === "/local" || reqPath === "/live" || reqPath === "/doc" || reqPath === "/webmail") {
     res.writeHead(301, { "Location": reqPath + "/" });
     res.end();
     return;
@@ -633,6 +637,12 @@ const httpServer = http.createServer((req, res) => {
     reqPath = "/admin/index.html";
   } else if (reqPath.startsWith("/doc/")) {
     reqPath = "/doc/index.html";
+  } else if (reqPath.startsWith("/webmail/")) {
+    if (reqPath.startsWith("/webmail/inbox")) {
+      reqPath = "/webmail/inbox.html";
+    } else {
+      reqPath = "/webmail.html";
+    }
   } else if (reqPath === "/") {
     reqPath = "/index.html";
   }

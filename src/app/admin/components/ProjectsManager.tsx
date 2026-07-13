@@ -34,7 +34,13 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
   const [projectStatsData, setProjectStatsData] = useState<any | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
 
-  const [activeAnalyticsTab, setActiveAnalyticsTab] = useState<"receive" | "send">("receive");
+  const [activeAnalyticsTab, setActiveAnalyticsTab] = useState<"receive" | "send" | "webmail">("receive");
+  
+  const [webmailUsersData, setWebmailUsersData] = useState<any[]>([]);
+  const [loadingWebmailUsers, setLoadingWebmailUsers] = useState(false);
+  const [newWebmailEmail, setNewWebmailEmail] = useState("");
+  const [newWebmailPassword, setNewWebmailPassword] = useState("");
+  const [isCreatingWebmail, setIsCreatingWebmail] = useState(false);
   const [projectEmailsData, setProjectEmailsData] = useState<any | null>(null);
   const [emailsPage, setEmailsPage] = useState(1);
   const [loadingEmails, setLoadingEmails] = useState(false);
@@ -251,6 +257,79 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
     }
   };
 
+  const fetchProjectWebmailUsers = async (projectId: number) => {
+    setLoadingWebmailUsers(true);
+    try {
+      const token = localStorage.getItem("admin_token") || "";
+      const res = await fetch(`${apiUrl}/api/admin/projects/${projectId}/webmail`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setWebmailUsersData(data.users || []);
+      } else {
+        setWebmailUsersData([]);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setWebmailUsersData([]);
+    } finally {
+      setLoadingWebmailUsers(false);
+    }
+  };
+
+  const handleCreateWebmailUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!viewingAnalyticsFor || !newWebmailEmail || !newWebmailPassword) return;
+
+    setIsCreatingWebmail(true);
+    try {
+      const token = localStorage.getItem("admin_token") || "";
+      const res = await fetch(`${apiUrl}/api/admin/projects/${viewingAnalyticsFor.id}/webmail`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ email: newWebmailEmail, password: newWebmailPassword })
+      });
+
+      if (res.ok) {
+        setNewWebmailEmail("");
+        setNewWebmailPassword("");
+        await fetchProjectWebmailUsers(viewingAnalyticsFor.id);
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to create webmail user");
+      }
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsCreatingWebmail(false);
+    }
+  };
+
+  const handleDeleteWebmailUser = async (userId: number) => {
+    if (!viewingAnalyticsFor || !confirm("Are you sure you want to delete this webmail user?")) return;
+
+    try {
+      const token = localStorage.getItem("admin_token") || "";
+      const res = await fetch(`${apiUrl}/api/admin/projects/${viewingAnalyticsFor.id}/webmail/${userId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        await fetchProjectWebmailUsers(viewingAnalyticsFor.id);
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to delete webmail user");
+      }
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
 
   const handleViewStats = async (project: Project) => {
     setViewingAnalyticsFor(project);
@@ -276,6 +355,7 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
       }
 
       await fetchProjectEmails(project.id, 1);
+      await fetchProjectWebmailUsers(project.id);
     } catch (err: any) {
       console.error(err);
       setProjectStatsData(null);
@@ -413,9 +493,94 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
             >
               Send Email
             </button>
+            <button
+              onClick={() => setActiveAnalyticsTab("webmail")}
+              className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${activeAnalyticsTab === "webmail"
+                ? "border-purple-400 text-purple-400"
+                : "border-transparent text-gray-500 hover:text-gray-300"
+                }`}
+            >
+              Webmail Users
+            </button>
           </div>
 
-          {activeAnalyticsTab === "send" ? (
+          {activeAnalyticsTab === "webmail" ? (
+            <div className="flex flex-col gap-6">
+              <div className="glass-panel border-white/[0.05] rounded-xl p-6">
+                <h3 className="text-lg font-bold text-white mb-4">Create Webmail User</h3>
+                <form onSubmit={handleCreateWebmailUser} className="flex flex-col md:flex-row gap-4">
+                  <input
+                    type="email"
+                    required
+                    placeholder="User Email Address"
+                    className="flex-1 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-500/50"
+                    value={newWebmailEmail}
+                    onChange={(e) => setNewWebmailEmail(e.target.value)}
+                  />
+                  <input
+                    type="password"
+                    required
+                    placeholder="Password"
+                    className="flex-1 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-500/50"
+                    value={newWebmailPassword}
+                    onChange={(e) => setNewWebmailPassword(e.target.value)}
+                  />
+                  <button
+                    type="submit"
+                    disabled={isCreatingWebmail}
+                    className="bg-purple-500 hover:bg-purple-400 text-white font-bold py-2 px-6 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {isCreatingWebmail ? "Creating..." : "Create User"}
+                  </button>
+                </form>
+              </div>
+
+              <div className="glass-panel border-white/[0.05] rounded-xl p-6">
+                <h3 className="text-lg font-bold text-white mb-4">Webmail Users</h3>
+                {loadingWebmailUsers ? (
+                  <div className="flex justify-center py-8">
+                    <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                ) : webmailUsersData.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    No webmail users found for this project.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-white/[0.05]">
+                          <th className="p-3 text-xs font-bold text-gray-400 uppercase tracking-wider">Email</th>
+                          <th className="p-3 text-xs font-bold text-gray-400 uppercase tracking-wider">Created At</th>
+                          <th className="p-3 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/[0.05]">
+                        {webmailUsersData.map((user) => (
+                          <tr key={user.id} className="hover:bg-white/[0.02] transition-colors">
+                            <td className="p-3">
+                              <span className="text-white font-medium">{user.email}</span>
+                            </td>
+                            <td className="p-3 text-sm text-gray-400">
+                              {new Date(user.created_at).toLocaleString()}
+                            </td>
+                            <td className="p-3 text-right">
+                              <button
+                                onClick={() => handleDeleteWebmailUser(user.id)}
+                                className="text-rose-400 hover:text-rose-300 font-semibold text-xs px-3 py-1 bg-rose-500/10 hover:bg-rose-500/20 rounded transition-colors"
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : activeAnalyticsTab === "send" ? (
             <div className="py-20 flex flex-col items-center justify-center text-center">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-16 h-16 text-gray-600 mb-4">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />

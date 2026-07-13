@@ -767,8 +767,29 @@ export class ApiRouter {
         return;
       }
 
+      // --- WEBMAIL MANAGEMENT ROUTES ---
+      // GET /api/admin/projects/:id/webmail
+      if (req.method === "GET" && req.url.match(/\/api\/admin\/projects\/\d+\/webmail$/)) {
+        const idStr = req.url.split("/")[4];
+        return AdminController.getWebmailUsers(req, res, parseInt(idStr, 10));
+      }
+
+      // POST /api/admin/projects/:id/webmail
+      if (req.method === "POST" && req.url.match(/\/api\/admin\/projects\/\d+\/webmail$/)) {
+        const idStr = req.url.split("/")[4];
+        return AdminController.createWebmailUser(req, res, parseInt(idStr, 10));
+      }
+
+      // DELETE /api/admin/projects/:id/webmail/:userId
+      if (req.method === "DELETE" && req.url.match(/\/api\/admin\/projects\/\d+\/webmail\/\d+/)) {
+        const parts = req.url.split("/");
+        const projectId = parseInt(parts[4], 10);
+        const userId = parseInt(parts[6], 10);
+        return AdminController.deleteWebmailUser(req, res, projectId, userId);
+      }
+
       // DELETE /api/admin/projects/:id
-      if (req.method === "DELETE") {
+      if (req.method === "DELETE" && req.url.match(/\/api\/admin\/projects\/\d+$/)) {
         const idStr = req.url.split("/").pop();
         const id = parseInt(idStr, 10);
         try {
@@ -844,6 +865,122 @@ export class ApiRouter {
       res.end(JSON.stringify(stats));
     } catch (err) {
       console.error("Traffic Stats API Error:", err);
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Internal Server Error" }));
+    }
+  }
+
+  // ==========================================
+  // NEW WEBMAIL API
+  // ==========================================
+  static async handleWebmailApi(req, res) {
+    try {
+      const dbModule = await import("../backend/database/db.js");
+      const { verifyWebmailUser, getWebmailInbox } = dbModule;
+      const cleanUrl = req.url.split("?")[0];
+
+      // CORS Preflight
+      if (req.method === "OPTIONS") {
+        res.writeHead(204);
+        res.end();
+        return;
+      }
+
+      // POST /api/webmail/login
+      if (cleanUrl === "/api/webmail/login" && req.method === "POST") {
+        let body = "";
+        req.on("data", chunk => body += chunk.toString());
+        req.on("end", async () => {
+          try {
+            const { email, password } = JSON.parse(body);
+            if (!email || !password) {
+              res.writeHead(400, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ error: "Email and password are required" }));
+              return;
+            }
+
+            const user = verifyWebmailUser(email, password);
+            if (!user) {
+              res.writeHead(401, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ error: "Invalid email or password" }));
+              return;
+            }
+
+            // Simple token generation (in production, use jsonwebtoken)
+            const crypto = await import("crypto");
+            const token = crypto.randomBytes(32).toString("hex") + ":" + user.email;
+
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ success: true, token, user }));
+          } catch (e) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: e.message }));
+          }
+        });
+        return;
+      }
+
+      // Authentication Middleware for the rest
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Unauthorized" }));
+        return;
+      }
+
+      const token = authHeader.split(" ")[1];
+      const parts = token.split(":");
+      if (parts.length !== 2) {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid token" }));
+        return;
+      }
+      const userEmail = parts[1];
+
+      // GET /api/webmail/inbox
+      if (cleanUrl === "/api/webmail/inbox" && req.method === "GET") {
+        const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+        const page = parseInt(parsedUrl.searchParams.get("page") || "1", 10);
+        const limit = parseInt(parsedUrl.searchParams.get("limit") || "50", 10);
+
+        const data = getWebmailInbox(userEmail, page, limit);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(data));
+        return;
+      }
+
+      // GET /api/webmail/inbox/:id
+      if (cleanUrl.match(/\/api\/webmail\/inbox\/\d+/) && req.method === "GET") {
+        const id = cleanUrl.split("/").pop();
+        
+        // Fetch the specific email directly to ensure it belongs to this user
+        const db = dbModule.default;
+        const emailRecord = db.prepare("SELECT file_name, recipient FROM received_emails WHERE id = ?").get(id);
+        
+        if (!emailRecord || emailRecord.recipient !== userEmail) {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Email not found" }));
+          return;
+        }
+
+        const targetDir = getTargetStorageDir();
+        const filePath = path.join(targetDir, emailRecord.file_name);
+        
+        if (fs.existsSync(filePath)) {
+          const content = fs.readFileSync(filePath, "utf-8");
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(content);
+        } else {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Email file missing" }));
+        }
+        return;
+      }
+
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Not Found" }));
+    } catch (err) {
+      console.error("Webmail API Error:", err);
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Internal Server Error" }));
     }

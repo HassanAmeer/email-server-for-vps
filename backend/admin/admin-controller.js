@@ -515,4 +515,64 @@ export class AdminController {
       res.end(JSON.stringify({ error: error.message }));
     }
   }
+
+  // --- WEBMAIL MANAGEMENT ---
+  static getWebmailUsers(req, res, projectId) {
+    try {
+      const { getWebmailUsers } = require('../database/db.js');
+      const users = getWebmailUsers(projectId);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ users }));
+    } catch (error) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+  }
+
+  static createWebmailUser(req, res, projectId) {
+    let body = "";
+    req.on("data", chunk => body += chunk.toString());
+    req.on("end", () => {
+      try {
+        const { email, password } = JSON.parse(body);
+        if (!email || !password) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Email and password are required" }));
+          return;
+        }
+
+        const { createWebmailUser } = require('../database/db.js');
+        const result = createWebmailUser(email, password, projectId);
+        
+        if (result.success) {
+          res.writeHead(201, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ success: true }));
+        } else {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: result.error }));
+        }
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+  }
+
+  static deleteWebmailUser(req, res, projectId, userId) {
+    try {
+      const { deleteWebmailUser } = require('../database/db.js');
+      const success = deleteWebmailUser(userId, projectId);
+      
+      if (success) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true }));
+      } else {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "User not found or does not belong to this project" }));
+      }
+    } catch (error) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+  }
 }

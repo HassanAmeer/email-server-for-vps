@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/webmail/layout,_N_T_/webmail/inbox/layout,_N_T_/webmail/inbox/page,_N_T_/webmail/inbox"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/webmail/inbox/__PAGE__",
+    "/webmail/inbox",
+    "/webmail",
+    "/_index",
+    "/_head"
+  ]
+}

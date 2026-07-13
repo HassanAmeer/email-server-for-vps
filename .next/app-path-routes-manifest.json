@@ -5,5 +5,7 @@
   "/doc/page": "/doc",
   "/live/page": "/live",
   "/local/page": "/local",
-  "/page": "/"
+  "/page": "/",
+  "/webmail/inbox/page": "/webmail/inbox",
+  "/webmail/page": "/webmail"
 }

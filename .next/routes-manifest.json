@@ -81,6 +81,18 @@
       "regex": "^/local(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/local(?:/)?$"
+    },
+    {
+      "page": "/webmail",
+      "regex": "^/webmail(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/webmail(?:/)?$"
+    },
+    {
+      "page": "/webmail/inbox",
+      "regex": "^/webmail/inbox(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/webmail/inbox(?:/)?$"
     }
   ],
   "dataRoutes": [],

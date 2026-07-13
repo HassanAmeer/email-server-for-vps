@@ -81,6 +81,24 @@ type LayoutConfig<Route extends LayoutRoutes = LayoutRoutes> = {
   type __Unused = __Check
 }
 
+// Validate ../../src/app/webmail/inbox/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/webmail/inbox">> = Specific
+  const handler = {} as typeof import("../../src/app/webmail/inbox/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../src/app/webmail/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/webmail">> = Specific
+  const handler = {} as typeof import("../../src/app/webmail/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 
 
 
