@@ -1,5 +1,7 @@
 # build output
 dist/
+out/
+.next/
 # generated types
 .astro/
 
