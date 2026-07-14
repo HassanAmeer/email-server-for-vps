@@ -649,18 +649,30 @@ export default function MailboxInbox() {
                   <div className="max-w-5xl w-full mx-auto flex flex-col flex-1">
                     {/* HTML Content */}
                     {selectedEmail.details.html ? (
-                      <div className="bg-[#111827] rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 flex flex-col flex-1 min-h-[600px]">
+                      <div className="bg-[#111827] rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 flex flex-col min-h-[600px]">
                         {/* Fake macOS window bar for aesthetic */}
-                        <div className="h-8 bg-[#1f2937] border-b border-white/[0.05] flex items-center px-4 gap-2">
+                        <div className="h-8 bg-[#1f2937] border-b border-white/[0.05] flex items-center px-4 gap-2 flex-shrink-0">
                           <div className="w-3 h-3 rounded-full bg-rose-400"></div>
                           <div className="w-3 h-3 rounded-full bg-amber-400"></div>
                           <div className="w-3 h-3 rounded-full bg-emerald-400"></div>
                         </div>
                         <iframe
-                          srcDoc={`<style>body{background-color:#111827;color:#e5e7eb;margin:0;padding:1rem;} a{color:#34d399;}</style>` + selectedEmail.details.html}
+                          srcDoc={`<style>body{background-color:#111827;color:#e5e7eb;margin:0;padding:1rem;overflow-y:hidden;} a{color:#34d399;} img{max-width:100%;height:auto;}</style>` + selectedEmail.details.html}
                           className="w-full flex-1 border-0 bg-[#111827]"
                           title="Email Content"
                           sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"
+                          onLoad={(e) => {
+                            const iframe = e.target as HTMLIFrameElement;
+                            try {
+                              const height = Math.max(
+                                iframe.contentWindow?.document.documentElement.scrollHeight || 0,
+                                iframe.contentWindow?.document.body.scrollHeight || 0
+                              );
+                              if (height > 0) {
+                                iframe.style.height = height + 'px';
+                              }
+                            } catch (err) {}
+                          }}
                         />
                       </div>
                     ) : (

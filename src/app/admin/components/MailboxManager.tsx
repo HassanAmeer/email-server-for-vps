@@ -219,7 +219,7 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
           </div>
         ) : (
           <form onSubmit={handleCreate} className="flex flex-col xl:flex-row gap-4 items-end">
-            <div className="flex flex-col gap-1.5 flex-1 w-full xl:w-auto">
+            <div className="flex flex-col gap-1.5 w-full xl:w-[50%]">
               <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Email Address</label>
               <div className="flex bg-black/40 border border-white/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all">
                 <input
@@ -227,7 +227,7 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value.replace(/[^a-zA-Z0-9.\-_]/g, '').toLowerCase())}
                   placeholder="admin"
-                  className="bg-transparent px-4 py-2.5 text-sm text-white focus:outline-none w-full placeholder:text-gray-600 text-right"
+                  className="bg-transparent px-4 py-2.5 text-sm text-white focus:outline-none w-full placeholder:text-gray-600"
                   required
                 />
                 <div className="flex items-center px-2 text-gray-400 font-mono text-sm bg-white/5 border-l border-white/10">@</div>
@@ -245,7 +245,7 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
                 </select>
               </div>
             </div>
-            <div className="flex flex-col gap-1.5 flex-1 w-full xl:w-auto">
+            <div className="flex flex-col gap-1.5 w-full xl:w-[25%]">
               <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Project</label>
               <select
                 value={selectedProject || ""}
@@ -260,7 +260,7 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
                 ))}
               </select>
             </div>
-            <div className="flex flex-col gap-1.5 flex-1 w-full xl:w-auto">
+            <div className="flex flex-col gap-1.5 w-full xl:w-[25%]">
               <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Password</label>
               <input
                 type="password"
