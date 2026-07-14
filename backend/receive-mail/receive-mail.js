@@ -601,7 +601,9 @@ const httpServer = http.createServer((req, res) => {
     }
 
     // Serve the file
-    res.writeHead(200);
+    res.writeHead(200, {
+      "Cache-Control": "public, max-age=31536000, immutable"
+    });
     fs.createReadStream(filePath).pipe(res);
     return;
   }
