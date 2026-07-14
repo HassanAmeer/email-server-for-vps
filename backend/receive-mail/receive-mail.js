@@ -168,14 +168,24 @@ const smtpServer = new SMTPServer({
           const savedFileName = `${Date.now()}-${safeFilename}`;
           const filePath = path.join(attachmentsDir, savedFileName);
 
-          // Save the attachment buffer to disk
+          let contentType = att.contentType || 'application/octet-stream';
+
+          // Save the attachment buffer to disk and detect type
           if (att.content) {
+            if (att.content.length > 4) {
+              if (att.content[0] === 0x89 && att.content[1] === 0x50 && att.content[2] === 0x4E && att.content[3] === 0x47) contentType = 'image/png';
+              else if (att.content[0] === 0xFF && att.content[1] === 0xD8 && att.content[2] === 0xFF) contentType = 'image/jpeg';
+              else if (att.content[0] === 0x47 && att.content[1] === 0x49 && att.content[2] === 0x46) contentType = 'image/gif';
+              else if (att.content[0] === 0x52 && att.content[1] === 0x49 && att.content[2] === 0x46 && att.content[3] === 0x46) contentType = 'image/webp';
+              else if (att.content[0] === 0x25 && att.content[1] === 0x50 && att.content[2] === 0x44 && att.content[3] === 0x46) contentType = 'application/pdf';
+              else if (att.content[0] === 0x50 && att.content[1] === 0x4B && att.content[2] === 0x03 && att.content[3] === 0x04) contentType = 'application/zip';
+            }
             fs.writeFileSync(filePath, att.content);
           }
 
           return {
             filename: att.filename || "unnamed",
-            contentType: att.contentType,
+            contentType: contentType,
             size: att.size,
             url: `/api/attachments/${savedFileName}`
           };

@@ -487,31 +487,23 @@ export default function MailboxInbox() {
                     {mediaFiles.map((file, idx) => (
                       <div key={idx} className="group relative rounded-2xl overflow-hidden bg-[#030712] border border-white/[0.08] hover:border-violet-500/50 transition-all flex flex-col h-48 hover:shadow-[0_0_30px_rgba(139,92,246,0.15)]">
                         {(() => {
-                          const isBase64Img = file.content && (file.content.startsWith('iVBORw0K') || file.content.startsWith('/9j/') || file.content.startsWith('R0lGOD') || file.content.startsWith('UklGR'));
-                          const isImage = file.contentType?.startsWith('image/') || file.filename?.match(/\.(png|jpe?g|gif|webp|bmp|svg)$/i) || isBase64Img;
+                          const aggressiveImageMatch = file.filename?.toLowerCase().includes('screenshot') || file.filename?.toLowerCase().includes('image') || file.filename?.toLowerCase().includes('picture');
+                          const isImage = file.contentType?.startsWith('image/') || file.filename?.match(/\.(png|jpe?g|gif|webp|bmp|svg)$/i) || aggressiveImageMatch;
                           const isVideo = file.contentType?.startsWith('video/') || file.filename?.match(/\.(mp4|webm|ogg|mov)$/i);
                           const isPdf = file.contentType === 'application/pdf' || file.filename?.match(/\.pdf$/i);
                           const isArchive = file.filename?.match(/\.(zip|rar|7z|tar|gz)$/i);
 
-                          const getImgSrc = () => {
-                            if (file.content?.startsWith('iVBORw0K')) return `data:image/png;base64,${file.content}`;
-                            if (file.content?.startsWith('/9j/')) return `data:image/jpeg;base64,${file.content}`;
-                            if (file.content?.startsWith('R0lGOD')) return `data:image/gif;base64,${file.content}`;
-                            if (file.content?.startsWith('UklGR')) return `data:image/webp;base64,${file.content}`;
-                            return `data:${file.contentType || 'image/png'};base64,${file.content}`;
-                          };
-
-                          if (isImage && file.content) {
+                          if (isImage) {
                             return (
                               <div className="absolute inset-0 bg-black">
-                                <img src={getImgSrc()} alt={file.filename} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-300" />
+                                <img src={file.url} alt={file.filename} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-300" />
                                 <div className="absolute inset-0 bg-gradient-to-t from-[#0b0f19] via-[#0b0f19]/80 to-transparent opacity-90 group-hover:opacity-70 transition-opacity"></div>
                               </div>
                             );
-                          } else if (isVideo && file.content) {
+                          } else if (isVideo) {
                             return (
                               <div className="absolute inset-0 bg-black overflow-hidden">
-                                <video src={`data:${file.contentType || 'video/mp4'};base64,${file.content}`} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-300" muted loop autoPlay playsInline />
+                                <video src={file.url} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-300" muted loop autoPlay playsInline />
                                 <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-transparent transition-colors">
                                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-12 h-12 text-white/50 group-hover:scale-110 transition-transform drop-shadow-lg"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm14.024-.983a1.125 1.125 0 010 1.966l-5.603 3.113A1.125 1.125 0 019 15.113V8.887c0-.857.921-1.4 1.671-.983l5.603 3.113z" clipRule="evenodd" /></svg>
                                 </div>
@@ -548,8 +540,9 @@ export default function MailboxInbox() {
 
                         <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded-md border border-white/10 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
                           <a
-                            href={`data:${file.contentType};base64,${file.content}`}
+                            href={file.url}
                             download={file.filename}
+                            target="_blank"
                             className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>

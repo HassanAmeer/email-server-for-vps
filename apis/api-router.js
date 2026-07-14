@@ -1283,7 +1283,7 @@ export class ApiRouter {
                     filename: att.filename || `attachment-${index}`,
                     contentType: att.contentType,
                     size: att.size || 0,
-                    content: att.content
+                    url: att.url
                   });
                 });
               }
