@@ -486,18 +486,56 @@ export default function MailboxInbox() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                     {mediaFiles.map((file, idx) => (
                       <div key={idx} className="group relative rounded-2xl overflow-hidden bg-[#030712] border border-white/[0.08] hover:border-violet-500/50 transition-all flex flex-col h-48 hover:shadow-[0_0_30px_rgba(139,92,246,0.15)]">
-                        {file.contentType?.startsWith('image/') && file.content ? (
-                          <div className="absolute inset-0 bg-black">
-                            <img src={`data:${file.contentType};base64,${file.content}`} alt={file.filename} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-300" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-[#0b0f19] via-[#0b0f19]/80 to-transparent opacity-90 group-hover:opacity-70 transition-opacity"></div>
-                          </div>
-                        ) : (
-                          <div className="absolute inset-0 flex items-center justify-center bg-white/[0.02] group-hover:bg-violet-500/5 transition-colors">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-12 h-12 text-violet-500/40 group-hover:text-violet-400/80 transition-colors">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                            </svg>
-                          </div>
-                        )}
+                        {(() => {
+                          const isImage = file.contentType?.startsWith('image/') || file.filename?.match(/\.(png|jpe?g|gif|webp|bmp|svg)$/i);
+                          const isVideo = file.contentType?.startsWith('video/') || file.filename?.match(/\.(mp4|webm|ogg|mov)$/i);
+                          const isPdf = file.contentType === 'application/pdf' || file.filename?.match(/\.pdf$/i);
+                          const isArchive = file.filename?.match(/\.(zip|rar|7z|tar|gz)$/i);
+
+                          if (isImage && file.content) {
+                            return (
+                              <div className="absolute inset-0 bg-black">
+                                <img src={`data:${file.contentType || 'image/jpeg'};base64,${file.content}`} alt={file.filename} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-300" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-[#0b0f19] via-[#0b0f19]/80 to-transparent opacity-90 group-hover:opacity-70 transition-opacity"></div>
+                              </div>
+                            );
+                          } else if (isVideo && file.content) {
+                            return (
+                              <div className="absolute inset-0 bg-black overflow-hidden">
+                                <video src={`data:${file.contentType || 'video/mp4'};base64,${file.content}`} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-300" muted loop autoPlay playsInline />
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-transparent transition-colors">
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-12 h-12 text-white/50 group-hover:scale-110 transition-transform drop-shadow-lg"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm14.024-.983a1.125 1.125 0 010 1.966l-5.603 3.113A1.125 1.125 0 019 15.113V8.887c0-.857.921-1.4 1.671-.983l5.603 3.113z" clipRule="evenodd" /></svg>
+                                </div>
+                                <div className="absolute inset-0 bg-gradient-to-t from-[#0b0f19] via-[#0b0f19]/80 to-transparent opacity-90 group-hover:opacity-70 transition-opacity pointer-events-none"></div>
+                              </div>
+                            );
+                          } else if (isPdf) {
+                            return (
+                              <div className="absolute inset-0 flex items-center justify-center bg-rose-500/5 group-hover:bg-rose-500/10 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-12 h-12 text-rose-500/50 group-hover:text-rose-400 transition-colors">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m5.231 13.481L15 17.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                                  <text x="7.5" y="16.5" fill="currentColor" stroke="none" fontSize="4.5" fontWeight="bold" fontFamily="sans-serif">PDF</text>
+                                </svg>
+                              </div>
+                            );
+                          } else if (isArchive) {
+                            return (
+                              <div className="absolute inset-0 flex items-center justify-center bg-amber-500/5 group-hover:bg-amber-500/10 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-12 h-12 text-amber-500/50 group-hover:text-amber-400 transition-colors">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0l-3-3m3 3l3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+                                </svg>
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <div className="absolute inset-0 flex items-center justify-center bg-white/[0.02] group-hover:bg-violet-500/5 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-12 h-12 text-violet-500/40 group-hover:text-violet-400/80 transition-colors">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                                </svg>
+                              </div>
+                            );
+                          }
+                        })()}
 
                         <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded-md border border-white/10 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
                           <a
@@ -532,9 +570,9 @@ export default function MailboxInbox() {
               </div>
             </div>
           ) : showCompose ? (
-            <div className="flex flex-col flex-1 relative">
+            <div className="flex flex-col flex-1 relative min-h-0">
               <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-[80px] pointer-events-none rounded-full"></div>
-              <div className="px-8 py-6 border-b border-white/[0.06] bg-transparent flex justify-between items-center relative z-10">
+              <div className="px-8 py-6 border-b border-white/[0.06] bg-transparent flex justify-between items-center relative z-10 flex-shrink-0">
                 <h2 className="text-2xl font-bold text-white flex items-center gap-3">
                   <button onClick={() => setShowCompose(false)} className="md:hidden flex items-center justify-center text-gray-500 hover:text-white transition-colors bg-white/[0.04] hover:bg-white/[0.08] rounded-full w-8 h-8 mr-2">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
@@ -547,8 +585,8 @@ export default function MailboxInbox() {
                   </svg>
                 </button>
               </div>
-              <form onSubmit={handleSendEmail} className="flex flex-col flex-1 bg-transparent relative z-10">
-                <div className="px-8 py-4 border-b border-white/[0.04] flex items-center bg-black/20">
+              <form onSubmit={handleSendEmail} className="flex flex-col flex-1 bg-transparent relative z-10 min-h-0">
+                <div className="px-8 py-4 border-b border-white/[0.04] flex items-center bg-black/20 flex-shrink-0">
                   <label className="text-sm font-semibold text-gray-500 w-20">To:</label>
                   <input
                     type="email"
@@ -559,7 +597,7 @@ export default function MailboxInbox() {
                     className="flex-1 text-white bg-transparent text-base focus:outline-none placeholder:text-gray-600 font-medium"
                   />
                 </div>
-                <div className="px-8 py-4 border-b border-white/[0.04] flex items-center bg-black/20">
+                <div className="px-8 py-4 border-b border-white/[0.04] flex items-center bg-black/20 flex-shrink-0">
                   <label className="text-sm font-semibold text-gray-500 w-20">Subject:</label>
                   <input
                     type="text"
@@ -569,7 +607,7 @@ export default function MailboxInbox() {
                     className="flex-1 text-white bg-transparent text-base focus:outline-none placeholder:text-gray-600 font-medium"
                   />
                 </div>
-                <div className="flex flex-col flex-1 px-8 py-6 bg-black/40">
+                <div className="flex flex-col flex-1 px-8 py-6 bg-black/40 min-h-0">
                   <textarea
                     value={composeMessage}
                     onChange={e => setComposeMessage(e.target.value)}
@@ -578,7 +616,7 @@ export default function MailboxInbox() {
                     className="w-full flex-1 text-gray-300 bg-transparent text-base focus:outline-none resize-none font-sans leading-relaxed placeholder:text-gray-600"
                   ></textarea>
                 </div>
-                <div className="p-6 bg-[#030712] border-t border-white/[0.06] flex justify-between items-center">
+                <div className="p-6 bg-[#030712] border-t border-white/[0.06] flex justify-between items-center flex-shrink-0">
                   <button type="button" onClick={() => setShowCompose(false)} className="text-gray-500 hover:text-rose-400 font-semibold px-4 py-2 transition-colors">
                     Discard
                   </button>
@@ -600,10 +638,10 @@ export default function MailboxInbox() {
               </form>
             </div>
           ) : selectedEmail ? (
-            <div className="flex flex-col flex-1 relative">
+            <div className="flex flex-col flex-1 relative min-h-0">
               <div className="absolute top-0 right-0 w-64 h-64 bg-violet-500/5 blur-[80px] pointer-events-none rounded-full"></div>
               {/* Email Header Info */}
-              <div className="px-8 py-8 border-b border-white/[0.06] bg-[#030712]/50 relative z-10">
+              <div className="px-8 py-8 border-b border-white/[0.06] bg-[#030712]/50 relative z-10 flex-shrink-0">
                 <div className="flex items-start gap-4 mb-8">
                   <button onClick={() => setSelectedEmail(null)} className="md:hidden mt-1 flex-shrink-0 flex items-center justify-center text-gray-400 hover:text-white transition-colors bg-white/[0.04] hover:bg-white/[0.08] rounded-full w-10 h-10 border border-white/[0.05]">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
@@ -644,7 +682,7 @@ export default function MailboxInbox() {
               </div>
 
               {/* Email Content Body */}
-              <div className="flex-1 overflow-y-auto bg-[#0b0f19] p-8 relative z-10 shadow-inner">
+              <div className="flex-1 overflow-y-auto bg-[#0b0f19] p-8 relative z-10 shadow-inner min-h-0">
                 {selectedEmail.details ? (
                   <div className="max-w-5xl w-full mx-auto">
                     {/* HTML Content */}
@@ -692,25 +730,34 @@ export default function MailboxInbox() {
                           {selectedEmail.details.attachments.length} Attachments
                         </h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {selectedEmail.details.attachments.map((att: any, idx: number) => (
-                            <a
-                              key={idx}
-                              href={att.url}
-                              download={att.filename}
-                              target="_blank"
-                              className="flex items-center gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.05] hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 transition-all group"
-                            >
-                              <div className="w-12 h-12 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500/20 group-hover:text-emerald-300 transition-colors shadow-sm">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-6 h-6">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                                </svg>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-gray-200 truncate group-hover:text-white">{att.filename}</p>
-                                <p className="text-xs font-mono text-gray-500 mt-1 group-hover:text-emerald-400/70">{formatBytes(att.size)}</p>
-                              </div>
-                            </a>
-                          ))}
+                          {selectedEmail.details.attachments.map((att: any, idx: number) => {
+                            const isImage = att.contentType?.startsWith('image/') || att.filename?.match(/\.(png|jpe?g|gif|webp|bmp|svg)$/i);
+                            return (
+                              <a
+                                key={idx}
+                                href={att.url}
+                                download={att.filename}
+                                target="_blank"
+                                className="flex items-center gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.05] hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 transition-all group relative overflow-hidden"
+                              >
+                                {isImage ? (
+                                  <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border border-white/10 bg-black relative shadow-sm">
+                                    <img src={att.url} alt={att.filename} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300 opacity-80 group-hover:opacity-100" />
+                                  </div>
+                                ) : (
+                                  <div className="w-12 h-12 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500/20 group-hover:text-emerald-300 transition-colors shadow-sm flex-shrink-0">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-6 h-6">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                                    </svg>
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0 z-10">
+                                  <p className="text-sm font-bold text-gray-200 truncate group-hover:text-white">{att.filename}</p>
+                                  <p className="text-xs font-mono text-gray-500 mt-1 group-hover:text-emerald-400/70">{formatBytes(att.size)}</p>
+                                </div>
+                              </a>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
