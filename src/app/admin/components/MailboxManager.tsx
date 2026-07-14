@@ -8,6 +8,7 @@ interface mailboxUser {
   project_id: number | null;
   project_name: string | null;
   created_at: string;
+  received_count: number;
 }
 
 interface MailboxManagerProps {
@@ -21,8 +22,12 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
   const [newUsername, setNewUsername] = useState("");
   const [selectedDomain, setSelectedDomain] = useState("");
   const [domains, setDomains] = useState<{domain: string}[]>([]);
+  const [projects, setProjects] = useState<{id: number, name: string}[]>([]);
+  const [selectedProject, setSelectedProject] = useState<number | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [creating, setCreating] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 50;
 
   const fetchUsers = async () => {
     if (!apiUrl) return;
@@ -71,14 +76,35 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
     }
   };
 
+  const fetchProjects = async () => {
+    if (!apiUrl) return;
+    try {
+      const res = await fetch(`${apiUrl}/api/admin/projects`, {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("admin_token")}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProjects(data);
+        if (data.length > 0) {
+          setSelectedProject(data[0].id);
+        }
+      }
+    } catch (err: any) {
+      console.error("Failed to load projects", err);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
     fetchDomains();
+    fetchProjects();
   }, [apiUrl]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newUsername || !selectedDomain || !newPassword) return;
+    if (!newUsername || !selectedDomain || !newPassword || !selectedProject) return;
     
     setCreating(true);
     const fullEmail = `${newUsername}@${selectedDomain}`;
@@ -93,7 +119,7 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
         body: JSON.stringify({
           email: fullEmail,
           password: newPassword,
-          project_id: null // Global mailbox User
+          project_id: selectedProject
         })
       });
 
@@ -141,11 +167,44 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
     );
   }
 
+  const totalPages = Math.ceil(users.length / ITEMS_PER_PAGE);
+  const paginatedUsers = users.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  const renderPagination = () => {
+    if (totalPages <= 1) return null;
+    return (
+      <div className="flex items-center justify-between px-6 py-3 bg-[#111726]/30 border-t border-b border-white/[0.04]">
+        <div className="text-sm text-gray-400">
+          Showing <span className="font-medium text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-medium text-white">{Math.min(currentPage * ITEMS_PER_PAGE, users.length)}</span> of <span className="font-medium text-white">{users.length}</span> results
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="px-3 py-1.5 text-sm bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg border border-white/10 text-white transition-colors"
+          >
+            Previous
+          </button>
+          <span className="px-3 py-1.5 text-sm text-gray-400 font-medium">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1.5 text-sm bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg border border-white/10 text-white transition-colors"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col gap-6 p-6 lg:p-10 flex-grow overflow-y-auto max-h-screen">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold text-white tracking-tight">Global mailbox Accounts</h1>
-        <p className="text-sm text-gray-400">Manage permanent email addresses that can send and receive emails.</p>
+        <h1 className="text-2xl font-bold text-white tracking-tight">Project Mailbox Accounts</h1>
+        <p className="text-sm text-gray-400">Manage permanent email addresses that are linked to specific projects.</p>
       </div>
 
       <div className="bg-[#0D121F] border border-white/[0.05] rounded-2xl p-6 shadow-2xl">
@@ -154,9 +213,13 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
           <div className="text-sm text-amber-400 bg-amber-500/10 p-4 rounded-xl border border-amber-500/20">
             Please add at least one domain in the Setup tab before creating mailbox accounts.
           </div>
+        ) : projects.length === 0 ? (
+          <div className="text-sm text-amber-400 bg-amber-500/10 p-4 rounded-xl border border-amber-500/20">
+            Please create at least one project before creating mailbox accounts.
+          </div>
         ) : (
-          <form onSubmit={handleCreate} className="flex flex-col sm:flex-row gap-4 items-end">
-            <div className="flex flex-col gap-1.5 flex-1 w-full">
+          <form onSubmit={handleCreate} className="flex flex-col xl:flex-row gap-4 items-end">
+            <div className="flex flex-col gap-1.5 flex-1 w-full xl:w-auto">
               <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Email Address</label>
               <div className="flex bg-black/40 border border-white/10 rounded-xl overflow-hidden focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all">
                 <input
@@ -182,7 +245,22 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
                 </select>
               </div>
             </div>
-            <div className="flex flex-col gap-1.5 flex-1 w-full">
+            <div className="flex flex-col gap-1.5 flex-1 w-full xl:w-auto">
+              <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Project</label>
+              <select
+                value={selectedProject || ""}
+                onChange={(e) => setSelectedProject(Number(e.target.value))}
+                className="bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all cursor-pointer"
+                required
+              >
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id} className="bg-[#0D121F] text-white">
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5 flex-1 w-full xl:w-auto">
               <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Password</label>
               <input
                 type="password"
@@ -221,18 +299,20 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
             <p className="text-sm text-gray-400 max-w-sm">Create an account above to start receiving and sending emails globally.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto flex flex-col">
+            {renderPagination()}
             <table className="w-full text-left text-sm whitespace-nowrap">
               <thead className="bg-[#111726]/50 text-gray-400 text-xs uppercase tracking-wider font-semibold">
                 <tr>
                   <th className="px-6 py-4">Email Address</th>
                   <th className="px-6 py-4">Context</th>
+                  <th className="px-6 py-4 text-center">Received Emails</th>
                   <th className="px-6 py-4">Created At</th>
                   <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.04]">
-                {users.map(u => (
+                {paginatedUsers.map(u => (
                   <tr key={u.id} className="hover:bg-white/[0.02] transition-colors">
                     <td className="px-6 py-4 font-mono font-medium text-white">{u.email}</td>
                     <td className="px-6 py-4">
@@ -241,6 +321,11 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
                       ) : (
                         <span className="px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-400 text-xs border border-emerald-500/20">Global Account</span>
                       )}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className="bg-black/40 border border-white/10 px-3 py-1 rounded-full text-emerald-400 font-bold font-mono text-xs">
+                        {u.received_count || 0}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-gray-500">{new Date(u.created_at).toLocaleString()}</td>
                     <td className="px-6 py-4 text-right">
@@ -258,6 +343,7 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
                 ))}
               </tbody>
             </table>
+            {renderPagination()}
           </div>
         )}
       </div>

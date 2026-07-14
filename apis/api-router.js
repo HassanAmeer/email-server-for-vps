@@ -117,19 +117,19 @@ export class ApiRouter {
     const randomString = Math.random().toString(36).substring(2, 10);
     const email = `${randomString}@${domain}`;
 
-    // Ensure it doesn't conflict with any Webmail User account
+    // Ensure it doesn't conflict with any Mailbox User account
     try {
       const dbModule = require("../backend/database/db.js");
       const db = dbModule.default;
-      const existingWebmail = db.prepare("SELECT id FROM webmail_users WHERE email = ?").get(email);
-      if (existingWebmail) {
+      const existingMailbox = db.prepare("SELECT id FROM mailbox_users WHERE email = ?").get(email);
+      if (existingMailbox) {
         // Very rare collision with generated string, but just in case, return error so client retries
         res.writeHead(409, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Generated address collision. Please try again." }));
         return;
       }
     } catch (err) {
-      console.error("DB Error checking reserved webmail:", err);
+      console.error("DB Error checking reserved mailbox:", err);
     }
     
     // Capture IP
@@ -187,10 +187,10 @@ export class ApiRouter {
       const dbModule = require("../backend/database/db.js");
       const db = dbModule.default;
       
-      const existingWebmail = db.prepare("SELECT id FROM webmail_users WHERE email = ?").get(email);
-      if (existingWebmail) {
+      const existingMailbox = db.prepare("SELECT id FROM mailbox_users WHERE email = ?").get(email);
+      if (existingMailbox) {
         res.writeHead(409, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "This email address is reserved for a Webmail Account. Please choose a different name.", email }));
+        res.end(JSON.stringify({ error: "This email address is reserved for a Mailbox Account. Please choose a different name.", email }));
         return;
       }
 
@@ -793,24 +793,24 @@ export class ApiRouter {
       }
 
       // --- WEBMAIL MANAGEMENT ROUTES ---
-      // GET /api/admin/projects/:id/webmail
-      if (req.method === "GET" && req.url.match(/\/api\/admin\/projects\/\d+\/webmail$/)) {
+      // GET /api/admin/projects/:id/mailbox
+      if (req.method === "GET" && req.url.match(/\/api\/admin\/projects\/\d+\/mailbox$/)) {
         const idStr = req.url.split("/")[4];
-        return AdminController.getWebmailUsers(req, res, parseInt(idStr, 10));
+        return AdminController.getMailboxUsers(req, res, parseInt(idStr, 10));
       }
 
-      // POST /api/admin/projects/:id/webmail
-      if (req.method === "POST" && req.url.match(/\/api\/admin\/projects\/\d+\/webmail$/)) {
+      // POST /api/admin/projects/:id/mailbox
+      if (req.method === "POST" && req.url.match(/\/api\/admin\/projects\/\d+\/mailbox$/)) {
         const idStr = req.url.split("/")[4];
-        return AdminController.createWebmailUser(req, res, parseInt(idStr, 10));
+        return AdminController.createMailboxUser(req, res, parseInt(idStr, 10));
       }
 
-      // DELETE /api/admin/projects/:id/webmail/:userId
-      if (req.method === "DELETE" && req.url.match(/\/api\/admin\/projects\/\d+\/webmail\/\d+/)) {
+      // DELETE /api/admin/projects/:id/mailbox/:userId
+      if (req.method === "DELETE" && req.url.match(/\/api\/admin\/projects\/\d+\/mailbox\/\d+/)) {
         const parts = req.url.split("/");
         const projectId = parseInt(parts[4], 10);
         const userId = parseInt(parts[6], 10);
-        return AdminController.deleteWebmailUser(req, res, projectId, userId);
+        return AdminController.deleteMailboxUser(req, res, projectId, userId);
       }
 
       // DELETE /api/admin/projects/:id
@@ -831,12 +831,12 @@ export class ApiRouter {
         return;
       }
 
-      // GET /api/admin/projects/:id/webmail
-      if (req.method === "GET" && req.url.match(/^\/api\/admin\/projects\/\d+\/webmail$/)) {
+      // GET /api/admin/projects/:id/mailbox
+      if (req.method === "GET" && req.url.match(/^\/api\/admin\/projects\/\d+\/mailbox$/)) {
         const idStr = req.url.split("/")[4];
         const id = parseInt(idStr, 10);
         try {
-          const users = db.query("SELECT id, email, created_at FROM webmail_users WHERE project_id = ? ORDER BY created_at DESC").all(id);
+          const users = db.query("SELECT id, email, created_at FROM mailbox_users WHERE project_id = ? ORDER BY created_at DESC").all(id);
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ users }));
         } catch (e) {
@@ -846,8 +846,8 @@ export class ApiRouter {
         return;
       }
 
-      // POST /api/admin/projects/:id/webmail
-      if (req.method === "POST" && req.url.match(/^\/api\/admin\/projects\/\d+\/webmail$/)) {
+      // POST /api/admin/projects/:id/mailbox
+      if (req.method === "POST" && req.url.match(/^\/api\/admin\/projects\/\d+\/mailbox$/)) {
         const idStr = req.url.split("/")[4];
         const id = parseInt(idStr, 10);
         let body = "";
@@ -857,7 +857,7 @@ export class ApiRouter {
             const { email, password } = JSON.parse(body);
             if (!email || !password) throw new Error("Email and password are required");
             const hash = await Bun.password.hash(password);
-            db.prepare("INSERT INTO webmail_users (email, password_hash, project_id) VALUES (?, ?, ?)").run(email, hash, id);
+            db.prepare("INSERT INTO mailbox_users (email, password_hash, project_id) VALUES (?, ?, ?)").run(email, hash, id);
             res.writeHead(201, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ success: true }));
           } catch (e) {
@@ -868,13 +868,13 @@ export class ApiRouter {
         return;
       }
 
-      // DELETE /api/admin/projects/:id/webmail/:userId
-      if (req.method === "DELETE" && req.url.match(/^\/api\/admin\/projects\/\d+\/webmail\/\d+$/)) {
+      // DELETE /api/admin/projects/:id/mailbox/:userId
+      if (req.method === "DELETE" && req.url.match(/^\/api\/admin\/projects\/\d+\/mailbox\/\d+$/)) {
         const urlParts = req.url.split("/");
         const projectId = parseInt(urlParts[4], 10);
         const userId = parseInt(urlParts[6], 10);
         try {
-          db.prepare("DELETE FROM webmail_users WHERE id = ? AND project_id = ?").run(userId, projectId);
+          db.prepare("DELETE FROM mailbox_users WHERE id = ? AND project_id = ?").run(userId, projectId);
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ success: true }));
         } catch (e) {
@@ -936,7 +936,7 @@ export class ApiRouter {
   // NEW ADMIN WEBMAIL USERS API
   // ==========================================
 
-  static async handleAdminWebmailUsersApi(req, res) {
+  static async handleAdminMailboxUsersApi(req, res) {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ") || authHeader.split(" ")[1] !== AdminController.adminToken) {
       res.writeHead(401, { "Content-Type": "application/json" });
@@ -949,11 +949,12 @@ export class ApiRouter {
       const db = dbModule.default;
       const cleanUrl = req.url.split("?")[0];
 
-      // GET /api/admin/webmail-users
-      if (req.method === "GET" && cleanUrl === "/api/admin/webmail-users") {
+      // GET /api/admin/mailbox-users
+      if (req.method === "GET" && cleanUrl === "/api/admin/mailbox-users") {
         const users = db.query(`
-          SELECT w.id, w.email, w.project_id, w.created_at, p.name as project_name 
-          FROM webmail_users w
+          SELECT w.id, w.email, w.project_id, w.created_at, p.name as project_name,
+                 (SELECT COUNT(*) FROM received_emails WHERE recipient = w.email) as received_count
+          FROM mailbox_users w
           LEFT JOIN projects p ON w.project_id = p.id
           ORDER BY w.created_at DESC
         `).all();
@@ -962,16 +963,16 @@ export class ApiRouter {
         return;
       }
 
-      // POST /api/admin/webmail-users
-      if (req.method === "POST" && cleanUrl === "/api/admin/webmail-users") {
+      // POST /api/admin/mailbox-users
+      if (req.method === "POST" && cleanUrl === "/api/admin/mailbox-users") {
         let body = "";
         req.on("data", chunk => body += chunk.toString());
         req.on("end", () => {
           try {
             const { email, password, project_id } = JSON.parse(body);
-            if (!email || !password) {
+            if (!email || !password || !project_id) {
               res.writeHead(400, { "Content-Type": "application/json" });
-              res.end(JSON.stringify({ error: "Email and password are required" }));
+              res.end(JSON.stringify({ error: "Email, password, and project selection are required" }));
               return;
             }
 
@@ -979,17 +980,16 @@ export class ApiRouter {
               algorithm: "bcrypt",
               cost: 10,
             });
-            const projectIdVal = project_id || null;
 
-            const stmt = db.prepare("INSERT INTO webmail_users (email, password_hash, project_id) VALUES (?, ?, ?)");
-            const result = stmt.run(email, hash, projectIdVal);
+            const stmt = db.prepare("INSERT INTO mailbox_users (email, password_hash, project_id) VALUES (?, ?, ?)");
+            const result = stmt.run(email, hash, project_id);
             
             res.writeHead(201, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ id: result.lastInsertRowid, email, project_id: projectIdVal }));
+            res.end(JSON.stringify({ id: result.lastInsertRowid, email, project_id }));
           } catch (err) {
             if (err.message && err.message.includes("UNIQUE constraint failed")) {
               res.writeHead(409, { "Content-Type": "application/json" });
-              res.end(JSON.stringify({ error: "Webmail user with this email already exists" }));
+              res.end(JSON.stringify({ error: "Mailbox user with this email already exists" }));
             } else {
               res.writeHead(500, { "Content-Type": "application/json" });
               res.end(JSON.stringify({ error: err.message }));
@@ -999,8 +999,8 @@ export class ApiRouter {
         return;
       }
 
-      // DELETE /api/admin/webmail-users/:id
-      if (req.method === "DELETE" && cleanUrl.startsWith("/api/admin/webmail-users/")) {
+      // DELETE /api/admin/mailbox-users/:id
+      if (req.method === "DELETE" && cleanUrl.startsWith("/api/admin/mailbox-users/")) {
         const id = cleanUrl.split("/").pop();
         if (!id) {
           res.writeHead(400, { "Content-Type": "application/json" });
@@ -1008,7 +1008,7 @@ export class ApiRouter {
           return;
         }
 
-        db.prepare("DELETE FROM webmail_users WHERE id = ?").run(id);
+        db.prepare("DELETE FROM mailbox_users WHERE id = ?").run(id);
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ success: true }));
         return;
@@ -1017,7 +1017,7 @@ export class ApiRouter {
       res.writeHead(405, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Method Not Allowed" }));
     } catch (err) {
-      console.error("Admin Webmail Users API Error:", err);
+      console.error("Admin Mailbox Users API Error:", err);
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Internal Server Error" }));
     }
@@ -1082,10 +1082,10 @@ export class ApiRouter {
   // ==========================================
   // NEW WEBMAIL API
   // ==========================================
-  static async handleWebmailApi(req, res) {
+  static async handleMailboxApi(req, res) {
     try {
       const dbModule = await import("../backend/database/db.js");
-      const { verifyWebmailUser, getWebmailInbox } = dbModule;
+      const { verifyMailboxUser, getMailboxInbox } = dbModule;
       const cleanUrl = req.url.split("?")[0];
 
       // CORS Preflight
@@ -1095,8 +1095,8 @@ export class ApiRouter {
         return;
       }
 
-      // POST /api/webmail/login
-      if (cleanUrl === "/api/webmail/login" && req.method === "POST") {
+      // POST /api/mailbox/login
+      if (cleanUrl === "/api/mailbox/login" && req.method === "POST") {
         let body = "";
         req.on("data", chunk => body += chunk.toString());
         req.on("end", async () => {
@@ -1108,7 +1108,7 @@ export class ApiRouter {
               return;
             }
 
-            const user = verifyWebmailUser(email, password);
+            const user = verifyMailboxUser(email, password);
             if (!user) {
               res.writeHead(401, { "Content-Type": "application/json" });
               res.end(JSON.stringify({ error: "Invalid email or password" }));
@@ -1146,20 +1146,20 @@ export class ApiRouter {
       }
       const userEmail = parts[1];
 
-      // GET /api/webmail/inbox
-      if (cleanUrl === "/api/webmail/inbox" && req.method === "GET") {
+      // GET /api/mailbox/inbox
+      if (cleanUrl === "/api/mailbox/inbox" && req.method === "GET") {
         const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
         const page = parseInt(parsedUrl.searchParams.get("page") || "1", 10);
         const limit = parseInt(parsedUrl.searchParams.get("limit") || "50", 10);
 
-        const data = getWebmailInbox(userEmail, page, limit);
+        const data = getMailboxInbox(userEmail, page, limit);
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(data));
         return;
       }
 
-      // POST /api/webmail/send
-      if (cleanUrl === "/api/webmail/send" && req.method === "POST") {
+      // POST /api/mailbox/send
+      if (cleanUrl === "/api/mailbox/send" && req.method === "POST") {
         let body = "";
         req.on("data", chunk => body += chunk.toString());
         req.on("end", async () => {
@@ -1200,7 +1200,7 @@ export class ApiRouter {
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ success: true }));
           } catch (error) {
-            console.error("Webmail Send Error:", error);
+            console.error("Mailbox Send Error:", error);
             res.writeHead(500, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ error: error.message }));
           }
@@ -1208,8 +1208,8 @@ export class ApiRouter {
         return;
       }
 
-      // GET /api/webmail/inbox/:id
-      if (cleanUrl.match(/\/api\/webmail\/inbox\/\d+/) && req.method === "GET") {
+      // GET /api/mailbox/inbox/:id
+      if (cleanUrl.match(/\/api\/mailbox\/inbox\/\d+/) && req.method === "GET") {
         const id = cleanUrl.split("/").pop();
         
         // Fetch the specific email directly to ensure it belongs to this user
@@ -1235,11 +1235,73 @@ export class ApiRouter {
         }
         return;
       }
+      // DELETE /api/mailbox/inbox/:id
+      if (cleanUrl.match(/\/api\/mailbox\/inbox\/\d+/) && req.method === "DELETE") {
+        const id = cleanUrl.split("/").pop();
+        const db = dbModule.default;
+        
+        const emailRecord = db.prepare("SELECT file_name, recipient FROM received_emails WHERE id = ?").get(id);
+        if (!emailRecord || emailRecord.recipient !== userEmail) {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Email not found" }));
+          return;
+        }
+
+        db.prepare("DELETE FROM received_emails WHERE id = ?").run(id);
+
+        const targetDir = getTargetStorageDir();
+        const filePath = path.join(targetDir, emailRecord.file_name);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true }));
+        return;
+      }
+
+      // GET /api/mailbox/media
+      if (cleanUrl === "/api/mailbox/media" && req.method === "GET") {
+        const db = dbModule.default;
+        const emails = db.prepare("SELECT id, sender, created_at, file_name FROM received_emails WHERE recipient = ? AND has_attachment = 1 ORDER BY id DESC").all(userEmail);
+        
+        const targetDir = getTargetStorageDir();
+        const allMedia = [];
+
+        for (const email of emails) {
+          const filePath = path.join(targetDir, email.file_name);
+          if (fs.existsSync(filePath)) {
+            try {
+              const content = fs.readFileSync(filePath, "utf-8");
+              const parsed = JSON.parse(content);
+              if (parsed.attachments && Array.isArray(parsed.attachments)) {
+                parsed.attachments.forEach((att, index) => {
+                  allMedia.push({
+                    emailId: email.id,
+                    sender: email.sender,
+                    date: email.created_at,
+                    filename: att.filename || `attachment-${index}`,
+                    contentType: att.contentType,
+                    size: att.size || 0,
+                    content: att.content
+                  });
+                });
+              }
+            } catch (err) {
+              console.error("Error reading media for email", email.id, err);
+            }
+          }
+        }
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ media: allMedia }));
+        return;
+      }
 
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Not Found" }));
     } catch (err) {
-      console.error("Webmail API Error:", err);
+      console.error("Mailbox API Error:", err);
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Internal Server Error" }));
     }

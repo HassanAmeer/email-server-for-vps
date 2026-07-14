@@ -103,7 +103,7 @@ const smtpServer = new SMTPServer({
     const msg = `🔌 Connection opened from ${isLocal ? 'local' : 'public'} IP: ${ip}`;
     if (isLocal) addLocalLog(msg); else addLiveLog(msg);
     logSystemEvent({ log_type: 'RECEIVE', status: 'INFO', message: 'Connection Opened', details: { ip, isLocal } });
-    
+
     return callback();
   },
   onMailFrom(address, session, callback) {
@@ -116,7 +116,7 @@ const smtpServer = new SMTPServer({
     const msg = `➡️ RCPT TO (Recipient): ${address.address}`;
     if (session.isLocalConnection) addLocalLog(msg); else addLiveLog(msg);
     logSystemEvent({ log_type: 'RECEIVE', status: 'INFO', message: 'RCPT TO received', details: { recipient: address.address } });
-    
+
     // Check Catch-All validation
     const isValid = validateRecipientCatchAll(address.address);
     if (!isValid) {
@@ -125,7 +125,7 @@ const smtpServer = new SMTPServer({
       logSystemEvent({ log_type: 'RECEIVE', status: 'WARNING', message: 'Rejected Recipient (Catch-All OFF)', details: { recipient: address.address } });
       return callback(new Error("550 Requested action not taken: mailbox unavailable"));
     }
-    
+
     return callback();
   },
   onData(stream, session, callback) {
@@ -167,7 +167,7 @@ const smtpServer = new SMTPServer({
           const safeFilename = (att.filename || "unnamed").replace(/[^a-zA-Z0-9.-]/g, "_");
           const savedFileName = `${Date.now()}-${safeFilename}`;
           const filePath = path.join(attachmentsDir, savedFileName);
-          
+
           // Save the attachment buffer to disk
           if (att.content) {
             fs.writeFileSync(filePath, att.content);
@@ -195,7 +195,7 @@ const smtpServer = new SMTPServer({
       const projectId = project ? project.id : null;
       const totalAttachmentSize = parsed.attachments?.reduce((sum, att) => sum + (att.size || 0), 0) || 0;
       logReceivedEmail(mailData.to, mailData.from, mailData.subject, mailData.attachments.length > 0, projectId, totalAttachmentSize, fileName);
-      
+
       logSystemEvent({ log_type: 'RECEIVE', status: 'INFO', message: 'Email Saved to Disk', details: { file: fileName, projectId }, project_id: projectId });
 
       // Trigger Webhook if configured
@@ -213,7 +213,7 @@ const smtpServer = new SMTPServer({
             console.error("Webhook trigger failed:", err.message);
             logSystemEvent({ log_type: 'RECEIVE', status: 'ERROR', message: 'Webhook Failed', details: { url: project.webhook_url, error: err.message }, project_id: projectId });
           });
-        } catch (e) {}
+        } catch (e) { }
       }
 
       const finishMsg = `✅ Email Transaction Complete! Subject: "${subject}"`;
@@ -268,6 +268,14 @@ const httpServer = http.createServer((req, res) => {
   if (cleanUrl === "/api/mailbox/custom" && req.method === "GET") {
     return ApiRouter.customGenerateMailbox(req, res);
   }
+
+  // Handle Permanent Mailbox Web UI APIs before they get caught by temporary mailbox regex
+  if (cleanUrl.startsWith("/api/mailbox/inbox") || 
+      cleanUrl.startsWith("/api/mailbox/login") || 
+      cleanUrl.startsWith("/api/mailbox/send") || 
+      cleanUrl.startsWith("/api/mailbox/media")) {
+    return ApiRouter.handleMailboxApi(req, res);
+  }
   
   if (cleanUrl.startsWith("/api/mailbox/") && req.method === "GET") {
     const parts = cleanUrl.split("/");
@@ -300,12 +308,12 @@ const httpServer = http.createServer((req, res) => {
     return ApiRouter.handleProjectsApi(req, res);
   }
 
-  if (cleanUrl.startsWith("/api/admin/webmail-users")) {
-    return ApiRouter.handleAdminWebmailUsersApi(req, res);
+  if (cleanUrl.startsWith("/api/admin/mailbox-users")) {
+    return ApiRouter.handleAdminMailboxUsersApi(req, res);
   }
 
   if (cleanUrl.startsWith("/api/mailbox")) {
-    return ApiRouter.handleWebmailApi(req, res);
+    return ApiRouter.handleMailboxApi(req, res);
   }
 
   if (cleanUrl.startsWith("/api/admin/domains")) {
@@ -319,7 +327,7 @@ const httpServer = http.createServer((req, res) => {
   if (cleanUrl === "/api/admin/stats/traffic" && req.method === "GET") {
     return ApiRouter.handleTrafficStatsApi(req, res);
   }
-  
+
   if (cleanUrl.startsWith("/api/admin/dblogs/") && req.method === "GET") {
     const logType = cleanUrl.split("/").pop();
     return ApiRouter.getDbLogs(req, res, logType);
@@ -511,19 +519,19 @@ const httpServer = http.createServer((req, res) => {
       try {
         const data = JSON.parse(body);
         const { from, to, subject, text, html, attachments } = data;
-        
+
         addLiveSendingLog(`Initiating custom outbound email from ${from} to ${to}`);
-        
-        await sendOutboundEmailLive({ 
-          from, 
-          to, 
-          subject, 
-          text, 
-          html, 
+
+        await sendOutboundEmailLive({
+          from,
+          to,
+          subject,
+          text,
+          html,
           attachments,
-          logCallback: (msg) => addLiveSendingLog(msg) 
+          logCallback: (msg) => addLiveSendingLog(msg)
         });
-        
+
         addLiveSendingLog(`✅ Successfully sent custom email from ${from} to ${to}`);
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ success: true }));
@@ -544,19 +552,19 @@ const httpServer = http.createServer((req, res) => {
       try {
         const data = JSON.parse(body);
         const { from, to, subject, text, html, attachments } = data;
-        
+
         addLocalSendingLog(`Initiating custom outbound email from ${from} to ${to}`);
-        
-        await sendOutboundEmailLocal({ 
-          from, 
-          to, 
-          subject, 
-          text, 
-          html, 
+
+        await sendOutboundEmailLocal({
+          from,
+          to,
+          subject,
+          text,
+          html,
           attachments,
-          logCallback: (msg) => addLocalSendingLog(msg) 
+          logCallback: (msg) => addLocalSendingLog(msg)
         });
-        
+
         addLocalSendingLog(`✅ Successfully sent custom email from ${from} to ${to}`);
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ success: true }));
@@ -581,7 +589,7 @@ const httpServer = http.createServer((req, res) => {
       res.writeHead(404, { "Content-Type": "application/json" });
       return res.end(JSON.stringify({ error: "Attachment not found" }));
     }
-    
+
     // Serve the file
     res.writeHead(200);
     fs.createReadStream(filePath).pipe(res);
@@ -626,7 +634,7 @@ const httpServer = http.createServer((req, res) => {
   let reqPath = req.url.split("?")[0];
 
   // Redirect to trailing slash for proper directory asset loading of static routes
-  if (reqPath === "/admin" || reqPath === "/local" || reqPath === "/live" || reqPath === "/doc" || reqPath === "/webmail") {
+  if (reqPath === "/admin" || reqPath === "/local" || reqPath === "/live" || reqPath === "/doc" || reqPath === "/mailbox") {
     res.writeHead(301, { "Location": reqPath + "/" });
     res.end();
     return;
@@ -641,11 +649,11 @@ const httpServer = http.createServer((req, res) => {
     reqPath = "/admin/index.html";
   } else if (reqPath.startsWith("/doc/")) {
     reqPath = "/doc/index.html";
-  } else if (reqPath.startsWith("/webmail/")) {
-    if (reqPath.startsWith("/webmail/inbox")) {
-      reqPath = "/webmail/inbox/index.html";
+  } else if (reqPath.startsWith("/mailbox/")) {
+    if (reqPath.startsWith("/mailbox/inbox")) {
+      reqPath = "/mailbox/inbox/index.html";
     } else {
-      reqPath = "/webmail/index.html";
+      reqPath = "/mailbox/index.html";
     }
   } else if (reqPath === "/") {
     reqPath = "/index.html";

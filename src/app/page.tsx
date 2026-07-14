@@ -538,22 +538,22 @@ export default function Home() {
             <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/5 rounded-full blur-3xl pointer-events-none group-hover:bg-violet-500/10 transition-colors"></div>
             <div>
               <div className="flex items-center justify-between mb-6">
-                <span className="text-xs font-bold font-mono text-violet-400 uppercase tracking-widest bg-violet-500/10 px-3 py-1 rounded-full border border-violet-500/25">Sandbox Env</span>
-                <span className="text-[10px] text-gray-500 font-mono">Port 1025</span>
+                <span className="text-xs font-bold font-mono text-violet-400 uppercase tracking-widest bg-violet-500/10 px-3 py-1 rounded-full border border-violet-500/25">Private Mailbox</span>
+                <span className="text-[10px] text-gray-500 font-mono">Auth Protected</span>
               </div>
               <h3 className="text-2xl font-extrabold text-white mb-3 group-hover:text-violet-400 transition-colors">Mail Box</h3>
-              <p className="text-sm text-gray-400 leading-relaxed">A sandbox console listening for local application loops. Best for developers writing integration test scripts or local server code sending outgoing emails.</p>
+              <p className="text-sm text-gray-400 leading-relaxed">Access your dedicated project mailbox. View all incoming emails for your account with persistent, long-term storage. Manage your access credentials securely via the admin panel.</p>
               <div className="grid grid-cols-2 gap-3 mt-6 mb-8 py-3 px-4 rounded-xl bg-black/40 border border-white/[0.04] text-[11px] font-mono text-gray-500 select-none">
-                <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse"></span><span>Port: 1025 (Local)</span></div>
-                <div className="text-right text-violet-400 font-bold uppercase">READY</div>
+                <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse"></span><span>Auth: Required</span></div>
+                <div className="text-right text-violet-400 font-bold uppercase">SECURE</div>
                 <div className="flex items-center gap-1.5">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                  <span>Sandbox Loop</span>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                  <span>Persistent Storage</span>
                 </div>
-                <div className="text-right text-gray-400">INBOUND</div>
+                <div className="text-right text-gray-400">ACTIVE</div>
               </div>
             </div>
-            <Link href="/webmail/inbox" className="w-full text-center bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm py-3.5 rounded-xl shadow-lg shadow-violet-500/15 hover:shadow-violet-500/25 transition-all font-sans">Open Mail Box</Link>
+            <Link href="/mailbox/inbox" className="w-full text-center bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm py-3.5 rounded-xl shadow-lg shadow-violet-500/15 hover:shadow-violet-500/25 transition-all font-sans">Open Mail Box</Link>
           </div>
 
           {/* Admin Panel Card */}

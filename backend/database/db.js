@@ -93,7 +93,7 @@ db.exec(`
 `);
 
 db.exec(`
-  CREATE TABLE IF NOT EXISTS webmail_users (
+  CREATE TABLE IF NOT EXISTS mailbox_users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
@@ -520,42 +520,42 @@ export function resetApiSettingsHits() {
 }
 
 // --- WEBMAIL HELPERS ---
-export function createWebmailUser(email, password, projectId) {
+export function createMailboxUser(email, password, projectId) {
   try {
     const hash = Bun.password.hashSync(password, { algorithm: "bcrypt" });
-    const stmt = db.prepare("INSERT INTO webmail_users (email, password_hash, project_id) VALUES (?, ?, ?)");
+    const stmt = db.prepare("INSERT INTO mailbox_users (email, password_hash, project_id) VALUES (?, ?, ?)");
     stmt.run(email, hash, projectId);
     return { success: true };
   } catch (err) {
-    console.error("DB Error creating webmail user:", err);
+    console.error("DB Error creating mailbox user:", err);
     return { success: false, error: err.message };
   }
 }
 
-export function getWebmailUsers(projectId) {
+export function getMailboxUsers(projectId) {
   try {
-    const stmt = db.prepare("SELECT id, email, created_at FROM webmail_users WHERE project_id = ? ORDER BY id DESC");
+    const stmt = db.prepare("SELECT id, email, created_at FROM mailbox_users WHERE project_id = ? ORDER BY id DESC");
     return stmt.all(projectId);
   } catch (err) {
-    console.error("DB Error getting webmail users:", err);
+    console.error("DB Error getting mailbox users:", err);
     return [];
   }
 }
 
-export function deleteWebmailUser(userId, projectId) {
+export function deleteMailboxUser(userId, projectId) {
   try {
-    const stmt = db.prepare("DELETE FROM webmail_users WHERE id = ? AND project_id = ?");
+    const stmt = db.prepare("DELETE FROM mailbox_users WHERE id = ? AND project_id = ?");
     const info = stmt.run(userId, projectId);
     return info.changes > 0;
   } catch (err) {
-    console.error("DB Error deleting webmail user:", err);
+    console.error("DB Error deleting mailbox user:", err);
     return false;
   }
 }
 
-export function verifyWebmailUser(email, password) {
+export function verifyMailboxUser(email, password) {
   try {
-    const stmt = db.prepare("SELECT * FROM webmail_users WHERE email = ?");
+    const stmt = db.prepare("SELECT * FROM mailbox_users WHERE email = ?");
     const user = stmt.get(email);
     if (!user) return null;
     
@@ -567,12 +567,12 @@ export function verifyWebmailUser(email, password) {
     }
     return null;
   } catch (err) {
-    console.error("DB Error verifying webmail user:", err);
+    console.error("DB Error verifying mailbox user:", err);
     return null;
   }
 }
 
-export function getWebmailInbox(email, page = 1, limit = 50) {
+export function getMailboxInbox(email, page = 1, limit = 50) {
   try {
     const offset = (page - 1) * limit;
     
@@ -600,7 +600,7 @@ export function getWebmailInbox(email, page = 1, limit = 50) {
       }
     };
   } catch (err) {
-    console.error("DB Error getting webmail inbox:", err);
+    console.error("DB Error getting mailbox inbox:", err);
     return { data: [], pagination: { page: 1, limit: 50, totalRecords: 0, totalPages: 0 } };
   }
 }

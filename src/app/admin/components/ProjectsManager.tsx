@@ -34,13 +34,13 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
   const [projectStatsData, setProjectStatsData] = useState<any | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
 
-  const [activeAnalyticsTab, setActiveAnalyticsTab] = useState<"receive" | "send" | "webmail">("receive");
+  const [activeAnalyticsTab, setActiveAnalyticsTab] = useState<"receive" | "send" | "mailbox">("receive");
   
-  const [webmailUsersData, setWebmailUsersData] = useState<any[]>([]);
-  const [loadingWebmailUsers, setLoadingWebmailUsers] = useState(false);
-  const [newWebmailEmail, setNewWebmailEmail] = useState("");
-  const [newWebmailPassword, setNewWebmailPassword] = useState("");
-  const [isCreatingWebmail, setIsCreatingWebmail] = useState(false);
+  const [mailboxUsersData, setMailboxUsersData] = useState<any[]>([]);
+  const [loadingMailboxUsers, setLoadingMailboxUsers] = useState(false);
+  const [newMailboxEmail, setNewMailboxEmail] = useState("");
+  const [newMailboxPassword, setNewMailboxPassword] = useState("");
+  const [isCreatingMailbox, setIsCreatingMailbox] = useState(false);
   const [projectEmailsData, setProjectEmailsData] = useState<any | null>(null);
   const [emailsPage, setEmailsPage] = useState(1);
   const [loadingEmails, setLoadingEmails] = useState(false);
@@ -257,8 +257,8 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
     }
   };
 
-  const fetchProjectWebmailUsers = async (projectId: number) => {
-    setLoadingWebmailUsers(true);
+  const fetchProjectMailboxUsers = async (projectId: number) => {
+    setLoadingMailboxUsers(true);
     try {
       const token = localStorage.getItem("admin_token") || "";
       const res = await fetch(`${apiUrl}/api/admin/projects/${projectId}/mailbox`, {
@@ -266,23 +266,23 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
       });
       if (res.ok) {
         const data = await res.json();
-        setWebmailUsersData(data.users || []);
+        setMailboxUsersData(data.users || []);
       } else {
-        setWebmailUsersData([]);
+        setMailboxUsersData([]);
       }
     } catch (err: any) {
       console.error(err);
-      setWebmailUsersData([]);
+      setMailboxUsersData([]);
     } finally {
-      setLoadingWebmailUsers(false);
+      setLoadingMailboxUsers(false);
     }
   };
 
-  const handleCreateWebmailUser = async (e: React.FormEvent) => {
+  const handleCreateMailboxUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!viewingAnalyticsFor || !newWebmailEmail || !newWebmailPassword) return;
+    if (!viewingAnalyticsFor || !newMailboxEmail || !newMailboxPassword) return;
 
-    setIsCreatingWebmail(true);
+    setIsCreatingMailbox(true);
     try {
       const token = localStorage.getItem("admin_token") || "";
       const res = await fetch(`${apiUrl}/api/admin/projects/${viewingAnalyticsFor.id}/mailbox`, {
@@ -291,26 +291,26 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ email: newWebmailEmail, password: newWebmailPassword })
+        body: JSON.stringify({ email: newMailboxEmail, password: newMailboxPassword })
       });
 
       if (res.ok) {
-        setNewWebmailEmail("");
-        setNewWebmailPassword("");
-        await fetchProjectWebmailUsers(viewingAnalyticsFor.id);
+        setNewMailboxEmail("");
+        setNewMailboxPassword("");
+        await fetchProjectMailboxUsers(viewingAnalyticsFor.id);
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to create webmail user");
+        alert(data.error || "Failed to create mailbox user");
       }
     } catch (err: any) {
       alert(err.message);
     } finally {
-      setIsCreatingWebmail(false);
+      setIsCreatingMailbox(false);
     }
   };
 
-  const handleDeleteWebmailUser = async (userId: number) => {
-    if (!viewingAnalyticsFor || !confirm("Are you sure you want to delete this webmail user?")) return;
+  const handleDeleteMailboxUser = async (userId: number) => {
+    if (!viewingAnalyticsFor || !confirm("Are you sure you want to delete this mailbox user?")) return;
 
     try {
       const token = localStorage.getItem("admin_token") || "";
@@ -320,10 +320,10 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
       });
 
       if (res.ok) {
-        await fetchProjectWebmailUsers(viewingAnalyticsFor.id);
+        await fetchProjectMailboxUsers(viewingAnalyticsFor.id);
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to delete webmail user");
+        alert(data.error || "Failed to delete mailbox user");
       }
     } catch (err: any) {
       alert(err.message);
@@ -355,7 +355,7 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
       }
 
       await fetchProjectEmails(project.id, 1);
-      await fetchProjectWebmailUsers(project.id);
+      await fetchProjectMailboxUsers(project.id);
     } catch (err: any) {
       console.error(err);
       setProjectStatsData(null);
@@ -494,56 +494,56 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
               Send Email
             </button>
             <button
-              onClick={() => setActiveAnalyticsTab("webmail")}
-              className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${activeAnalyticsTab === "webmail"
+              onClick={() => setActiveAnalyticsTab("mailbox")}
+              className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${activeAnalyticsTab === "mailbox"
                 ? "border-purple-400 text-purple-400"
                 : "border-transparent text-gray-500 hover:text-gray-300"
                 }`}
             >
-              Webmail Users
+              Mailbox Users
             </button>
           </div>
 
-          {activeAnalyticsTab === "webmail" ? (
+          {activeAnalyticsTab === "mailbox" ? (
             <div className="flex flex-col gap-6">
               <div className="glass-panel border-white/[0.05] rounded-xl p-6">
-                <h3 className="text-lg font-bold text-white mb-4">Create Webmail User</h3>
-                <form onSubmit={handleCreateWebmailUser} className="flex flex-col md:flex-row gap-4">
+                <h3 className="text-lg font-bold text-white mb-4">Create Mailbox User</h3>
+                <form onSubmit={handleCreateMailboxUser} className="flex flex-col md:flex-row gap-4">
                   <input
                     type="email"
                     required
                     placeholder="User Email Address"
                     className="flex-1 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-500/50"
-                    value={newWebmailEmail}
-                    onChange={(e) => setNewWebmailEmail(e.target.value)}
+                    value={newMailboxEmail}
+                    onChange={(e) => setNewMailboxEmail(e.target.value)}
                   />
                   <input
                     type="password"
                     required
                     placeholder="Password"
                     className="flex-1 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-500/50"
-                    value={newWebmailPassword}
-                    onChange={(e) => setNewWebmailPassword(e.target.value)}
+                    value={newMailboxPassword}
+                    onChange={(e) => setNewMailboxPassword(e.target.value)}
                   />
                   <button
                     type="submit"
-                    disabled={isCreatingWebmail}
+                    disabled={isCreatingMailbox}
                     className="bg-purple-500 hover:bg-purple-400 text-white font-bold py-2 px-6 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
                   >
-                    {isCreatingWebmail ? "Creating..." : "Create User"}
+                    {isCreatingMailbox ? "Creating..." : "Create User"}
                   </button>
                 </form>
               </div>
 
               <div className="glass-panel border-white/[0.05] rounded-xl p-6">
-                <h3 className="text-lg font-bold text-white mb-4">Webmail Users</h3>
-                {loadingWebmailUsers ? (
+                <h3 className="text-lg font-bold text-white mb-4">Mailbox Users</h3>
+                {loadingMailboxUsers ? (
                   <div className="flex justify-center py-8">
                     <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
                   </div>
-                ) : webmailUsersData.length === 0 ? (
+                ) : mailboxUsersData.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
-                    No webmail users found for this project.
+                    No mailbox users found for this project.
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -556,7 +556,7 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/[0.05]">
-                        {webmailUsersData.map((user) => (
+                        {mailboxUsersData.map((user) => (
                           <tr key={user.id} className="hover:bg-white/[0.02] transition-colors">
                             <td className="p-3">
                               <span className="text-white font-medium">{user.email}</span>
@@ -566,7 +566,7 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
                             </td>
                             <td className="p-3 text-right">
                               <button
-                                onClick={() => handleDeleteWebmailUser(user.id)}
+                                onClick={() => handleDeleteMailboxUser(user.id)}
                                 className="text-rose-400 hover:text-rose-300 font-semibold text-xs px-3 py-1 bg-rose-500/10 hover:bg-rose-500/20 rounded transition-colors"
                               >
                                 Delete
