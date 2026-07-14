@@ -487,15 +487,24 @@ export default function MailboxInbox() {
                     {mediaFiles.map((file, idx) => (
                       <div key={idx} className="group relative rounded-2xl overflow-hidden bg-[#030712] border border-white/[0.08] hover:border-violet-500/50 transition-all flex flex-col h-48 hover:shadow-[0_0_30px_rgba(139,92,246,0.15)]">
                         {(() => {
-                          const isImage = file.contentType?.startsWith('image/') || file.filename?.match(/\.(png|jpe?g|gif|webp|bmp|svg)$/i);
+                          const isBase64Img = file.content && (file.content.startsWith('iVBORw0K') || file.content.startsWith('/9j/') || file.content.startsWith('R0lGOD') || file.content.startsWith('UklGR'));
+                          const isImage = file.contentType?.startsWith('image/') || file.filename?.match(/\.(png|jpe?g|gif|webp|bmp|svg)$/i) || isBase64Img;
                           const isVideo = file.contentType?.startsWith('video/') || file.filename?.match(/\.(mp4|webm|ogg|mov)$/i);
                           const isPdf = file.contentType === 'application/pdf' || file.filename?.match(/\.pdf$/i);
                           const isArchive = file.filename?.match(/\.(zip|rar|7z|tar|gz)$/i);
 
+                          const getImgSrc = () => {
+                            if (file.content?.startsWith('iVBORw0K')) return `data:image/png;base64,${file.content}`;
+                            if (file.content?.startsWith('/9j/')) return `data:image/jpeg;base64,${file.content}`;
+                            if (file.content?.startsWith('R0lGOD')) return `data:image/gif;base64,${file.content}`;
+                            if (file.content?.startsWith('UklGR')) return `data:image/webp;base64,${file.content}`;
+                            return `data:${file.contentType || 'image/png'};base64,${file.content}`;
+                          };
+
                           if (isImage && file.content) {
                             return (
                               <div className="absolute inset-0 bg-black">
-                                <img src={`data:${file.contentType || 'image/jpeg'};base64,${file.content}`} alt={file.filename} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-300" />
+                                <img src={getImgSrc()} alt={file.filename} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-300" />
                                 <div className="absolute inset-0 bg-gradient-to-t from-[#0b0f19] via-[#0b0f19]/80 to-transparent opacity-90 group-hover:opacity-70 transition-opacity"></div>
                               </div>
                             );
@@ -731,18 +740,28 @@ export default function MailboxInbox() {
                         </h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                           {selectedEmail.details.attachments.map((att: any, idx: number) => {
-                            const isImage = att.contentType?.startsWith('image/') || att.filename?.match(/\.(png|jpe?g|gif|webp|bmp|svg)$/i);
+                            const isBase64Img = att.content && (att.content.startsWith('iVBORw0K') || att.content.startsWith('/9j/') || att.content.startsWith('R0lGOD') || att.content.startsWith('UklGR'));
+                            const isImage = att.contentType?.startsWith('image/') || att.filename?.match(/\.(png|jpe?g|gif|webp|bmp|svg)$/i) || isBase64Img;
+                            
+                            const getImgSrc = () => {
+                              if (att.content?.startsWith('iVBORw0K')) return `data:image/png;base64,${att.content}`;
+                              if (att.content?.startsWith('/9j/')) return `data:image/jpeg;base64,${att.content}`;
+                              if (att.content?.startsWith('R0lGOD')) return `data:image/gif;base64,${att.content}`;
+                              if (att.content?.startsWith('UklGR')) return `data:image/webp;base64,${att.content}`;
+                              return att.url || `data:${att.contentType || 'image/png'};base64,${att.content}`;
+                            };
+
                             return (
                               <a
                                 key={idx}
-                                href={att.url}
+                                href={att.url || getImgSrc()}
                                 download={att.filename}
                                 target="_blank"
                                 className="flex items-center gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.05] hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 transition-all group relative overflow-hidden"
                               >
                                 {isImage ? (
                                   <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border border-white/10 bg-black relative shadow-sm">
-                                    <img src={att.url} alt={att.filename} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300 opacity-80 group-hover:opacity-100" />
+                                    <img src={getImgSrc()} alt={att.filename} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300 opacity-80 group-hover:opacity-100" />
                                   </div>
                                 ) : (
                                   <div className="w-12 h-12 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500/20 group-hover:text-emerald-300 transition-colors shadow-sm flex-shrink-0">
