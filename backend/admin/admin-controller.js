@@ -55,7 +55,16 @@ const defaultApiSettings = [
   { id: "admin-domains-update", method: "PUT/DELETE", path: "/api/admin/domains/:id", desc: "Modify status or completely remove a domain from the globally accepted domain list.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "Params: :id" },
   { id: "api-settings", method: "GET", path: "/api/admin/api-settings", desc: "Retrieve the current global state of all dynamic API routes, including their enabled status, categories, hit counts, and metadata.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "None" },
   { id: "api-settings-toggle", method: "POST", path: "/api/admin/api-settings/toggle", desc: "Dynamically turn specific API routes on or off without restarting the server. Real-time endpoint control mechanism.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "Body: JSON {id, enabled}" },
-  { id: "api-settings-reset", method: "POST", path: "/api/admin/api-settings/reset-hits", desc: "Purge and reset global aggregate traffic statistics for all API endpoints to zero simultaneously.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "None" }
+  { id: "api-settings-reset", method: "POST", path: "/api/admin/api-settings/reset-hits", desc: "Purge and reset global aggregate traffic statistics for all API endpoints to zero simultaneously.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "None" },
+  
+  // Mailbox Client APIs (for permanent mailbox users via third-party apps)
+  { id: "mailbox-client-login", method: "POST", path: "/api/mailbox/login", desc: "Authenticate a permanent mailbox user (e.g. support@yourdomain.com) with their email and password. Returns a Bearer token for subsequent requests.", enabled: true, category: "Mailbox Client", hits: 0, auth: false, variables: "Body: JSON {email, password}" },
+  { id: "mailbox-client-inbox", method: "GET", path: "/api/mailbox/inbox", desc: "Retrieve paginated inbox messages for the authenticated mailbox user. Supports ?page and ?limit parameters.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "?page=1&limit=50" },
+  { id: "mailbox-client-count", method: "GET", path: "/api/mailbox/count", desc: "Get the total number of messages in the authenticated mailbox user's inbox. Useful for badge counts in third-party apps. Does not track API project hits.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "None" },
+  { id: "mailbox-client-read", method: "GET", path: "/api/mailbox/inbox/:id", desc: "Fetch the full content of a specific email by its database ID. Returns parsed sender, subject, body text, HTML, and attachment metadata.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "Params: :id" },
+  { id: "mailbox-client-delete", method: "DELETE", path: "/api/mailbox/inbox/:id", desc: "Delete a specific email from the authenticated mailbox user's inbox by database record ID.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "Params: :id" },
+  { id: "mailbox-client-media", method: "GET", path: "/api/mailbox/media", desc: "List all media attachments received in the authenticated mailbox. Returns attachment metadata including filename, content type, size, and public URL.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "None" },
+  { id: "mailbox-client-send", method: "POST", path: "/api/mailbox/send", desc: "Send an outbound email from the authenticated permanent mailbox address. Supports plain text and HTML body.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "Body: JSON {to, subject, message}" }
 ];
 
 // Initialize settings in database
@@ -516,11 +525,11 @@ export class AdminController {
     }
   }
 
-  // --- WEBMAIL MANAGEMENT ---
-  static getWebmailUsers(req, res, projectId) {
+  // --- MAILBOX MANAGEMENT ---
+  static getMailboxUsers(req, res, projectId) {
     try {
-      const { getWebmailUsers } = require('../database/db.js');
-      const users = getWebmailUsers(projectId);
+      const { getMailboxUsers } = require('../database/db.js');
+      const users = getMailboxUsers(projectId);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ users }));
     } catch (error) {
@@ -529,7 +538,7 @@ export class AdminController {
     }
   }
 
-  static createWebmailUser(req, res, projectId) {
+  static createMailboxUser(req, res, projectId) {
     let body = "";
     req.on("data", chunk => body += chunk.toString());
     req.on("end", () => {
@@ -541,8 +550,8 @@ export class AdminController {
           return;
         }
 
-        const { createWebmailUser } = require('../database/db.js');
-        const result = createWebmailUser(email, password, projectId);
+        const { createMailboxUser } = require('../database/db.js');
+        const result = createMailboxUser(email, password, projectId);
         
         if (result.success) {
           res.writeHead(201, { "Content-Type": "application/json" });
@@ -558,10 +567,10 @@ export class AdminController {
     });
   }
 
-  static deleteWebmailUser(req, res, projectId, userId) {
+  static deleteMailboxUser(req, res, projectId, userId) {
     try {
-      const { deleteWebmailUser } = require('../database/db.js');
-      const success = deleteWebmailUser(userId, projectId);
+      const { deleteMailboxUser } = require('../database/db.js');
+      const success = deleteMailboxUser(userId, projectId);
       
       if (success) {
         res.writeHead(200, { "Content-Type": "application/json" });

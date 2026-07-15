@@ -455,6 +455,159 @@ const endpoints = [
     exampleUrl: "http://your-vps-ip:8081/api/emails/live",
     returns: "JSON Array",
     auth: true,
+  },
+  // ─── Mailbox Client APIs (for Third-Party App Integration) ───
+  {
+    id: "mailbox-client-login",
+    method: "POST",
+    path: "/api/mailbox/login",
+    title: "Mailbox Login",
+    category: "Mailbox Client",
+    desc: "Authenticate a permanent mailbox user (e.g. support@yourdomain.com) with their email and password. Returns a Bearer token to use in subsequent API requests.",
+    payload: `{
+  "email": "support@yourdomain.com",
+  "password": "your_secure_password"
+}`,
+    response: `{
+  "success": true,
+  "token": "a1b2c3d4...hextoken...:support@yourdomain.com",
+  "user": {
+    "id": 1,
+    "email": "support@yourdomain.com",
+    "project_id": 2,
+    "created_at": "2026-07-01T10:00:00Z"
+  }
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/mailbox/login",
+    returns: "JSON Object",
+    auth: false,
+  },
+  {
+    id: "mailbox-client-inbox",
+    method: "GET",
+    path: "/api/mailbox/inbox",
+    title: "Mailbox Inbox",
+    category: "Mailbox Client",
+    desc: "Retrieve paginated inbox messages for the authenticated mailbox user. Pass your token via `Authorization: Bearer <token>`. Supports `?page` and `?limit` query parameters.",
+    payload: null,
+    response: `{
+  "data": [
+    {
+      "id": 42,
+      "recipient": "support@yourdomain.com",
+      "sender": "noreply@github.com",
+      "subject": "Your verification code",
+      "has_attachment": 0,
+      "created_at": "2026-07-15T10:00:00Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 50,
+    "totalRecords": 1,
+    "totalPages": 1
+  }
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/mailbox/inbox?page=1&limit=50",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
+    id: "mailbox-client-count",
+    method: "GET",
+    path: "/api/mailbox/count",
+    title: "Mailbox Message Count",
+    category: "Mailbox Client",
+    desc: "Returns the total number of messages in the authenticated user's inbox. Useful for unread badge counts in third-party apps. Does not count toward project API hit limits.",
+    payload: null,
+    response: `{
+  "email": "support@yourdomain.com",
+  "count": 7
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/mailbox/count",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
+    id: "mailbox-client-read",
+    method: "GET",
+    path: "/api/mailbox/inbox/:id",
+    title: "Read Specific Email",
+    category: "Mailbox Client",
+    desc: "Fetch the full parsed content of a specific email by its database record ID. Returns sender info, subject, plain text body, HTML body, and any attachment metadata.",
+    payload: null,
+    response: `{
+  "id": "1234567890",
+  "from": "noreply@github.com",
+  "to": "support@yourdomain.com",
+  "subject": "Verify your email",
+  "text": "Your code is 123456",
+  "html": "<p>Your code is <b>123456</b></p>",
+  "date": "2026-07-15T10:17:02.000Z",
+  "attachments": []
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/mailbox/inbox/42",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
+    id: "mailbox-client-delete",
+    method: "DELETE",
+    path: "/api/mailbox/inbox/:id",
+    title: "Delete Email",
+    category: "Mailbox Client",
+    desc: "Delete a specific email from the authenticated mailbox user's inbox by its database record ID. Removes both the DB record and the stored JSON file.",
+    payload: null,
+    response: `{
+  "success": true
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/mailbox/inbox/42",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
+    id: "mailbox-client-media",
+    method: "GET",
+    path: "/api/mailbox/media",
+    title: "List Media Attachments",
+    category: "Mailbox Client",
+    desc: "Returns all media/file attachments received in the authenticated mailbox. Includes filename, MIME type, file size, and a public download URL.",
+    payload: null,
+    response: `{
+  "media": [
+    {
+      "emailId": 42,
+      "sender": "noreply@invoices.com",
+      "date": "2026-07-15T09:00:00Z",
+      "filename": "invoice.pdf",
+      "contentType": "application/pdf",
+      "size": 14205,
+      "url": "/api/attachments/1234567890-invoice.pdf"
+    }
+  ]
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/mailbox/media",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
+    id: "mailbox-client-send",
+    method: "POST",
+    path: "/api/mailbox/send",
+    title: "Send Email (Mailbox)",
+    category: "Mailbox Client",
+    desc: "Send an outbound email from the authenticated permanent mailbox address. The `from` is automatically set to the logged-in user's mailbox email.",
+    payload: `{
+  "to": "recipient@example.com",
+  "subject": "Hello from my mailbox",
+  "message": "This is the email body."
+}`,
+    response: `{
+  "success": true
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/mailbox/send",
+    returns: "JSON Object",
+    auth: true,
   }
 ];
 
@@ -584,14 +737,14 @@ export default function ApiDocumentation() {
             {isAdmin ? (
               // Grouped view for admin
               <>
-                {["Receive Mail", "Send Mail", "Admin"].map(cat => {
+                {["Receive Mail", "Send Mail", "Mailbox Client", "Admin"].map(cat => {
                   const catEndpoints = endpoints.filter(e => e.category === cat);
                   if (catEndpoints.length === 0) return null;
                   return (
                     <div key={cat} className="mb-2">
                       <p className="text-[10px] font-mono font-bold text-gray-500 uppercase tracking-[0.15em] px-2 py-2 border-l-2 border-emerald-500/50 ml-1">{cat}</p>
                       {catEndpoints.map((e) => {
-                        const c = methodColors[e.method];
+                        const c = methodColors[e.method] || methodColors["GET"];
                         const isActive = activeTab === e.id;
                         return (
                           <button
@@ -619,7 +772,7 @@ export default function ApiDocumentation() {
                 })}
               </>
             ) : (
-              // Flat list for non-admin
+              // Flat list for non-admin - only show Receive Mail
               <>
                 <p className="text-[10px] font-mono font-bold text-gray-600 uppercase tracking-[0.15em] px-2 py-2">Receive Mail Endpoints</p>
                 {endpoints.filter(e => e.category === "Receive Mail").map((e) => {
@@ -646,6 +799,12 @@ export default function ApiDocumentation() {
                     </button>
                   );
                 })}
+                <div className="mt-4 mx-1 p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
+                  <p className="text-[10px] text-emerald-400/80 font-mono leading-relaxed">
+                    🔒 Admin, Mailbox Client & Send Mail APIs are hidden.<br/>
+                    <a href="/admin" className="underline hover:text-emerald-300 transition-colors">Login as admin</a> to view all endpoints.
+                  </p>
+                </div>
               </>
             )}
           </nav>

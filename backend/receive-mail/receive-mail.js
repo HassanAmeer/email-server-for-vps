@@ -283,7 +283,8 @@ const httpServer = http.createServer((req, res) => {
   if (cleanUrl.startsWith("/api/mailbox/inbox") || 
       cleanUrl.startsWith("/api/mailbox/login") || 
       cleanUrl.startsWith("/api/mailbox/send") || 
-      cleanUrl.startsWith("/api/mailbox/media")) {
+      cleanUrl.startsWith("/api/mailbox/media") ||
+      cleanUrl === "/api/mailbox/count") {
     return ApiRouter.handleMailboxApi(req, res);
   }
   

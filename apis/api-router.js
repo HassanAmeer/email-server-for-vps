@@ -119,8 +119,6 @@ export class ApiRouter {
 
     // Ensure it doesn't conflict with any Mailbox User account
     try {
-      const dbModule = require("../backend/database/db.js");
-      const db = dbModule.default;
       const existingMailbox = db.prepare("SELECT id FROM mailbox_users WHERE email = ?").get(email);
       if (existingMailbox) {
         // Very rare collision with generated string, but just in case, return error so client retries
@@ -184,9 +182,6 @@ export class ApiRouter {
 
     // Check if this email was already generated
     try {
-      const dbModule = require("../backend/database/db.js");
-      const db = dbModule.default;
-      
       const existingMailbox = db.prepare("SELECT id FROM mailbox_users WHERE email = ?").get(email);
       if (existingMailbox) {
         res.writeHead(409, { "Content-Type": "application/json" });
@@ -828,7 +823,6 @@ export class ApiRouter {
           res.end(JSON.stringify({ error: e.message }));
         }
         return;
-        return;
       }
 
       // GET /api/admin/projects/:id/mailbox
@@ -1138,13 +1132,15 @@ export class ApiRouter {
       }
 
       const token = authHeader.split(" ")[1];
-      const parts = token.split(":");
-      if (parts.length !== 2) {
+      // Token format: "<64-char-hex>:<user@email.com>"
+      // Split on first colon only so email addresses with no colons parse correctly
+      const colonIdx = token.indexOf(":");
+      if (colonIdx === -1) {
         res.writeHead(401, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Invalid token" }));
+        res.end(JSON.stringify({ error: "Invalid token format" }));
         return;
       }
-      const userEmail = parts[1];
+      const userEmail = token.substring(colonIdx + 1);
 
       // GET /api/mailbox/inbox
       if (cleanUrl === "/api/mailbox/inbox" && req.method === "GET") {
@@ -1155,6 +1151,21 @@ export class ApiRouter {
         const data = getMailboxInbox(userEmail, page, limit);
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(data));
+        return;
+      }
+
+      // GET /api/mailbox/count
+      // Returns total number of messages in the authenticated user's inbox (no hit tracking).
+      if (cleanUrl === "/api/mailbox/count" && req.method === "GET") {
+        try {
+          const db = dbModule.default;
+          const row = db.prepare("SELECT COUNT(*) as count FROM received_emails WHERE recipient = ?").get(userEmail);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ email: userEmail, count: row ? row.count : 0 }));
+        } catch (err) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: err.message }));
+        }
         return;
       }
 
