@@ -143,6 +143,41 @@ bun run build
 bun run mail:start
 ```
 
+---
+
+## 🚫 Forbidden IDs API (Project-Specific)
+
+Agar aap nahi chahte ke kuch specific email usernames (jaise `admin`, `info`, `support`) generate hon, toh aap **Forbidden IDs** set kar sakte hain. Yeh settings **har project ke liye alag (per project)** kaam karti hain. Isme ab **Free** aur **Pro** users ke liye alag-alag forbidden IDs set karne ki saholat mojud hai.
+
+**Default Forbidden IDs:**
+- **Free Plan:** `admin`, `info`, `support`, `contact`, `mail`, `office`, `user`
+- **Pro Plan:** `admin`, `support`, `info`
+
+### 1. Get Forbidden IDs
+Aapke project ke current forbidden IDs (Free & Pro) dekhne ke liye:
+- **Endpoint:** `GET /api/project/forbidden-ids`
+- **Headers:** `Authorization: Bearer <Your-Project-API-Key>`
+
+### 2. Update Forbidden IDs
+Apne project ke liye nayi forbidden IDs set karne ke liye:
+- **Endpoint:** `PUT /api/project/forbidden-ids`
+- **Headers:** `Authorization: Bearer <Your-Project-API-Key>`, `Content-Type: application/json`
+- **Body:**
+```json
+{
+  "forbiddenIds": {
+    "free": ["admin", "info", "support", "contact", "ceo"],
+    "pro": ["admin", "support"]
+  }
+}
+```
+
+### 3. Using Free/Pro Plan in Email Generation
+Jab aap custom email generate karte hain, toh aap URL mein `?plan=pro` ya `?plan=free` pass kar sakte hain (default `free` hota hai):
+- **Endpoint:** `GET /api/mailbox/custom?name=info&domain=llamerada.online&plan=pro`
+
+*Note: Agar koi user in forbidden IDs se match karti hui custom email (e.g. `admin@mydomain.com`) banane ki koshish karega, toh API `403 Forbidden` error return karegi.*
+
 
 
 

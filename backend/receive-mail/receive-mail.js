@@ -279,6 +279,18 @@ const httpServer = http.createServer((req, res) => {
     return ApiRouter.customGenerateMailbox(req, res);
   }
 
+  if (cleanUrl === "/api/project/forbidden-ids") {
+    return ApiRouter.handleForbiddenIds(req, res);
+  }
+
+  if (cleanUrl === "/api/project/retention") {
+    return ApiRouter.handleRetentionApi(req, res);
+  }
+
+  if (cleanUrl === "/api/project/allowed-files") {
+    return ApiRouter.handleAllowedFilesApi(req, res);
+  }
+
   // Handle Permanent Mailbox Web UI APIs before they get caught by temporary mailbox regex
   if (cleanUrl.startsWith("/api/mailbox/inbox") || 
       cleanUrl.startsWith("/api/mailbox/login") || 

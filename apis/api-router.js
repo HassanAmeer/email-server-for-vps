@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { AdminController } from "../backend/admin/admin-controller.js";
-import db, { logGeneratedEmail, getProjectByApiKey, logProjectApiHit, getActiveDomains } from "../backend/database/db.js";
+import db, { logGeneratedEmail, getProjectByApiKey, logProjectApiHit, getActiveDomains, getProjectForbiddenIds, updateProjectForbiddenIds, getProjectRetention, updateProjectRetention, getProjectAllowedFiles, updateProjectAllowedFiles } from "../backend/database/db.js";
 
 // Paths config
 const localMailDir = path.join(process.cwd(), "backend", "storage", "local");
@@ -165,6 +165,17 @@ export class ApiRouter {
     if (sanitized.length === 0 || sanitized.length > 64) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Invalid name. Use only letters, numbers, dots, hyphens, underscores (1-64 chars)." }));
+      return;
+    }
+
+    const plan = url.searchParams.get("plan") === "pro" ? "pro" : "free";
+
+    // Check against forbidden IDs
+    const forbiddenIds = getProjectForbiddenIds(project.id);
+    const forbiddenList = forbiddenIds[plan] || [];
+    if (forbiddenList.includes(sanitized)) {
+      res.writeHead(403, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: `The name '${sanitized}' is forbidden for ${plan} users and cannot be used.` }));
       return;
     }
 
@@ -671,8 +682,8 @@ export class ApiRouter {
         return;
       }
 
-      // PUT /api/admin/projects/:id/retention (Update data retention settings)
-      if (req.method === "PUT" && req.url.endsWith("/retention")) {
+      // PUT /api/admin/projects/:id/advanced (Update advanced settings like retention, forbidden IDs, allowed files)
+      if (req.method === "PUT" && req.url.endsWith("/advanced")) {
         const urlParts = req.url.split("/");
         const id = urlParts[urlParts.length - 2];
         let body = "";
@@ -680,7 +691,10 @@ export class ApiRouter {
         req.on("end", () => {
           try {
             const parsed = JSON.parse(body);
-            dbModule.updateProjectRetention(id, parsed);
+            if (parsed.retention) dbModule.updateProjectRetention(id, parsed.retention);
+            if (parsed.forbiddenIds) dbModule.updateProjectForbiddenIds(id, parsed.forbiddenIds);
+            if (parsed.allowedFiles) dbModule.updateProjectAllowedFiles(id, parsed.allowedFiles);
+            
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ success: true }));
           } catch (e) {
@@ -1316,5 +1330,146 @@ export class ApiRouter {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Internal Server Error" }));
     }
+  }
+
+  /**
+   * Handle /api/project/forbidden-ids
+   */
+  static handleForbiddenIds(req, res) {
+    const project = ApiRouter.validateApiKey(req, res);
+    if (!project) return;
+
+    if (req.method === "GET") {
+      logProjectApiHit(project.id, "/api/project/forbidden-ids", "GET");
+      const forbiddenIds = getProjectForbiddenIds(project.id);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ forbiddenIds }));
+      return;
+    }
+
+    if (req.method === "PUT" || req.method === "POST") {
+      logProjectApiHit(project.id, "/api/project/forbidden-ids", req.method);
+      let body = "";
+      req.on("data", chunk => body += chunk.toString());
+      req.on("end", () => {
+        try {
+          const data = JSON.parse(body);
+          if (!data.forbiddenIds || typeof data.forbiddenIds !== "object") {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "forbiddenIds must be an object with 'free' and 'pro' arrays" }));
+            return;
+          }
+          const success = updateProjectForbiddenIds(project.id, data.forbiddenIds);
+          if (success) {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ success: true, forbiddenIds: getProjectForbiddenIds(project.id) }));
+          } else {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "Failed to update forbidden IDs" }));
+          }
+        } catch (err) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Invalid JSON body" }));
+        }
+      });
+      return;
+    }
+
+    res.writeHead(405, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Method Not Allowed" }));
+  }
+
+  /**
+   * Handle /api/project/retention
+   */
+  static handleRetentionApi(req, res) {
+    const project = ApiRouter.validateApiKey(req, res);
+    if (!project) return;
+
+    if (req.method === "GET") {
+      logProjectApiHit(project.id, "/api/project/retention", "GET");
+      const retention = getProjectRetention(project.id);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ retention }));
+      return;
+    }
+
+    if (req.method === "PUT" || req.method === "POST") {
+      logProjectApiHit(project.id, "/api/project/retention", req.method);
+      let body = "";
+      req.on("data", chunk => body += chunk.toString());
+      req.on("end", () => {
+        try {
+          const data = JSON.parse(body);
+          if (!data.retention || typeof data.retention !== "object") {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "retention must be an object with 'free' and 'pro' keys" }));
+            return;
+          }
+          const success = updateProjectRetention(project.id, data.retention);
+          if (success) {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ success: true, retention: getProjectRetention(project.id) }));
+          } else {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "Failed to update retention settings" }));
+          }
+        } catch (err) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Invalid JSON body" }));
+        }
+      });
+      return;
+    }
+
+    res.writeHead(405, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Method Not Allowed" }));
+  }
+
+  /**
+   * Handle /api/project/allowed-files
+   */
+  static handleAllowedFilesApi(req, res) {
+    const project = ApiRouter.validateApiKey(req, res);
+    if (!project) return;
+
+    if (req.method === "GET") {
+      logProjectApiHit(project.id, "/api/project/allowed-files", "GET");
+      const allowedFiles = getProjectAllowedFiles(project.id);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ allowedFiles }));
+      return;
+    }
+
+    if (req.method === "PUT" || req.method === "POST") {
+      logProjectApiHit(project.id, "/api/project/allowed-files", req.method);
+      let body = "";
+      req.on("data", chunk => body += chunk.toString());
+      req.on("end", () => {
+        try {
+          const data = JSON.parse(body);
+          if (!data.allowedFiles || typeof data.allowedFiles !== "object") {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "allowedFiles must be an object with 'free' and 'pro' arrays" }));
+            return;
+          }
+          const success = updateProjectAllowedFiles(project.id, data.allowedFiles);
+          if (success) {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ success: true, allowedFiles: getProjectAllowedFiles(project.id) }));
+          } else {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "Failed to update allowed files settings" }));
+          }
+        } catch (err) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Invalid JSON body" }));
+        }
+      });
+      return;
+    }
+
+    res.writeHead(405, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Method Not Allowed" }));
   }
 }

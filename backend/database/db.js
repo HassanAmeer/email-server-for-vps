@@ -69,6 +69,13 @@ try { db.exec(`ALTER TABLE projects ADD COLUMN is_active BOOLEAN DEFAULT 1;`); }
 try { db.exec(`ALTER TABLE projects ADD COLUMN retention_generated_emails INTEGER DEFAULT 0;`); } catch (e) { }
 try { db.exec(`ALTER TABLE projects ADD COLUMN retention_simple_mails INTEGER DEFAULT 0;`); } catch (e) { }
 try { db.exec(`ALTER TABLE projects ADD COLUMN retention_attachments INTEGER DEFAULT 0;`); } catch (e) { }
+try { db.exec(`ALTER TABLE projects ADD COLUMN forbidden_ids TEXT DEFAULT 'admin,info,support,contact,mail,office,user';`); } catch (e) { }
+try { db.exec(`ALTER TABLE projects ADD COLUMN forbidden_ids_free TEXT DEFAULT 'admin,info,support,contact,mail,office,user';`); } catch (e) { }
+try { db.exec(`ALTER TABLE projects ADD COLUMN forbidden_ids_pro TEXT DEFAULT 'admin,support,info';`); } catch (e) { }
+try { db.exec(`ALTER TABLE projects ADD COLUMN retention_generated_emails_free INTEGER DEFAULT 1;`); } catch (e) { }
+try { db.exec(`ALTER TABLE projects ADD COLUMN retention_generated_emails_pro INTEGER DEFAULT 30;`); } catch (e) { }
+try { db.exec(`ALTER TABLE projects ADD COLUMN allowed_files_free TEXT DEFAULT 'txt,png,jpg,jpeg,pdf,zip';`); } catch (e) { }
+try { db.exec(`ALTER TABLE projects ADD COLUMN allowed_files_pro TEXT DEFAULT 'txt,sql,png,zip,pdf,ai,mp3,mp4,jpg,jpeg,gif';`); } catch (e) { }
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN catch_all BOOLEAN DEFAULT 1;`); } catch (e) { }
 
 db.exec(`
@@ -167,6 +174,62 @@ export function getProjectByEmail(email) {
   }
 }
 
+export function getProjectForbiddenIds(projectId) {
+  try {
+    const row = db.prepare("SELECT forbidden_ids, forbidden_ids_free, forbidden_ids_pro FROM projects WHERE id = ?").get(projectId);
+    if (!row) return { free: [], pro: [] };
+    
+    // Fallback to legacy 'forbidden_ids' if free is empty
+    const freeRaw = row.forbidden_ids_free || row.forbidden_ids || "";
+    const proRaw = row.forbidden_ids_pro || "";
+
+    return {
+      free: freeRaw.split(',').map(id => id.trim().toLowerCase()).filter(Boolean),
+      pro: proRaw.split(',').map(id => id.trim().toLowerCase()).filter(Boolean)
+    };
+  } catch (e) {
+    return { free: [], pro: [] };
+  }
+}
+
+export function updateProjectForbiddenIds(projectId, forbiddenIds) {
+  try {
+    const freeStr = Array.isArray(forbiddenIds.free) ? forbiddenIds.free.map(id => id.trim().toLowerCase()).filter(Boolean).join(',') : "";
+    const proStr = Array.isArray(forbiddenIds.pro) ? forbiddenIds.pro.map(id => id.trim().toLowerCase()).filter(Boolean).join(',') : "";
+    
+    db.prepare("UPDATE projects SET forbidden_ids_free = ?, forbidden_ids_pro = ? WHERE id = ?").run(freeStr, proStr, projectId);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+export function getProjectAllowedFiles(projectId) {
+  try {
+    const row = db.prepare("SELECT allowed_files_free, allowed_files_pro FROM projects WHERE id = ?").get(projectId);
+    if (!row) return { free: [], pro: [] };
+    
+    return {
+      free: (row.allowed_files_free || "").split(',').map(ext => ext.trim().toLowerCase()).filter(Boolean),
+      pro: (row.allowed_files_pro || "").split(',').map(ext => ext.trim().toLowerCase()).filter(Boolean)
+    };
+  } catch (e) {
+    return { free: [], pro: [] };
+  }
+}
+
+export function updateProjectAllowedFiles(projectId, allowedFiles) {
+  try {
+    const freeStr = Array.isArray(allowedFiles.free) ? allowedFiles.free.map(ext => ext.trim().toLowerCase()).filter(Boolean).join(',') : "";
+    const proStr = Array.isArray(allowedFiles.pro) ? allowedFiles.pro.map(ext => ext.trim().toLowerCase()).filter(Boolean).join(',') : "";
+    
+    db.prepare("UPDATE projects SET allowed_files_free = ?, allowed_files_pro = ? WHERE id = ?").run(freeStr, proStr, projectId);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 export function getProjectApisList() {
   try {
     const list = db.prepare("SELECT id, name, api_key, is_active, created_at, retention_generated_emails, retention_simple_mails, retention_attachments FROM projects").all();
@@ -192,17 +255,55 @@ export function getProjectApisList() {
   }
 }
 
+export function getProjectRetention(projectId) {
+  try {
+    const row = db.prepare(`SELECT 
+      retention_generated_emails, retention_simple_mails, retention_attachments,
+      retention_generated_emails_free, retention_generated_emails_pro,
+      retention_simple_mails_free, retention_simple_mails_pro,
+      retention_attachments_free, retention_attachments_pro
+      FROM projects WHERE id = ?`).get(projectId);
+      
+    if (!row) return null;
+    
+    return {
+      free: {
+        generated_emails: row.retention_generated_emails_free ?? row.retention_generated_emails ?? 0,
+        simple_mails: row.retention_simple_mails_free ?? row.retention_simple_mails ?? 0,
+        attachments: row.retention_attachments_free ?? row.retention_attachments ?? 0
+      },
+      pro: {
+        generated_emails: row.retention_generated_emails_pro ?? row.retention_generated_emails ?? 0,
+        simple_mails: row.retention_simple_mails_pro ?? row.retention_simple_mails ?? 0,
+        attachments: row.retention_attachments_pro ?? row.retention_attachments ?? 0
+      }
+    };
+  } catch (err) {
+    console.error("DB Error getting project retention:", err);
+    return null;
+  }
+}
+
 export function updateProjectRetention(projectId, settings) {
   try {
-    const { retention_generated_emails = 0, retention_simple_mails = 0, retention_attachments = 0 } = settings;
+    const free = settings.free || {};
+    const pro = settings.pro || {};
+    
     const stmt = db.prepare(`
       UPDATE projects 
-      SET retention_generated_emails = ?, 
-          retention_simple_mails = ?, 
-          retention_attachments = ? 
+      SET retention_generated_emails_free = ?, 
+          retention_simple_mails_free = ?, 
+          retention_attachments_free = ?,
+          retention_generated_emails_pro = ?, 
+          retention_simple_mails_pro = ?, 
+          retention_attachments_pro = ?
       WHERE id = ?
     `);
-    stmt.run(retention_generated_emails, retention_simple_mails, retention_attachments, projectId);
+    stmt.run(
+      free.generated_emails || 0, free.simple_mails || 0, free.attachments || 0,
+      pro.generated_emails || 0, pro.simple_mails || 0, pro.attachments || 0,
+      projectId
+    );
     return true;
   } catch (err) {
     console.error("DB Error updating project retention:", err);
@@ -226,13 +327,13 @@ export function runDataRetentionCleanupJob() {
       
       // Cleanup Generated Emails
       if (retention_generated_emails && retention_generated_emails > 0) {
-        const result = db.prepare(`DELETE FROM generated_emails WHERE project_id = ? AND created_at < datetime('now', ?)`).run(id, `-${retention_generated_emails} days`);
+        const result = db.prepare(`DELETE FROM generated_emails WHERE project_id = ? AND created_at < datetime('now', ?)`).run(id, `-${retention_generated_emails} hours`);
         deletedGenerated += result.changes || 0;
       }
       
       // Cleanup Simple Mails
       if (retention_simple_mails && retention_simple_mails > 0) {
-        const records = db.prepare(`SELECT id, file_name FROM received_emails WHERE project_id = ? AND has_attachment = 0 AND created_at < datetime('now', ?)`).all(id, `-${retention_simple_mails} days`);
+        const records = db.prepare(`SELECT id, file_name FROM received_emails WHERE project_id = ? AND has_attachment = 0 AND created_at < datetime('now', ?)`).all(id, `-${retention_simple_mails} hours`);
         for (const record of records) {
           if (record.file_name) {
              const filePath = path.join(targetDir, record.file_name);
@@ -245,7 +346,7 @@ export function runDataRetentionCleanupJob() {
       
       // Cleanup Attachments Mails
       if (retention_attachments && retention_attachments > 0) {
-        const records = db.prepare(`SELECT id, file_name FROM received_emails WHERE project_id = ? AND has_attachment = 1 AND created_at < datetime('now', ?)`).all(id, `-${retention_attachments} days`);
+        const records = db.prepare(`SELECT id, file_name FROM received_emails WHERE project_id = ? AND has_attachment = 1 AND created_at < datetime('now', ?)`).all(id, `-${retention_attachments} hours`);
         for (const record of records) {
           if (record.file_name) {
              const filePath = path.join(targetDir, record.file_name);

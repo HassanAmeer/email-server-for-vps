@@ -9,9 +9,16 @@ interface Project {
   webhook_url: string | null;
   is_active: boolean | number;
   created_at: string;
-  retention_generated_emails: number | null;
-  retention_simple_mails: number | null;
-  retention_attachments: number | null;
+  retention_generated_emails_free: number | null;
+  retention_generated_emails_pro: number | null;
+  retention_simple_mails_free: number | null;
+  retention_simple_mails_pro: number | null;
+  retention_attachments_free: number | null;
+  retention_attachments_pro: number | null;
+  forbidden_ids_free: string | null;
+  forbidden_ids_pro: string | null;
+  allowed_files_free: string | null;
+  allowed_files_pro: string | null;
 }
 
 interface ProjectsManagerProps {
@@ -46,10 +53,20 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
   const [loadingEmails, setLoadingEmails] = useState(false);
   const [emailFilter, setEmailFilter] = useState("all");
 
-  const [retentionGenerated, setRetentionGenerated] = useState<string>("");
-  const [retentionSimple, setRetentionSimple] = useState<string>("");
-  const [retentionAttachments, setRetentionAttachments] = useState<string>("");
-  const [isSavingRetention, setIsSavingRetention] = useState(false);
+  const [retentionGeneratedFree, setRetentionGeneratedFree] = useState<string>("");
+  const [retentionGeneratedPro, setRetentionGeneratedPro] = useState<string>("");
+  const [retentionSimpleFree, setRetentionSimpleFree] = useState<string>("");
+  const [retentionSimplePro, setRetentionSimplePro] = useState<string>("");
+  const [retentionAttachmentsFree, setRetentionAttachmentsFree] = useState<string>("");
+  const [retentionAttachmentsPro, setRetentionAttachmentsPro] = useState<string>("");
+  
+  const [forbiddenIdsFree, setForbiddenIdsFree] = useState<string>("");
+  const [forbiddenIdsPro, setForbiddenIdsPro] = useState<string>("");
+  
+  const [allowedFilesFree, setAllowedFilesFree] = useState<string>("");
+  const [allowedFilesPro, setAllowedFilesPro] = useState<string>("");
+  
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   const [isFilesModalOpen, setIsFilesModalOpen] = useState(false);
   const [projectFilesData, setProjectFilesData] = useState<any | null>(null);
@@ -336,10 +353,19 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
     setActiveAnalyticsTab("receive");
     setEmailsPage(1);
     
-    // Set initial retention values
-    setRetentionGenerated(project.retention_generated_emails ? project.retention_generated_emails.toString() : "");
-    setRetentionSimple(project.retention_simple_mails ? project.retention_simple_mails.toString() : "");
-    setRetentionAttachments(project.retention_attachments ? project.retention_attachments.toString() : "");
+    // Set initial settings values
+    setRetentionGeneratedFree(project.retention_generated_emails_free ? project.retention_generated_emails_free.toString() : "");
+    setRetentionGeneratedPro(project.retention_generated_emails_pro ? project.retention_generated_emails_pro.toString() : "");
+    setRetentionSimpleFree(project.retention_simple_mails_free ? project.retention_simple_mails_free.toString() : "");
+    setRetentionSimplePro(project.retention_simple_mails_pro ? project.retention_simple_mails_pro.toString() : "");
+    setRetentionAttachmentsFree(project.retention_attachments_free ? project.retention_attachments_free.toString() : "");
+    setRetentionAttachmentsPro(project.retention_attachments_pro ? project.retention_attachments_pro.toString() : "");
+    
+    setForbiddenIdsFree(project.forbidden_ids_free || "");
+    setForbiddenIdsPro(project.forbidden_ids_pro || "");
+    
+    setAllowedFilesFree(project.allowed_files_free || "");
+    setAllowedFilesPro(project.allowed_files_pro || "");
 
     setLoadingStats(true);
     try {
@@ -364,46 +390,69 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
     }
   };
 
-  const handleSaveRetention = async () => {
+  const handleSaveSettings = async () => {
     if (!viewingAnalyticsFor) return;
-    setIsSavingRetention(true);
+    setIsSavingSettings(true);
     try {
       const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/projects/${viewingAnalyticsFor.id}/retention`, {
+      const res = await fetch(`${apiUrl}/api/admin/projects/${viewingAnalyticsFor.id}/advanced`, {
         method: "PUT",
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          retention_generated_emails: retentionGenerated ? parseInt(retentionGenerated) : 0,
-          retention_simple_mails: retentionSimple ? parseInt(retentionSimple) : 0,
-          retention_attachments: retentionAttachments ? parseInt(retentionAttachments) : 0,
+          retention: {
+            free: {
+              generated_emails: retentionGeneratedFree ? parseInt(retentionGeneratedFree) : 0,
+              simple_mails: retentionSimpleFree ? parseInt(retentionSimpleFree) : 0,
+              attachments: retentionAttachmentsFree ? parseInt(retentionAttachmentsFree) : 0,
+            },
+            pro: {
+              generated_emails: retentionGeneratedPro ? parseInt(retentionGeneratedPro) : 0,
+              simple_mails: retentionSimplePro ? parseInt(retentionSimplePro) : 0,
+              attachments: retentionAttachmentsPro ? parseInt(retentionAttachmentsPro) : 0,
+            }
+          },
+          forbiddenIds: {
+            free: forbiddenIdsFree.split(',').map(s => s.trim()).filter(Boolean),
+            pro: forbiddenIdsPro.split(',').map(s => s.trim()).filter(Boolean)
+          },
+          allowedFiles: {
+            free: allowedFilesFree.split(',').map(s => s.trim()).filter(Boolean),
+            pro: allowedFilesPro.split(',').map(s => s.trim()).filter(Boolean)
+          }
         })
       });
 
       if (res.ok) {
-        // Optimistically update the local state to avoid refetching
         setProjects(prev => prev.map(p => {
           if (p.id === viewingAnalyticsFor.id) {
             return {
               ...p,
-              retention_generated_emails: retentionGenerated ? parseInt(retentionGenerated) : 0,
-              retention_simple_mails: retentionSimple ? parseInt(retentionSimple) : 0,
-              retention_attachments: retentionAttachments ? parseInt(retentionAttachments) : 0,
+              retention_generated_emails_free: retentionGeneratedFree ? parseInt(retentionGeneratedFree) : 0,
+              retention_generated_emails_pro: retentionGeneratedPro ? parseInt(retentionGeneratedPro) : 0,
+              retention_simple_mails_free: retentionSimpleFree ? parseInt(retentionSimpleFree) : 0,
+              retention_simple_mails_pro: retentionSimplePro ? parseInt(retentionSimplePro) : 0,
+              retention_attachments_free: retentionAttachmentsFree ? parseInt(retentionAttachmentsFree) : 0,
+              retention_attachments_pro: retentionAttachmentsPro ? parseInt(retentionAttachmentsPro) : 0,
+              forbidden_ids_free: forbiddenIdsFree,
+              forbidden_ids_pro: forbiddenIdsPro,
+              allowed_files_free: allowedFilesFree,
+              allowed_files_pro: allowedFilesPro,
             };
           }
           return p;
         }));
-        alert("Data retention settings saved successfully!");
+        alert("Advanced settings saved successfully!");
       } else {
         const data = await res.json();
-        throw new Error(data.error || "Failed to update retention settings");
+        throw new Error(data.error || "Failed to update settings");
       }
     } catch (err: any) {
-      alert("Error: " + err.message);
+      alert(err.message);
     } finally {
-      setIsSavingRetention(false);
+      setIsSavingSettings(false);
     }
   };
 
@@ -626,59 +675,159 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
                     </div>
                   </div>
 
-                  {/* Data Retention Settings */}
-                  <div className="glass-panel hover-3d border-white/[0.05] rounded-xl p-5">
-                    <h3 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-4 flex items-center gap-2">
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-emerald-400">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 9.75v-4.5m0 4.5h4.5m-4.5 0l6-6m-3 18c-8.284 0-15-6.716-15-15V4.5A2.25 2.25 0 014.5 2.25h13.5A2.25 2.25 0 0120.25 4.5v11.25m-18 0C2.25 21.5 9 22.5 15 22.5c1.5 0 3-.225 4.5-.675m-18-6.075v6.075c0 1.243 1.007 2.25 2.25 2.25h11.25" />
-                      </svg>
-                      Data Retention Settings
-                    </h3>
-                    <p className="text-xs text-gray-500 mb-4">Set how many days to keep data before automatically deleting it. Leave empty or 0 to keep data forever.</p>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[11px] text-gray-400 uppercase font-bold tracking-wider">Keep Generated Emails (Days)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={retentionGenerated}
-                          onChange={(e) => setRetentionGenerated(e.target.value)}
-                          placeholder="Forever"
-                          className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
-                        />
+                  {/* Advanced Settings — Premium Design */}
+                  <div className="rounded-2xl overflow-hidden border border-white/[0.06] shadow-2xl" style={{background: 'linear-gradient(135deg, rgba(15,20,40,0.95) 0%, rgba(8,12,28,0.98) 100%)'}}>
+                    {/* Header */}
+                    <div className="px-6 py-4 flex items-center gap-3 border-b border-white/[0.07]" style={{background: 'linear-gradient(90deg, rgba(251,191,36,0.08) 0%, rgba(139,92,246,0.06) 100%)'}}>
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{background: 'linear-gradient(135deg, #f59e0b, #d97706)', boxShadow: '0 0 16px rgba(245,158,11,0.35)'}}>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="white" className="w-4 h-4">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
+                        </svg>
                       </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[11px] text-gray-400 uppercase font-bold tracking-wider">Keep Simple Emails (Days)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={retentionSimple}
-                          onChange={(e) => setRetentionSimple(e.target.value)}
-                          placeholder="Forever"
-                          className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[11px] text-gray-400 uppercase font-bold tracking-wider">Keep Emails with Attachments (Days)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={retentionAttachments}
-                          onChange={(e) => setRetentionAttachments(e.target.value)}
-                          placeholder="Forever"
-                          className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
-                        />
+                      <div>
+                        <h3 className="text-sm font-bold text-white tracking-wide">Project Advanced Settings</h3>
+                        <p className="text-[10px] text-gray-500 mt-0.5">Configure per-plan rules for this project</p>
                       </div>
                     </div>
-                    <div className="flex justify-end">
-                      <button
-                        onClick={handleSaveRetention}
-                        disabled={isSavingRetention}
-                        className="text-xs bg-emerald-500 hover:bg-emerald-400 text-black px-4 py-2 rounded-lg font-bold transition-all disabled:opacity-50"
-                      >
-                        {isSavingRetention ? "Saving..." : "Save Settings"}
-                      </button>
+
+                    <div className="p-6 space-y-7">
+
+                      {/* ── Data Retention ── */}
+                      <div className="rounded-xl overflow-hidden border border-emerald-500/10 shadow-lg">
+                        {/* Section Header */}
+                        <div className="px-4 py-3 flex items-center gap-2" style={{background: 'linear-gradient(90deg, rgba(16,185,129,0.12) 0%, rgba(16,185,129,0.04) 100%)'}}>
+                          <div className="w-5 h-5 rounded-md flex items-center justify-center" style={{background: 'rgba(16,185,129,0.2)', border: '1px solid rgba(16,185,129,0.3)'}}>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="#10b981" className="w-3 h-3">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                            </svg>
+                          </div>
+                          <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Data Retention</span>
+                          <span className="ml-auto text-[10px] text-gray-600">hours — 0 means keep forever</span>
+                        </div>
+
+                        {/* Two-column plan cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-2" style={{background: 'rgba(0,0,0,0.25)'}}>
+                          {/* Free Plan */}
+                          <div className="p-4 border-r border-white/[0.05] space-y-3">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full text-gray-300" style={{background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)'}}>Free Plan</span>
+                            </div>
+                            {[
+                              {label: 'Generated Mails (Hours)', val: retentionGeneratedFree, set: setRetentionGeneratedFree},
+                              {label: 'Simple Mails (Hours)', val: retentionSimpleFree, set: setRetentionSimpleFree},
+                              {label: 'Attachments (Hours)', val: retentionAttachmentsFree, set: setRetentionAttachmentsFree},
+                            ].map(({label, val, set}) => (
+                              <div key={label} className="flex items-center justify-between gap-3">
+                                <label className="text-[11px] text-gray-400 flex-1">{label}</label>
+                                <input type="number" min="0" value={val} onChange={(e) => set(e.target.value)} placeholder="0 Hours" className="w-24 text-center text-xs text-white rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all" style={{background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.08)'}} />
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Pro Plan */}
+                          <div className="p-4 space-y-3" style={{background: 'rgba(245,158,11,0.03)'}}>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full text-amber-300" style={{background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)'}}>⚡ Pro Plan</span>
+                            </div>
+                            {[
+                              {label: 'Generated Mails (Hours)', val: retentionGeneratedPro, set: setRetentionGeneratedPro},
+                              {label: 'Simple Mails (Hours)', val: retentionSimplePro, set: setRetentionSimplePro},
+                              {label: 'Attachments (Hours)', val: retentionAttachmentsPro, set: setRetentionAttachmentsPro},
+                            ].map(({label, val, set}) => (
+                              <div key={label} className="flex items-center justify-between gap-3">
+                                <label className="text-[11px] text-gray-400 flex-1">{label}</label>
+                                <input type="number" min="0" value={val} onChange={(e) => set(e.target.value)} placeholder="0 Hours" className="w-24 text-center text-xs text-white rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-500/50 transition-all" style={{background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(245,158,11,0.15)'}} />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* ── Forbidden IDs ── */}
+                      <div className="rounded-xl overflow-hidden border border-rose-500/10 shadow-lg">
+                        <div className="px-4 py-3 flex items-center gap-2" style={{background: 'linear-gradient(90deg, rgba(244,63,94,0.12) 0%, rgba(244,63,94,0.04) 100%)'}}>
+                          <div className="w-5 h-5 rounded-md flex items-center justify-center" style={{background: 'rgba(244,63,94,0.18)', border: '1px solid rgba(244,63,94,0.3)'}}>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="#f43f5e" className="w-3 h-3">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
+                            </svg>
+                          </div>
+                          <span className="text-xs font-bold text-rose-400 uppercase tracking-wider">Forbidden Username IDs</span>
+                          <span className="ml-auto text-[10px] text-gray-600">blocked from email generation</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2" style={{background: 'rgba(0,0,0,0.25)'}}>
+                          <div className="p-4 border-r border-white/[0.05]">
+                            <div className="flex items-center gap-2 mb-3">
+                              <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full text-gray-300" style={{background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)'}}>Free Plan</span>
+                            </div>
+                            <input type="text" value={forbiddenIdsFree} onChange={(e) => setForbiddenIdsFree(e.target.value)} placeholder="admin, info, support, contact..." className="w-full text-xs text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-rose-500/40 transition-all" style={{background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.08)'}} />
+                            <p className="text-[10px] text-gray-600 mt-2">Comma-separated IDs to block</p>
+                          </div>
+                          <div className="p-4" style={{background: 'rgba(245,158,11,0.03)'}}>
+                            <div className="flex items-center gap-2 mb-3">
+                              <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full text-amber-300" style={{background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)'}}>⚡ Pro Plan</span>
+                            </div>
+                            <input type="text" value={forbiddenIdsPro} onChange={(e) => setForbiddenIdsPro(e.target.value)} placeholder="admin..." className="w-full text-xs text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-amber-500/40 transition-all" style={{background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(245,158,11,0.15)'}} />
+                            <p className="text-[10px] text-gray-600 mt-2">Comma-separated IDs to block</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* ── Allowed File Extensions ── */}
+                      <div className="rounded-xl overflow-hidden border border-sky-500/10 shadow-lg">
+                        <div className="px-4 py-3 flex items-center gap-2" style={{background: 'linear-gradient(90deg, rgba(14,165,233,0.12) 0%, rgba(14,165,233,0.04) 100%)'}}>
+                          <div className="w-5 h-5 rounded-md flex items-center justify-center" style={{background: 'rgba(14,165,233,0.18)', border: '1px solid rgba(14,165,233,0.3)'}}>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="#0ea5e9" className="w-3 h-3">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" />
+                            </svg>
+                          </div>
+                          <span className="text-xs font-bold text-sky-400 uppercase tracking-wider">Allowed Attachment Extensions</span>
+                          <span className="ml-auto text-[10px] text-gray-600">accepted file types</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2" style={{background: 'rgba(0,0,0,0.25)'}}>
+                          <div className="p-4 border-r border-white/[0.05]">
+                            <div className="flex items-center gap-2 mb-3">
+                              <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full text-gray-300" style={{background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)'}}>Free Plan</span>
+                            </div>
+                            <input type="text" value={allowedFilesFree} onChange={(e) => setAllowedFilesFree(e.target.value)} placeholder="txt, png, jpg, pdf..." className="w-full text-xs text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-sky-500/40 transition-all" style={{background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.08)'}} />
+                            <p className="text-[10px] text-gray-600 mt-2">Comma-separated extensions</p>
+                          </div>
+                          <div className="p-4" style={{background: 'rgba(245,158,11,0.03)'}}>
+                            <div className="flex items-center gap-2 mb-3">
+                              <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full text-amber-300" style={{background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)'}}>⚡ Pro Plan</span>
+                            </div>
+                            <input type="text" value={allowedFilesPro} onChange={(e) => setAllowedFilesPro(e.target.value)} placeholder="txt, pdf, zip, mp4, ai..." className="w-full text-xs text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-amber-500/40 transition-all" style={{background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(245,158,11,0.15)'}} />
+                            <p className="text-[10px] text-gray-600 mt-2">Comma-separated extensions</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Save Button */}
+                      <div className="flex justify-end pt-1">
+                        <button
+                          onClick={handleSaveSettings}
+                          disabled={isSavingSettings}
+                          className="relative group flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold text-black transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          style={{background: isSavingSettings ? '#d97706' : 'linear-gradient(135deg, #f59e0b 0%, #f97316 100%)', boxShadow: isSavingSettings ? 'none' : '0 4px 20px rgba(245,158,11,0.4)'}}
+                        >
+                          {isSavingSettings ? (
+                            <>
+                              <svg className="w-4 h-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                              </svg>
+                              Saving Changes...
+                            </>
+                          ) : (
+                            <>
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4 h-4">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                              </svg>
+                              Save All Settings
+                            </>
+                          )}
+                        </button>
+                      </div>
+
                     </div>
                   </div>
 
