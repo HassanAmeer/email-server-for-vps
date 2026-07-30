@@ -960,7 +960,7 @@ export class ApiRouter {
       // GET /api/admin/mailbox-users
       if (req.method === "GET" && cleanUrl === "/api/admin/mailbox-users") {
         const users = db.query(`
-          SELECT w.id, w.email, w.project_id, w.created_at, p.name as project_name,
+          SELECT w.id, w.email, w.plain_password, w.project_id, w.created_at, p.name as project_name,
                  (SELECT COUNT(*) FROM received_emails WHERE recipient = w.email) as received_count
           FROM mailbox_users w
           LEFT JOIN projects p ON w.project_id = p.id
@@ -989,11 +989,11 @@ export class ApiRouter {
               cost: 10,
             });
 
-            const stmt = db.prepare("INSERT INTO mailbox_users (email, password_hash, project_id) VALUES (?, ?, ?)");
-            const result = stmt.run(email, hash, project_id);
+            const stmt = db.prepare("INSERT INTO mailbox_users (email, password_hash, plain_password, project_id) VALUES (?, ?, ?, ?)");
+            const result = stmt.run(email, hash, password, project_id);
             
             res.writeHead(201, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ id: result.lastInsertRowid, email, project_id }));
+            res.end(JSON.stringify({ id: result.lastInsertRowid, email, plain_password: password, project_id }));
           } catch (err) {
             if (err.message && err.message.includes("UNIQUE constraint failed")) {
               res.writeHead(409, { "Content-Type": "application/json" });
@@ -1002,6 +1002,47 @@ export class ApiRouter {
               res.writeHead(500, { "Content-Type": "application/json" });
               res.end(JSON.stringify({ error: err.message }));
             }
+          }
+        });
+        return;
+      }
+
+      // PUT /api/admin/mailbox-users/:id
+      if (req.method === "PUT" && cleanUrl.startsWith("/api/admin/mailbox-users/")) {
+        const id = cleanUrl.split("/").pop();
+        if (!id) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Missing ID parameter" }));
+          return;
+        }
+
+        let body = "";
+        req.on("data", chunk => body += chunk.toString());
+        req.on("end", () => {
+          try {
+            const { password, project_id } = JSON.parse(body);
+            if (!password) {
+              res.writeHead(400, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ error: "Password is required" }));
+              return;
+            }
+
+            const hash = Bun.password.hashSync(password, {
+              algorithm: "bcrypt",
+              cost: 10,
+            });
+
+            if (project_id) {
+              db.prepare("UPDATE mailbox_users SET password_hash = ?, plain_password = ?, project_id = ? WHERE id = ?").run(hash, password, project_id, id);
+            } else {
+              db.prepare("UPDATE mailbox_users SET password_hash = ?, plain_password = ? WHERE id = ?").run(hash, password, id);
+            }
+
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ success: true, id, plain_password: password }));
+          } catch (err) {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: err.message }));
           }
         });
         return;

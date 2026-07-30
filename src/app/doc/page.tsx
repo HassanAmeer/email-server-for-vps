@@ -130,6 +130,157 @@ const endpoints = [
     returns: "Binary Stream",
     auth: false,
   },
+  // ─── Project Settings ───
+  {
+    id: "get-forbidden-ids",
+    method: "GET",
+    path: "/api/project/forbidden-ids",
+    title: "Get Forbidden Username IDs",
+    category: "Project Settings",
+    desc: "Fetch project-scoped list of forbidden username IDs (e.g. admin, info, support) blocked from transient email address generation for Free and Pro subscription plans.",
+    payload: null,
+    response: `{
+  "forbiddenIds": {
+    "free": ["admin", "info", "support", "contact", "mail", "office", "user"],
+    "pro": ["admin", "support", "info"]
+  }
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/project/forbidden-ids",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
+    id: "update-forbidden-ids",
+    method: "PUT",
+    path: "/api/project/forbidden-ids",
+    title: "Update Forbidden Username IDs",
+    category: "Project Settings",
+    desc: "Update forbidden username IDs for Free and Pro plan users under this project.",
+    payload: `{
+  "forbiddenIds": {
+    "free": ["admin", "info", "support", "contact", "ceo"],
+    "pro": ["admin", "support"]
+  }
+}`,
+    response: `{
+  "success": true,
+  "forbiddenIds": {
+    "free": ["admin", "info", "support", "contact", "ceo"],
+    "pro": ["admin", "support"]
+  }
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/project/forbidden-ids",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
+    id: "get-allowed-files",
+    method: "GET",
+    path: "/api/project/allowed-files",
+    title: "Get Allowed File Extensions",
+    category: "Project Settings",
+    desc: "Retrieve project-scoped allowed attachment file extensions for Free and Pro users.",
+    payload: null,
+    response: `{
+  "allowedFiles": {
+    "free": ["txt", "png", "jpg", "jpeg", "pdf", "zip"],
+    "pro": ["txt", "sql", "png", "zip", "pdf", "ai", "mp3", "mp4", "jpg", "jpeg", "gif"]
+  }
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/project/allowed-files",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
+    id: "update-allowed-files",
+    method: "PUT",
+    path: "/api/project/allowed-files",
+    title: "Update Allowed File Extensions",
+    category: "Project Settings",
+    desc: "Configure allowed email attachment extensions separately for Free and Pro plan users.",
+    payload: `{
+  "allowedFiles": {
+    "free": ["txt", "png", "jpg", "pdf"],
+    "pro": ["txt", "sql", "png", "jpg", "pdf", "zip", "mp4", "doc", "docx"]
+  }
+}`,
+    response: `{
+  "success": true,
+  "allowedFiles": {
+    "free": ["txt", "png", "jpg", "pdf"],
+    "pro": ["txt", "sql", "png", "jpg", "pdf", "zip", "mp4", "doc", "docx"]
+  }
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/project/allowed-files",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
+    id: "get-retention-settings",
+    method: "GET",
+    path: "/api/project/retention",
+    title: "Get Email Age Limits",
+    category: "Project Settings",
+    desc: "Fetch auto-cleanup email age limits (specified in Hours) for generated emails, simple text emails, and attachment emails per plan.",
+    payload: null,
+    response: `{
+  "retention": {
+    "free": {
+      "generated_emails": 24,
+      "simple_mails": 24,
+      "attachments": 12
+    },
+    "pro": {
+      "generated_emails": 720,
+      "simple_mails": 720,
+      "attachments": 720
+    }
+  }
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/project/retention",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
+    id: "update-retention-settings",
+    method: "PUT",
+    path: "/api/project/retention",
+    title: "Update Email Age Limits",
+    category: "Project Settings",
+    desc: "Update auto-cleanup email age thresholds (specified in Hours) for Free and Pro plan users under this project. Set to 0 to keep data forever.",
+    payload: `{
+  "retention": {
+    "free": {
+      "generated_emails": 24,
+      "simple_mails": 12,
+      "attachments": 6
+    },
+    "pro": {
+      "generated_emails": 720,
+      "simple_mails": 360,
+      "attachments": 168
+    }
+  }
+}`,
+    response: `{
+  "success": true,
+  "retention": {
+    "free": {
+      "generated_emails": 24,
+      "simple_mails": 12,
+      "attachments": 6
+    },
+    "pro": {
+      "generated_emails": 720,
+      "simple_mails": 360,
+      "attachments": 168
+    }
+  }
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/project/retention",
+    returns: "JSON Object",
+    auth: true,
+  },
   {
     id: "send-mail-live",
     method: "POST",
@@ -358,6 +509,86 @@ const endpoints = [
   "api": { "id": "mailbox-generate", "enabled": false }
 }`,
     exampleUrl: "http://your-vps-ip:8081/api/admin/api-settings/toggle",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
+    id: "admin-mailbox-users-list",
+    method: "GET",
+    path: "/api/admin/mailbox-users",
+    title: "Get Mailbox Logins",
+    category: "Admin",
+    desc: "Fetch all registered mailbox user logins across projects, including plain passwords, project IDs, and received email counts.",
+    payload: null,
+    response: `[
+  {
+    "id": 1,
+    "email": "john@llamerada.online",
+    "plain_password": "Pass1234!",
+    "project_id": 1,
+    "project_name": "Main Project",
+    "received_count": 5,
+    "created_at": "2026-07-30T16:00:00.000Z"
+  }
+]`,
+    exampleUrl: "http://your-vps-ip:8081/api/admin/mailbox-users",
+    returns: "JSON Array",
+    auth: true,
+  },
+  {
+    id: "admin-mailbox-users-create",
+    method: "POST",
+    path: "/api/admin/mailbox-users",
+    title: "Create Mailbox Login",
+    category: "Admin",
+    desc: "Create a new mailbox user account with email, plain password, and project ID.",
+    payload: `{
+  "email": "john@llamerada.online",
+  "password": "Pass1234!",
+  "project_id": 1
+}`,
+    response: `{
+  "id": 1,
+  "email": "john@llamerada.online",
+  "plain_password": "Pass1234!",
+  "project_id": 1
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/admin/mailbox-users",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
+    id: "admin-mailbox-users-update",
+    method: "PUT",
+    path: "/api/admin/mailbox-users/:id",
+    title: "Update Mailbox Password",
+    category: "Admin",
+    desc: "Update password and/or project assignment for a specific mailbox user by ID.",
+    payload: `{
+  "password": "NewSecretPass123!",
+  "project_id": 1
+}`,
+    response: `{
+  "success": true,
+  "id": "1",
+  "plain_password": "NewSecretPass123!"
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/admin/mailbox-users/1",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
+    id: "admin-mailbox-users-delete",
+    method: "DELETE",
+    path: "/api/admin/mailbox-users/:id",
+    title: "Delete Mailbox Login",
+    category: "Admin",
+    desc: "Permanently delete a mailbox user login.",
+    payload: null,
+    response: `{
+  "success": true
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/admin/mailbox-users/1",
     returns: "JSON Object",
     auth: true,
   },
@@ -614,6 +845,7 @@ const endpoints = [
 const methodColors: Record<string, { badge: string; glow: string; dot: string }> = {
   GET: { badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/25", glow: "shadow-emerald-500/10", dot: "bg-emerald-500" },
   POST: { badge: "bg-violet-500/10 text-violet-400 border-violet-500/25", glow: "shadow-violet-500/10", dot: "bg-violet-500" },
+  PUT: { badge: "bg-amber-500/10 text-amber-400 border-amber-500/25", glow: "shadow-amber-500/10", dot: "bg-amber-500" },
   DELETE: { badge: "bg-rose-500/10 text-rose-400 border-rose-500/25", glow: "shadow-rose-500/10", dot: "bg-rose-500" },
 };
 
@@ -737,7 +969,7 @@ export default function ApiDocumentation() {
             {isAdmin ? (
               // Grouped view for admin
               <>
-                {["Receive Mail", "Send Mail", "Mailbox Client", "Admin"].map(cat => {
+                {["Receive Mail", "Project Settings", "Send Mail", "Mailbox Client", "Admin"].map(cat => {
                   const catEndpoints = endpoints.filter(e => e.category === cat);
                   if (catEndpoints.length === 0) return null;
                   return (
@@ -772,12 +1004,17 @@ export default function ApiDocumentation() {
                 })}
               </>
             ) : (
-              // Flat list for non-admin - only show Receive Mail
+              // Flat list for non-admin - show Receive Mail & Project Settings
               <>
-                <p className="text-[10px] font-mono font-bold text-gray-600 uppercase tracking-[0.15em] px-2 py-2">Receive Mail Endpoints</p>
-                {endpoints.filter(e => e.category === "Receive Mail").map((e) => {
-                  const c = methodColors[e.method];
-                  const isActive = activeTab === e.id;
+                {["Receive Mail", "Project Settings"].map(cat => {
+                  const catEndpoints = endpoints.filter(e => e.category === cat);
+                  if (catEndpoints.length === 0) return null;
+                  return (
+                    <div key={cat} className="mb-2">
+                      <p className="text-[10px] font-mono font-bold text-gray-600 uppercase tracking-[0.15em] px-2 py-2">{cat} Endpoints</p>
+                      {catEndpoints.map((e) => {
+                        const c = methodColors[e.method] || methodColors["GET"];
+                        const isActive = activeTab === e.id;
                   return (
                     <button
                       key={e.id}
@@ -797,6 +1034,9 @@ export default function ApiDocumentation() {
                         <span className={`ml-auto w-1.5 h-1.5 rounded-full shrink-0 ${c.dot}`}></span>
                       )}
                     </button>
+                        );
+                      })}
+                    </div>
                   );
                 })}
                 <div className="mt-4 mx-1 p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">

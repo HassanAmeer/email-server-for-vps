@@ -692,7 +692,7 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
 
                     <div className="p-6 space-y-7">
 
-                      {/* ── Data Retention ── */}
+                      {/* ── Email Age Settings ── */}
                       <div className="rounded-xl overflow-hidden border border-emerald-500/10 shadow-lg">
                         {/* Section Header */}
                         <div className="px-4 py-3 flex items-center gap-2" style={{background: 'linear-gradient(90deg, rgba(16,185,129,0.12) 0%, rgba(16,185,129,0.04) 100%)'}}>
@@ -701,7 +701,7 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
                               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                             </svg>
                           </div>
-                          <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Data Retention</span>
+                          <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Email Age Settings</span>
                           <span className="ml-auto text-[10px] text-gray-600">hours — 0 means keep forever</span>
                         </div>
 

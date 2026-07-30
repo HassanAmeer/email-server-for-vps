@@ -147,22 +147,27 @@ bun run mail:start
 
 ## 🚫 Forbidden IDs API (Project-Specific)
 
-Agar aap nahi chahte ke kuch specific email usernames (jaise `admin`, `info`, `support`) generate hon, toh aap **Forbidden IDs** set kar sakte hain. Yeh settings **har project ke liye alag (per project)** kaam karti hain. Isme ab **Free** aur **Pro** users ke liye alag-alag forbidden IDs set karne ki saholat mojud hai.
+Agar aap nahi chahte ke kuch specific email usernames (jaise `admin`, `info`, `support`) generate hon, toh aap **Forbidden IDs** set kar sakte hain. Yeh settings **har project ke liye alag (per project)** kaam karti hain. Isme **Free** aur **Pro** users ke liye alag-alag forbidden IDs set karne ki saholat mojud hai.
 
-**Default Forbidden IDs:**
-- **Free Plan:** `admin`, `info`, `support`, `contact`, `mail`, `office`, `user`
-- **Pro Plan:** `admin`, `support`, `info`
-
-### 1. Get Forbidden IDs
-Aapke project ke current forbidden IDs (Free & Pro) dekhne ke liye:
+### 1. Fetch Forbidden IDs
 - **Endpoint:** `GET /api/project/forbidden-ids`
 - **Headers:** `Authorization: Bearer <Your-Project-API-Key>`
+- **Response Example (200 OK):**
+```json
+{
+  "forbiddenIds": {
+    "free": ["admin", "info", "support", "contact", "mail", "office", "user"],
+    "pro": ["admin", "support", "info"]
+  }
+}
+```
 
 ### 2. Update Forbidden IDs
-Apne project ke liye nayi forbidden IDs set karne ke liye:
 - **Endpoint:** `PUT /api/project/forbidden-ids`
-- **Headers:** `Authorization: Bearer <Your-Project-API-Key>`, `Content-Type: application/json`
-- **Body:**
+- **Headers:** 
+  - `Authorization: Bearer <Your-Project-API-Key>`
+  - `Content-Type: application/json`
+- **Request Body Example:**
 ```json
 {
   "forbiddenIds": {
@@ -171,31 +176,186 @@ Apne project ke liye nayi forbidden IDs set karne ke liye:
   }
 }
 ```
+- **Response Example (200 OK):**
+```json
+{
+  "success": true,
+  "forbiddenIds": {
+    "free": ["admin", "info", "support", "contact", "ceo"],
+    "pro": ["admin", "support"]
+  }
+}
+```
 
-### 3. Using Free/Pro Plan in Email Generation
-Jab aap custom email generate karte hain, toh aap URL mein `?plan=pro` ya `?plan=free` pass kar sakte hain (default `free` hota hai):
-- **Endpoint:** `GET /api/mailbox/custom?name=info&domain=llamerada.online&plan=pro`
+### 3. Usage with Custom Email Generation
+Jab aap custom email generate karte hain, URL mein `?plan=pro` ya `?plan=free` pass karein (default: `free`):
+- **Request:** `GET /api/mailbox/custom?name=admin&domain=llamerada.online&plan=free`
+- **Response Error (403 Forbidden):**
+```json
+{
+  "error": "Username 'admin' is forbidden on free plan for this project"
+}
+```
 
-*Note: Agar koi user in forbidden IDs se match karti hui custom email (e.g. `admin@mydomain.com`) banane ki koshish karega, toh API `403 Forbidden` error return karegi.*
+---
 
+## 📁 Allowed File Extensions API (Project-Specific)
 
+System mein aane wale email attachments kin file extensions (`.png`, `.pdf`, `.zip`, etc.) ke honay chahiye, isko **Free** aur **Pro** users ke liye alag-alag restrict kiya ja sakta hai.
 
+### 1. Fetch Allowed File Extensions
+- **Endpoint:** `GET /api/project/allowed-files`
+- **Headers:** `Authorization: Bearer <Your-Project-API-Key>`
+- **Response Example (200 OK):**
+```json
+{
+  "allowedFiles": {
+    "free": ["txt", "png", "jpg", "jpeg", "pdf", "zip"],
+    "pro": ["txt", "sql", "png", "zip", "pdf", "ai", "mp3", "mp4", "jpg", "jpeg", "gif"]
+  }
+}
+```
 
+### 2. Update Allowed File Extensions
+- **Endpoint:** `PUT /api/project/allowed-files`
+- **Headers:** 
+  - `Authorization: Bearer <Your-Project-API-Key>`
+  - `Content-Type: application/json`
+- **Request Body Example:**
+```json
+{
+  "allowedFiles": {
+    "free": ["txt", "png", "jpg", "pdf"],
+    "pro": ["txt", "sql", "png", "jpg", "pdf", "zip", "mp4", "doc", "docx"]
+  }
+}
+```
+- **Response Example (200 OK):**
+```json
+{
+  "success": true,
+  "allowedFiles": {
+    "free": ["txt", "png", "jpg", "pdf"],
+    "pro": ["txt", "sql", "png", "jpg", "pdf", "zip", "mp4", "doc", "docx"]
+  }
+}
+```
 
+---
 
+## ⏰ Email Age Settings API (Project-Specific in Hours)
 
+Emails aur temporary mailbox records kitne **Hours (ghante)** tak server par rehne chahiye unki auto-cleanup limit set karne ke liye. (0 ka matlab: hamesha ke liye save rakhein).
 
+### 1. Fetch Email Age Settings
+- **Endpoint:** `GET /api/project/retention`
+- **Headers:** `Authorization: Bearer <Your-Project-API-Key>`
+- **Response Example (200 OK):**
+```json
+{
+  "retention": {
+    "free": {
+      "generated_emails": 24,
+      "simple_mails": 24,
+      "attachments": 12
+    },
+    "pro": {
+      "generated_emails": 720,
+      "simple_mails": 720,
+      "attachments": 720
+    }
+  }
+}
+```
 
+### 2. Update Retention Settings
+- **Endpoint:** `PUT /api/project/retention`
+- **Headers:** 
+  - `Authorization: Bearer <Your-Project-API-Key>`
+  - `Content-Type: application/json`
+- **Request Body Example (Limits in Hours):**
+```json
+{
+  "retention": {
+    "free": {
+      "generated_emails": 24,
+      "simple_mails": 12,
+      "attachments": 6
+    },
+    "pro": {
+      "generated_emails": 720,
+      "simple_mails": 360,
+      "attachments": 168
+    }
+  }
+}
+```
+- **Response Example (200 OK):**
+```json
+{
+  "success": true,
+  "retention": {
+    "free": {
+      "generated_emails": 24,
+      "simple_mails": 12,
+      "attachments": 6
+    },
+    "pro": {
+      "generated_emails": 720,
+      "simple_mails": 360,
+      "attachments": 168
+    }
+  }
+}
+```
 
+---
 
+## 🔑 Mailbox Logins / Users API
 
+Transient Mailbox User credentials create, read, update, aur delete karne ke endpoints:
 
+### 1. Fetch Mailbox Logins List
+- **Endpoint:** `GET /api/admin/mailbox-users`
+- **Headers:** `Authorization: Bearer <Admin-Token>`
+- **Response Example (200 OK):**
+```json
+[
+  {
+    "id": 1,
+    "email": "john@llamerada.online",
+    "plain_password": "Pass1234!",
+    "project_id": 1,
+    "project_name": "Main Project",
+    "received_count": 5,
+    "created_at": "2026-07-30T16:00:00.000Z"
+  }
+]
+```
 
+### 2. Create Mailbox Login
+- **Endpoint:** `POST /api/admin/mailbox-users`
+- **Headers:** `Authorization: Bearer <Admin-Token>`, `Content-Type: application/json`
+- **Body Example:**
+```json
+{
+  "email": "john@llamerada.online",
+  "password": "Pass1234!",
+  "project_id": 1
+}
+```
 
+### 3. Update Mailbox Password
+- **Endpoint:** `PUT /api/admin/mailbox-users/:id`
+- **Headers:** `Authorization: Bearer <Admin-Token>`, `Content-Type: application/json`
+- **Body Example:**
+```json
+{
+  "password": "NewSecretPassword123!",
+  "project_id": 1
+}
+```
 
-
-
-
-
-
-
+### 4. Delete Mailbox Login
+- **Endpoint:** `DELETE /api/admin/mailbox-users/:id`
+- **Headers:** `Authorization: Bearer <Admin-Token>`

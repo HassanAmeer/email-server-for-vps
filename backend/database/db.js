@@ -77,6 +77,7 @@ try { db.exec(`ALTER TABLE projects ADD COLUMN retention_generated_emails_pro IN
 try { db.exec(`ALTER TABLE projects ADD COLUMN allowed_files_free TEXT DEFAULT 'txt,png,jpg,jpeg,pdf,zip';`); } catch (e) { }
 try { db.exec(`ALTER TABLE projects ADD COLUMN allowed_files_pro TEXT DEFAULT 'txt,sql,png,zip,pdf,ai,mp3,mp4,jpg,jpeg,gif';`); } catch (e) { }
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN catch_all BOOLEAN DEFAULT 1;`); } catch (e) { }
+try { db.exec(`ALTER TABLE mailbox_users ADD COLUMN plain_password TEXT;`); } catch (e) { }
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS attached_domains (
@@ -624,8 +625,8 @@ export function resetApiSettingsHits() {
 export function createMailboxUser(email, password, projectId) {
   try {
     const hash = Bun.password.hashSync(password, { algorithm: "bcrypt" });
-    const stmt = db.prepare("INSERT INTO mailbox_users (email, password_hash, project_id) VALUES (?, ?, ?)");
-    stmt.run(email, hash, projectId);
+    const stmt = db.prepare("INSERT INTO mailbox_users (email, password_hash, plain_password, project_id) VALUES (?, ?, ?, ?)");
+    stmt.run(email, hash, password, projectId);
     return { success: true };
   } catch (err) {
     console.error("DB Error creating mailbox user:", err);
@@ -633,9 +634,27 @@ export function createMailboxUser(email, password, projectId) {
   }
 }
 
+export function updateMailboxUser(userId, password, projectId = null) {
+  try {
+    const hash = Bun.password.hashSync(password, { algorithm: "bcrypt" });
+    let stmt;
+    if (projectId) {
+      stmt = db.prepare("UPDATE mailbox_users SET password_hash = ?, plain_password = ? WHERE id = ? AND project_id = ?");
+      stmt.run(hash, password, userId, projectId);
+    } else {
+      stmt = db.prepare("UPDATE mailbox_users SET password_hash = ?, plain_password = ? WHERE id = ?");
+      stmt.run(hash, password, userId);
+    }
+    return { success: true };
+  } catch (err) {
+    console.error("DB Error updating mailbox user:", err);
+    return { success: false, error: err.message };
+  }
+}
+
 export function getMailboxUsers(projectId) {
   try {
-    const stmt = db.prepare("SELECT id, email, created_at FROM mailbox_users WHERE project_id = ? ORDER BY id DESC");
+    const stmt = db.prepare("SELECT id, email, plain_password, created_at FROM mailbox_users WHERE project_id = ? ORDER BY id DESC");
     return stmt.all(projectId);
   } catch (err) {
     console.error("DB Error getting mailbox users:", err);
