@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { AdminController } from "../backend/admin/admin-controller.js";
-import db, { logGeneratedEmail, getProjectByApiKey, logProjectApiHit, getActiveDomains, getProjectForbiddenIds, updateProjectForbiddenIds, getProjectRetention, updateProjectRetention, getProjectAllowedFiles, updateProjectAllowedFiles } from "../backend/database/db.js";
+import db, { logGeneratedEmail, getProjectByApiKey, logProjectApiHit, getActiveDomains, getActiveDomainsWithPlan, getProjectForbiddenIds, updateProjectForbiddenIds, getProjectRetention, updateProjectRetention, getProjectAllowedFiles, updateProjectAllowedFiles } from "../backend/database/db.js";
 
 // Paths config
 const localMailDir = path.join(process.cwd(), "backend", "storage", "local");
@@ -80,11 +80,11 @@ export class ApiRouter {
     // API Key not required to list public active domains
     // logProjectApiHit is omitted since no project is authenticated
 
-    const domains = getActiveDomains();
+    const domains = getActiveDomainsWithPlan();
     
     // Fallback if DB table is empty
     if (domains.length === 0) {
-      domains.push(process.env.DOMAIN || "llamerada.online");
+      domains.push({ domain: process.env.DOMAIN || "llamerada.online", plan: "free" });
     }
 
     res.writeHead(200, { "Content-Type": "application/json" });

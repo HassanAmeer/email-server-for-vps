@@ -464,7 +464,7 @@ export class AdminController {
     req.on("end", () => {
       try {
         const payload = JSON.parse(body);
-        if (payload.status === undefined && payload.catch_all === undefined) {
+        if (payload.status === undefined && payload.catch_all === undefined && payload.plan === undefined) {
           res.writeHead(400, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "No fields to update" }));
           return;
@@ -483,6 +483,11 @@ export class AdminController {
         if (payload.catch_all !== undefined) {
           updates.push("catch_all = ?");
           values.push(payload.catch_all === true || payload.catch_all === 1 ? 1 : 0);
+        }
+
+        if (payload.plan !== undefined) {
+          updates.push("plan = ?");
+          values.push(payload.plan);
         }
         
         values.push(id);

@@ -21,6 +21,7 @@ export default function SetupManager({ apiUrl }: SetupManagerProps) {
     id: number;
     domain: string;
     status: string;
+    plan?: string;
     catch_all: number;
     created_at: string;
   }
@@ -182,6 +183,26 @@ export default function SetupManager({ apiUrl }: SetupManagerProps) {
       }
     } catch (err: any) {
       alert("Failed to update Catch-All status");
+    }
+  };
+
+  const handleUpdateDomainPlan = async (id: number, currentPlan: string) => {
+    const newPlan = currentPlan === "free" ? "premium" : "free";
+    try {
+      const token = localStorage.getItem("admin_token") || "";
+      const res = await fetch(`${apiUrl}/api/admin/domains/${id}`, {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ plan: newPlan })
+      });
+      if (res.ok) {
+        await fetchDomains();
+      }
+    } catch (err: any) {
+      alert("Failed to update domain plan");
     }
   };
 
@@ -564,7 +585,17 @@ export default function SetupManager({ apiUrl }: SetupManagerProps) {
                         <span>{new Date(domain.created_at).toLocaleString()}</span>
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          onClick={() => handleUpdateDomainPlan(domain.id, domain.plan || 'free')}
+                          className={`px-2.5 py-1 rounded-md font-bold uppercase tracking-wider text-[10px] transition-colors ${domain.plan === "premium"
+                            ? "bg-purple-500/10 text-purple-400 hover:bg-purple-500/20"
+                            : "bg-blue-500/10 text-blue-400 hover:bg-blue-500/20"
+                            }`}
+                          title="Toggle between Free and Premium plan for this domain."
+                        >
+                          PLAN: {domain.plan === "premium" ? "PREMIUM" : "FREE"}
+                        </button>
                         <button
                           onClick={() => handleUpdateDomainCatchAll(domain.id, domain.catch_all)}
                           className={`px-2.5 py-1 rounded-md font-bold uppercase tracking-wider text-[10px] transition-colors ${domain.catch_all === 1

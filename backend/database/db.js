@@ -84,9 +84,12 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     domain TEXT NOT NULL UNIQUE,
     status TEXT DEFAULT 'active',
+    plan TEXT DEFAULT 'free',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 `);
+
+try { db.exec(`ALTER TABLE attached_domains ADD COLUMN plan TEXT DEFAULT 'free';`); } catch (e) { }
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS api_settings (
@@ -460,6 +463,20 @@ export function getActiveDomains() {
     return records.map(r => r.domain.replace(/^https?:\/\//, '').replace(/\/+$/, ''));
   } catch (err) {
     console.error("DB Error fetching active domains:", err);
+    return [];
+  }
+}
+
+export function getActiveDomainsWithPlan() {
+  try {
+    const stmt = db.prepare("SELECT domain, plan FROM attached_domains WHERE status = 'active' ORDER BY created_at DESC");
+    const records = stmt.all();
+    return records.map(r => ({
+      domain: r.domain.replace(/^https?:\/\//, '').replace(/\/+$/, ''),
+      plan: r.plan || 'free'
+    }));
+  } catch (err) {
+    console.error("DB Error fetching active domains with plan:", err);
     return [];
   }
 }
