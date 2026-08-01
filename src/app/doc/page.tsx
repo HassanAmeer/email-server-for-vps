@@ -828,6 +828,7 @@ const endpoints = [
     title: "Send Email (Mailbox)",
     category: "Mailbox Client",
     desc: "Send an outbound email from the authenticated permanent mailbox address. The `from` is automatically set to the logged-in user's mailbox email.",
+    disabled: true,
     payload: `{
   "to": "recipient@example.com",
   "subject": "Hello from my mailbox",
@@ -993,6 +994,11 @@ export default function ApiDocumentation() {
                             <span className={`text-xs font-medium truncate transition-colors ${isActive ? "text-white" : "text-gray-500 group-hover:text-gray-300"}`}>
                               {e.title}
                             </span>
+                            {e.disabled && (
+                              <span className="shrink-0 text-[8px] font-extrabold font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                                Disabled
+                              </span>
+                            )}
                             {isActive && (
                               <span className={`ml-auto w-1.5 h-1.5 rounded-full shrink-0 ${c.dot}`}></span>
                             )}
@@ -1085,10 +1091,29 @@ export default function ApiDocumentation() {
                   {ep.method}
                 </span>
                 <code className="text-base font-mono font-bold text-gray-100 tracking-tight">{ep.path}</code>
+                {ep.disabled && (
+                  <span className="text-[10px] font-extrabold font-mono uppercase tracking-wider px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-400 border border-rose-500/40">
+                    Disabled
+                  </span>
+                )}
               </div>
 
-              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-3 leading-tight">
-                {ep.title}
+              {ep.disabled && (
+                <div className="mb-5 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/25 flex items-center gap-3 text-rose-300 text-xs font-medium">
+                  <svg className="w-5 h-5 shrink-0 text-rose-400" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                  </svg>
+                  <span>This endpoint is currently <strong>disabled</strong> (scheduled for a future release). Outbound email sending directly from mailbox is not available at present.</span>
+                </div>
+              )}
+
+              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-3 leading-tight flex items-center gap-3">
+                <span>{ep.title}</span>
+                {ep.disabled && (
+                  <span className="text-xs font-bold font-mono px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                    COMING SOON
+                  </span>
+                )}
               </h1>
               <p className="text-gray-400 text-base leading-relaxed max-w-2xl">{ep.desc}</p>
 

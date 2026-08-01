@@ -64,11 +64,12 @@ const defaultApiSettings = [
   { id: "mailbox-client-read", method: "GET", path: "/api/mailbox/inbox/:id", desc: "Fetch the full content of a specific email by its database ID. Returns parsed sender, subject, body text, HTML, and attachment metadata.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "Params: :id" },
   { id: "mailbox-client-delete", method: "DELETE", path: "/api/mailbox/inbox/:id", desc: "Delete a specific email from the authenticated mailbox user's inbox by database record ID.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "Params: :id" },
   { id: "mailbox-client-media", method: "GET", path: "/api/mailbox/media", desc: "List all media attachments received in the authenticated mailbox. Returns attachment metadata including filename, content type, size, and public URL.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "None" },
-  { id: "mailbox-client-send", method: "POST", path: "/api/mailbox/send", desc: "Send an outbound email from the authenticated permanent mailbox address. Supports plain text and HTML body.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "Body: JSON {to, subject, message}" }
+  { id: "mailbox-client-send", method: "POST", path: "/api/mailbox/send", desc: "Send an outbound email from the authenticated permanent mailbox address. Supports plain text and HTML body.", enabled: false, category: "Mailbox Client", hits: 0, auth: true, variables: "Body: JSON {to, subject, message}" }
 ];
 
 // Initialize settings in database
 initApiSettings(defaultApiSettings);
+toggleApiSettingDB("mailbox-client-send", false);
 
 /**
  * Controller class to handle all admin actions

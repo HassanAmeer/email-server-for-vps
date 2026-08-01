@@ -52,6 +52,10 @@ export class ApiRouter {
       return { id: 0, is_active: 1 };
     }
 
+    if (apiKey === AdminController.adminToken) {
+      return { id: 0, is_active: 1 };
+    }
+
     const project = getProjectByApiKey(apiKey);
     if (!project) {
       res.writeHead(403, { "Content-Type": "application/json" });
@@ -1226,6 +1230,11 @@ export class ApiRouter {
 
       // POST /api/mailbox/send
       if (cleanUrl === "/api/mailbox/send" && req.method === "POST") {
+        if (!AdminController.isApiEnabled("/api/mailbox/send", "POST")) {
+          res.writeHead(503, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "This API endpoint is currently disabled." }));
+          return;
+        }
         let body = "";
         req.on("data", chunk => body += chunk.toString());
         req.on("end", async () => {
