@@ -18,6 +18,9 @@ export function generateStaticParams() {
     { tab: "api" },
     { tab: "credentials" },
     { tab: "explorer" },
-    { tab: "logs" }
+    { tab: "logs" },
+    { tab: "projects" },
+    { tab: "mailbox" },
+    { tab: "setup" }
   ];
 }
