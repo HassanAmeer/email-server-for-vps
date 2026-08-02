@@ -320,44 +320,57 @@ export function runDataRetentionCleanupJob() {
     console.log("Running Data Retention Cleanup Job...");
     const targetDir = path.join(process.cwd(), "backend", "storage", "live");
     
-    // Get all projects with active retention policies
-    const projects = db.prepare("SELECT id, retention_generated_emails, retention_simple_mails, retention_attachments FROM projects").all();
+    const projects = db.prepare("SELECT id FROM projects").all();
+    const domainsWithPlan = getActiveDomainsWithPlan();
     
     let deletedGenerated = 0;
     let deletedReceived = 0;
     
     for (const project of projects) {
-      const { id, retention_generated_emails, retention_simple_mails, retention_attachments } = project;
-      
-      // Cleanup Generated Emails
-      if (retention_generated_emails && retention_generated_emails > 0) {
-        const result = db.prepare(`DELETE FROM generated_emails WHERE project_id = ? AND created_at < datetime('now', ?)`).run(id, `-${retention_generated_emails} hours`);
-        deletedGenerated += result.changes || 0;
-      }
-      
-      // Cleanup Simple Mails
-      if (retention_simple_mails && retention_simple_mails > 0) {
-        const records = db.prepare(`SELECT id, file_name FROM received_emails WHERE project_id = ? AND has_attachment = 0 AND created_at < datetime('now', ?)`).all(id, `-${retention_simple_mails} hours`);
-        for (const record of records) {
-          if (record.file_name) {
-             const filePath = path.join(targetDir, record.file_name);
-             if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-          }
-          db.prepare(`DELETE FROM received_emails WHERE id = ?`).run(record.id);
-          deletedReceived++;
+      const retentionSettings = getProjectRetention(project.id);
+      if (!retentionSettings) continue;
+
+      for (const domainObj of domainsWithPlan) {
+        const domain = domainObj.domain;
+        const plan = domainObj.plan === "premium" ? "pro" : "free";
+        const settings = retentionSettings[plan];
+        
+        if (!settings) continue;
+
+        const retention_generated_emails = settings.generated_emails || 0;
+        const retention_simple_mails = settings.simple_mails || 0;
+        const retention_attachments = settings.attachments || 0;
+        
+        // Cleanup Generated Emails
+        if (retention_generated_emails > 0) {
+          const result = db.prepare(`DELETE FROM generated_emails WHERE project_id = ? AND email LIKE ? AND created_at < datetime('now', ?)`).run(project.id, `%@${domain}`, `-${retention_generated_emails} hours`);
+          deletedGenerated += result.changes || 0;
         }
-      }
-      
-      // Cleanup Attachments Mails
-      if (retention_attachments && retention_attachments > 0) {
-        const records = db.prepare(`SELECT id, file_name FROM received_emails WHERE project_id = ? AND has_attachment = 1 AND created_at < datetime('now', ?)`).all(id, `-${retention_attachments} hours`);
-        for (const record of records) {
-          if (record.file_name) {
-             const filePath = path.join(targetDir, record.file_name);
-             if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        
+        // Cleanup Simple Mails
+        if (retention_simple_mails > 0) {
+          const records = db.prepare(`SELECT id, file_name FROM received_emails WHERE project_id = ? AND has_attachment = 0 AND recipient LIKE ? AND created_at < datetime('now', ?)`).all(project.id, `%@${domain}`, `-${retention_simple_mails} hours`);
+          for (const record of records) {
+            if (record.file_name) {
+               const filePath = path.join(targetDir, record.file_name);
+               if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+            }
+            db.prepare(`DELETE FROM received_emails WHERE id = ?`).run(record.id);
+            deletedReceived++;
           }
-          db.prepare(`DELETE FROM received_emails WHERE id = ?`).run(record.id);
-          deletedReceived++;
+        }
+        
+        // Cleanup Attachments Mails
+        if (retention_attachments > 0) {
+          const records = db.prepare(`SELECT id, file_name FROM received_emails WHERE project_id = ? AND has_attachment = 1 AND recipient LIKE ? AND created_at < datetime('now', ?)`).all(project.id, `%@${domain}`, `-${retention_attachments} hours`);
+          for (const record of records) {
+            if (record.file_name) {
+               const filePath = path.join(targetDir, record.file_name);
+               if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+            }
+            db.prepare(`DELETE FROM received_emails WHERE id = ?`).run(record.id);
+            deletedReceived++;
+          }
         }
       }
     }

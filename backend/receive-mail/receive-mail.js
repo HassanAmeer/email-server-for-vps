@@ -7,7 +7,7 @@ import nodemailer from "nodemailer";
 import { sendOutboundEmail as sendOutboundEmailLive } from "../send-mail-simple/send-mail-from-generated-mail-from-live.js";
 import { sendOutboundEmail as sendOutboundEmailLocal } from "../send-mail-simple/send-mail-from-generated-mail-from-local.js";
 import { ApiRouter } from "../../apis/api-router.js";
-import { logReceivedEmail, getProjectByEmail, logSystemEvent, runDataRetentionCleanupJob, validateRecipientCatchAll } from "../database/db.js";
+import { logReceivedEmail, getProjectByEmail, logSystemEvent, runDataRetentionCleanupJob, validateRecipientCatchAll, getProjectAllowedFiles, getActiveDomainsWithPlan } from "../database/db.js";
 
 // Load .env file manually if it exists
 const envPath = path.join(process.cwd(), ".env");
@@ -152,19 +152,46 @@ const smtpServer = new SMTPServer({
         .toLowerCase();
       const fileName = `${Date.now()}-${safeSubject}.json`;
 
+      const targetEmailRaw = parsed.to?.text || "Unknown Recipient";
+      const targetEmailClean = extractEmail(targetEmailRaw);
+      const project = getProjectByEmail(targetEmailClean);
+      
+      let allowedList = null;
+      if (project) {
+        const domainParts = targetEmailClean.split("@");
+        const targetDomain = domainParts.length === 2 ? domainParts[1] : "";
+        const activeDomains = getActiveDomainsWithPlan();
+        const domInfo = activeDomains.find(d => d.domain === targetDomain);
+        const plan = (domInfo && domInfo.plan === "premium") ? "pro" : "free";
+        
+        const allowedFilesObj = getProjectAllowedFiles(project.id);
+        allowedList = allowedFilesObj[plan] || [];
+      }
+
       const mailData = {
         id: Date.now().toString(),
         from: parsed.from?.text || "Unknown Sender",
-        to: parsed.to?.text || "Unknown Recipient",
+        to: targetEmailRaw,
         subject: subject,
         text: parsed.text || "",
         html: parsed.html || "",
         date: parsed.date || new Date(),
         senderIp: session.remoteAddress,
         headers: Object.fromEntries(parsed.headers),
-        attachments: parsed.attachments?.map(att => {
+        attachments: (parsed.attachments || []).map(att => {
+          if (!att.filename) return null;
+          
+          if (allowedList) {
+             const ext = att.filename.split('.').pop().toLowerCase();
+             if (!allowedList.includes(ext)) {
+                 const dropMsg = `❌ Attachment Dropped: ${att.filename} (Extension not allowed for this project)`;
+                 if (isLocal) addLocalLog(dropMsg); else addLiveLog(dropMsg);
+                 return null;
+             }
+          }
+
           // Generate a safe filename
-          const safeFilename = (att.filename || "unnamed").replace(/[^a-zA-Z0-9.-]/g, "_");
+          const safeFilename = att.filename.replace(/[^a-zA-Z0-9.-]/g, "_");
           const savedFileName = `${Date.now()}-${safeFilename}`;
           const filePath = path.join(attachmentsDir, savedFileName);
 
@@ -184,12 +211,12 @@ const smtpServer = new SMTPServer({
           }
 
           return {
-            filename: att.filename || "unnamed",
+            filename: att.filename,
             contentType: contentType,
             size: att.size,
             url: `/api/attachments/${savedFileName}`
           };
-        }) || []
+        }).filter(Boolean)
       };
 
       const targetDir = isLocal ? localMailDir : liveMailDir;
@@ -200,10 +227,8 @@ const smtpServer = new SMTPServer({
       );
 
       // Log to SQLite Database
-      const targetEmailClean = extractEmail(mailData.to);
-      const project = getProjectByEmail(targetEmailClean);
       const projectId = project ? project.id : null;
-      const totalAttachmentSize = parsed.attachments?.reduce((sum, att) => sum + (att.size || 0), 0) || 0;
+      const totalAttachmentSize = mailData.attachments.reduce((sum, att) => sum + (att.size || 0), 0) || 0;
       logReceivedEmail(mailData.to, mailData.from, mailData.subject, mailData.attachments.length > 0, projectId, totalAttachmentSize, fileName);
 
       logSystemEvent({ log_type: 'RECEIVE', status: 'INFO', message: 'Email Saved to Disk', details: { file: fileName, projectId }, project_id: projectId });
