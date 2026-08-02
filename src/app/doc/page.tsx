@@ -617,17 +617,19 @@ const endpoints = [
     auth: true,
   },
   {
-    id: "admin-dkim",
+    id: "admin-server-info",
     method: "GET",
-    path: "/api/admin/dkim",
-    title: "DKIM Key Management",
+    path: "/api/admin/serverinfo",
+    title: "Server Information",
     category: "Admin",
-    desc: "GET retrieves current DKIM public key. POST /api/admin/dkim/generate creates a new DKIM keypair for email signing.",
+    desc: "GET retrieves current server information including DKIM public key and IP address instructions.",
     payload: null,
     response: `{
-  "publicKey": "v=DKIM1; k=rsa; p=MIIBIjAN..."
+  "success": true,
+  "key": "v=DKIM1; k=rsa; p=MIIBIjAN...",
+  "ip_address": "64.227.137.95"
 }`,
-    exampleUrl: "http://your-vps-ip:8081/api/admin/dkim",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/serverinfo",
     returns: "JSON Object",
     auth: true,
   },
@@ -915,7 +917,7 @@ export default function ApiDocumentation() {
     return "";
   };
 
-  const ep = endpoints.find(e => e.id === activeTab)!;
+  const ep = endpoints.find(e => e.id === activeTab) || endpoints[0];
   const colors = methodColors[ep.method];
   const activeSnippet = generateSnippet(codeLang, ep.method, ep.exampleUrl, ep.auth, ep.payload);
 

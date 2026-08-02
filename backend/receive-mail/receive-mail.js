@@ -381,7 +381,7 @@ const httpServer = http.createServer((req, res) => {
     return ApiRouter.deleteCredential(req, res, username);
   }
 
-  if (cleanUrl === "/api/admin/dkim" && req.method === "GET") {
+  if (cleanUrl === "/api/admin/serverinfo" && req.method === "GET") {
     return ApiRouter.getDkimKey(req, res);
   }
 

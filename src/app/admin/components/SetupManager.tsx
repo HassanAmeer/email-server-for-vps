@@ -48,7 +48,7 @@ export default function SetupManager({ apiUrl }: SetupManagerProps) {
     setLoadingDkim(true);
     try {
       const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/dkim`, {
+      const res = await fetch(`${apiUrl}/api/admin/serverinfo`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {

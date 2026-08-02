@@ -362,17 +362,26 @@ export class AdminController {
   /**
    * Retrieves the current DKIM public key
    */
-  static getDkimKey(req, res) {
+  static async getDkimKey(req, res) {
     try {
       const dkimPath = path.join(process.cwd(), 'backend', 'dkim-key-for-send-mail', 'public.txt');
+      
+      let key = "";
       if (fs.existsSync(dkimPath)) {
-        const key = fs.readFileSync(dkimPath, "utf-8");
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: true, key }));
-      } else {
-        res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "DKIM key not found" }));
+        key = fs.readFileSync(dkimPath, "utf-8");
       }
+      
+      let ip_address = "Failed to get IP";
+      try {
+        const ipRes = await fetch("https://api.ipify.org?format=json");
+        const ipData = await ipRes.json();
+        ip_address = ipData.ip;
+      } catch (e) {
+        console.error("Could not fetch IP:", e);
+      }
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true, key, ip_address }));
     } catch (error) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: error.message }));
