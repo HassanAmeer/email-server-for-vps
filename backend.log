@@ -1,0 +1,11 @@
+$ bun backend/receive-mail/receive-mail.js
+[LOCAL RECEIVING] [12:31:57 AM] SMTP Server listening on Port 2525 for incoming emails (LOCAL Environment).
+[LIVE RECEIVING] [12:31:57 AM] SMTP Server listening on Port 2525 for incoming emails (LOCAL Environment).
+==========================================
+🚀 [RECEIVING SERVER] Currently used port for Receiving: 2525 (LOCAL Environment)
+==========================================
+[LOCAL RECEIVING] [12:31:57 AM] Web Console listening on http://localhost:8081 (LOCAL Environment)
+[LIVE RECEIVING] [12:31:57 AM] Web Console listening on http://localhost:8081 (LOCAL Environment)
+==========================================
+🌐 [WEB UI] Currently used port for Web Dashboard: 8081 (LOCAL Environment)
+==========================================

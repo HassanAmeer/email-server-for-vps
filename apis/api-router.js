@@ -1182,6 +1182,27 @@ export class ApiRouter {
         return;
       }
 
+      // GET /api/mailbox/setup
+      if (cleanUrl === "/api/mailbox/setup" && req.method === "GET") {
+        try {
+          const fs = await import("fs");
+          const path = await import("path");
+          const dkimPath = path.join(process.cwd(), 'backend', 'dkim-key-for-send-mail', 'public.txt');
+          if (fs.existsSync(dkimPath)) {
+            const key = fs.readFileSync(dkimPath, "utf-8");
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ success: true, key }));
+          } else {
+            res.writeHead(404, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "DKIM key not found" }));
+          }
+        } catch (error) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: error.message }));
+        }
+        return;
+      }
+
       // Authentication Middleware for the rest
       const authHeader = req.headers.authorization;
       if (!authHeader || !authHeader.startsWith("Bearer ")) {
