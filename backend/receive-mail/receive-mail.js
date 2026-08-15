@@ -3,6 +3,7 @@ import { simpleParser } from "mailparser";
 import fs from "fs";
 import path from "path";
 import http from "http";
+import { exec } from "child_process";
 import nodemailer from "nodemailer";
 import { sendOutboundEmail as sendOutboundEmailLive } from "../send-mail-simple/send-mail-from-generated-mail-from-live.js";
 import { sendOutboundEmail as sendOutboundEmailLocal } from "../send-mail-simple/send-mail-from-generated-mail-from-local.js";
@@ -869,9 +870,50 @@ httpServer.listen(HTTP_PORT, () => {
   console.log(`==========================================`);
 });
 
+/**
+ * Automatically checks and starts Dovecot IMAP daemon on server start
+ */
+function autoStartDovecot() {
+  exec("which dovecot", (err, stdout) => {
+    if (err || !stdout || !stdout.trim()) {
+      const msg = "ℹ️ Dovecot IMAP binary not detected. To install & enable IMAP on your VPS, run: sudo bash backend/imap-setup/setup-dovecot.sh";
+      addLocalLog(msg);
+      addLiveLog(msg);
+      return;
+    }
+
+    exec("systemctl is-active dovecot || pgrep dovecot", (errActive, stdoutActive) => {
+      const isRunning = stdoutActive && (stdoutActive.includes("active") || stdoutActive.trim().length > 0);
+      if (isRunning) {
+        const msg = "📬 IMAP Server (Dovecot) is ACTIVE and listening on ports 143 (Plain) & 993 (SSL).";
+        addLocalLog(msg);
+        addLiveLog(msg);
+        console.log(`📬 [IMAP SERVER] Dovecot is active on ports 143 / 993`);
+      } else {
+        exec("sudo systemctl start dovecot || systemctl start dovecot || service dovecot start || dovecot", (errStart) => {
+          if (!errStart) {
+            const msg = "🚀 Dovecot IMAP service auto-started successfully on ports 143 / 993.";
+            addLocalLog(msg);
+            addLiveLog(msg);
+            console.log(`🚀 [IMAP SERVER] Dovecot auto-started successfully`);
+          } else {
+            const msg = `⚠️ Could not auto-start Dovecot without sudo. Run: sudo systemctl start dovecot`;
+            addLocalLog(msg);
+            addLiveLog(msg);
+          }
+        });
+      }
+    });
+  });
+}
+
+// Auto-start Dovecot IMAP daemon alongside mail server
+setTimeout(autoStartDovecot, 1500);
+
 // Start Background Data Retention Cleanup Job (Runs every 24 hours)
 setInterval(() => {
   runDataRetentionCleanupJob();
 }, 24 * 60 * 60 * 1000);
 // Also run once on startup
 setTimeout(runDataRetentionCleanupJob, 5000);
+

@@ -15,6 +15,8 @@
     "mail:test": "bun backend/send-mail-simple/send-mail-local-to-local.js",
     "mail:send-ip-mail": "bun backend/send-mail-simple/send-mail-from-local-to-live-by-ip.js",
     "mail:generate-dkim": "bun backend/scripts/generate-dkim.js",
+    "mail:imap-setup": "sudo bash backend/imap-setup/setup-dovecot.sh",
+    "mail:imap-test": "bun backend/imap-setup/test-imap.js",
     "next": "next"
   },
   "dependencies": {

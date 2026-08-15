@@ -13,6 +13,7 @@ import SetupManager from "../components/SetupManager";
 import DomainsManager from "../components/DomainsManager";
 import PrimaryDomainManager from "../components/PrimaryDomainManager";
 import MailboxManager from "../components/MailboxManager";
+import ImapMailboxManager from "../components/ImapMailboxManager";
 
 const API_BASE = "http://localhost:8081";
 
@@ -42,6 +43,8 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
     logs: "logs-tab",
     projects: "projects-tab",
     mailbox: "mailbox-tab",
+    imap: "imap-tab",
+    "imap-mailbox": "imap-tab",
     domains: "domains-tab",
     "primary-domain": "primary-domain-tab",
     "primary-domains": "primary-domain-tab",
@@ -56,6 +59,7 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
     "logs-tab": "logs",
     "projects-tab": "projects",
     "mailbox-tab": "mailbox",
+    "imap-tab": "imap",
     "domains-tab": "domains",
     "primary-domain-tab": "primary-domain",
     "setup-tab": "domains"
@@ -74,10 +78,17 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
   // Determine API URL on client side
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const url =
-        window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-          ? API_BASE
-          : `${window.location.protocol}//${window.location.host}`;
+      let url = "";
+      const host = window.location.hostname;
+      const port = window.location.port;
+
+      if (host === "localhost" || host === "127.0.0.1") {
+        url = API_BASE;
+      } else if (port === "3000" || port === "8080") {
+        url = `${window.location.protocol}//${host}:8081`;
+      } else {
+        url = `${window.location.protocol}//${window.location.host}`;
+      }
       setApiUrl(url);
 
       const token = localStorage.getItem("admin_token");
@@ -93,26 +104,29 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
     if (!isAuthenticated || !apiUrl) return;
 
     let isMounted = true;
+    const controller = new AbortController();
 
     const fetchStats = async () => {
       try {
         const token = localStorage.getItem("admin_token");
         const res = await fetch(`${apiUrl}/api/admin/stats`, {
-          headers: token ? { "Authorization": `Bearer ${token}` } : {}
+          headers: token ? { "Authorization": `Bearer ${token}` } : {},
+          signal: controller.signal
         });
         if (res.ok && isMounted) {
           const data = await res.json();
           setStats(data);
         }
-      } catch (err) {
-        // Silently catch network drops/reloads to avoid Next.js dev overlay errors
+      } catch (err: any) {
+        // Silently ignore aborted/network drops to prevent Turbopack overlay triggers
       }
     };
 
     fetchStats();
-    const interval = setInterval(fetchStats, 4000);
+    const interval = setInterval(fetchStats, 5000);
     return () => {
       isMounted = false;
+      controller.abort();
       clearInterval(interval);
     };
   }, [isAuthenticated, apiUrl]);
@@ -294,6 +308,26 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
           </button>
 
           <button
+            onClick={() => handleTabClick("imap-tab")}
+            className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
+              activeTab === "imap-tab" 
+                ? "rounded-none text-blue-400 bg-blue-500/10 shadow-[0_2px_12px_rgba(59,130,246,0.03)]" 
+                : "rounded-none text-gray-400 hover:text-white hover:bg-white/[0.02]"
+            }`}
+          >
+            {activeTab === "imap-tab" && (
+              <span className="absolute left-0 inset-y-0 w-[3px] bg-blue-400"></span>
+            )}
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.75 5.25a3 3 0 012.4-1.2h7.7a3 3 0 012.4 1.2l2.1 3.3a4.5 4.5 0 01.9 2.7" />
+            </svg>
+            <div className="flex items-center justify-between w-full">
+              <span>IMAP Mailbox</span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono font-bold">993</span>
+            </div>
+          </button>
+
+          <button
             onClick={() => handleTabClick("logs-tab")}
             className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
               activeTab === "logs-tab" 
@@ -412,6 +446,10 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
 
           {activeTab === "mailbox-tab" && (
             <MailboxManager apiUrl={apiUrl} />
+          )}
+
+          {activeTab === "imap-tab" && (
+            <ImapMailboxManager apiUrl={apiUrl} />
           )}
 
           {(activeTab === "domains-tab" || activeTab === "setup-tab") && (

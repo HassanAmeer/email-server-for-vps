@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Dovecot IMAP Automated Setup & Installer Script
-# For Ubuntu / Debian Linux VPS & Localhost
+# Dovecot IMAP Automated Setup & Installer Script (PostgreSQL Edition)
+# For Ubuntu / Debian Linux VPS
 # ==============================================================================
 
 set -e
 
 echo "=========================================================="
-echo "🚀 Starting Dovecot IMAP Server Automated Setup"
+echo "🚀 Starting Dovecot IMAP Server Setup (PostgreSQL)"
 echo "=========================================================="
 
 # Check root privilege
@@ -20,10 +20,17 @@ fi
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 echo "📂 Project Root: ${PROJECT_ROOT}"
 
-# 1. Install Dovecot packages
-echo "📦 Installing Dovecot IMAP and Database drivers..."
+# PostgreSQL Database Configuration
+PG_HOST="${PGHOST:-127.0.0.1}"
+PG_PORT="${PGPORT:-5432}"
+PG_DB="${PGDATABASE:-email_server}"
+PG_USER="${PGUSER:-postgres}"
+PG_PASS="${PGPASSWORD:-postgres}"
+
+# 1. Install Dovecot packages with PostgreSQL driver
+echo "📦 Installing Dovecot IMAP and PostgreSQL driver..."
 apt update -y
-apt install -y dovecot-imapd dovecot-sqlite dovecot-pgsql
+apt install -y dovecot-imapd dovecot-pgsql
 
 # 2. Create vmail user and group if not exist
 if ! id "vmail" &>/dev/null; then
@@ -78,12 +85,11 @@ userdb {
 }
 EOF
 
-# 5. Generate dynamic dovecot-sql.conf.ext with absolute SQLite DB path
-SQLITE_DB="${PROJECT_ROOT}/backend/storage/email_logs.sqlite"
-echo "⚙️ Configuring /etc/dovecot/dovecot-sql.conf.ext for SQLite DB: ${SQLITE_DB}"
+# 5. Generate dynamic dovecot-sql.conf.ext for PostgreSQL
+echo "⚙️ Configuring /etc/dovecot/dovecot-sql.conf.ext for PostgreSQL (DB: ${PG_DB})..."
 cat << EOF > /etc/dovecot/dovecot-sql.conf.ext
-driver = sqlite
-connect = ${SQLITE_DB}
+driver = pgsql
+connect = host=${PG_HOST} port=${PG_PORT} dbname=${PG_DB} user=${PG_USER} password=${PG_PASS}
 default_pass_scheme = PLAIN
 
 password_query = SELECT email AS user, COALESCE(plain_password, password_hash) AS password FROM mailbox_users WHERE LOWER(email) = LOWER('%u')
@@ -107,7 +113,8 @@ systemctl enable dovecot || true
 
 echo ""
 echo "=========================================================="
-echo "✅ Dovecot IMAP Setup Complete and Running!"
+echo "✅ Dovecot IMAP Setup Complete with PostgreSQL!"
+echo "   - Database: PostgreSQL (${PG_DB} @ ${PG_HOST})"
 echo "   - IMAP Port: 143 (Plain/STARTTLS)"
 echo "   - IMAPS Port: 993 (SSL)"
 echo "   - Maildir: ${MAILDIR_PATH}"

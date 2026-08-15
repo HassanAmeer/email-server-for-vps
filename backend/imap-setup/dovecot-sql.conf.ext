@@ -1,22 +1,14 @@
 # ==============================================================================
-# Dovecot SQL Authentication Configuration
-# Works with both PostgreSQL and SQLite
+# Dovecot PostgreSQL Authentication Configuration
 # ==============================================================================
 
-# ------------------------------------------------------------------------------
-# Option A: SQLite (Default local and standalone database)
-# ------------------------------------------------------------------------------
-driver = sqlite
-connect = /var/www/email-server-for-vps/backend/storage/email_logs.sqlite
+# PostgreSQL Driver
+driver = pgsql
 
-# ------------------------------------------------------------------------------
-# Option B: PostgreSQL (Uncomment if using PostgreSQL database on VPS)
-# ------------------------------------------------------------------------------
-# driver = pgsql
-# connect = host=127.0.0.1 dbname=email_server user=postgres password=YOUR_PASSWORD
+# PostgreSQL Connection String (Update host, dbname, user, and password)
+connect = host=127.0.0.1 dbname=email_server user=postgres password=YOUR_PG_PASSWORD
 
-# Default password scheme
-# Options: PLAIN, SHA512-CRYPT, BCRYPT
+# Default Password Scheme (PLAIN, BCRYPT, SHA512-CRYPT)
 default_pass_scheme = PLAIN
 
 # Password Query: Authenticate mailbox user against mailbox_users table
@@ -35,5 +27,5 @@ user_query = \
   FROM mailbox_users \
   WHERE LOWER(email) = LOWER('%u')
 
-# Iterate query (for doveadm operations)
+# Iterate query (for doveadm user listing)
 iterate_query = SELECT email AS user FROM mailbox_users
