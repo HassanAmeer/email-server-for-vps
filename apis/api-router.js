@@ -583,6 +583,19 @@ export class ApiRouter {
       return;
     }
 
+    const cleanUrl = req.url.split("?")[0];
+    const parts = cleanUrl.split("/").filter(Boolean); // e.g. ["api", "admin", "domains", "12", "verify"]
+
+    if (parts.length === 5 && parts[4] === "verify" && req.method === "POST") {
+      const id = parts[3];
+      return AdminController.verifyAttachedDomain(req, res, id);
+    }
+
+    if (parts.length === 5 && parts[4] === "primary" && req.method === "POST") {
+      const id = parts[3];
+      return AdminController.setPrimaryAttachedDomain(req, res, id);
+    }
+
     if (req.method === "GET") {
       return AdminController.getAttachedDomains(req, res);
     }
@@ -592,12 +605,12 @@ export class ApiRouter {
     }
     
     if (req.method === "PUT") {
-      const id = req.url.split("/").pop();
+      const id = parts[3];
       return AdminController.updateAttachedDomain(req, res, id);
     }
     
     if (req.method === "DELETE") {
-      const id = req.url.split("/").pop();
+      const id = parts[3];
       return AdminController.deleteAttachedDomain(req, res, id);
     }
 
@@ -1135,10 +1148,12 @@ export class ApiRouter {
   // ==========================================
   // NEW WEBMAIL API
   // ==========================================
+  // MAILBOX AUTHENTICATED ENDPOINTS
+  // ==========================================
   static async handleMailboxApi(req, res) {
     try {
       const dbModule = await import("../backend/database/db.js");
-      const { verifyMailboxUser, getMailboxInbox } = dbModule;
+      const { verifyMailboxUser, getMailboxInbox, isPrimaryMailboxUser } = dbModule;
       const cleanUrl = req.url.split("?")[0];
 
       // CORS Preflight
@@ -1182,12 +1197,8 @@ export class ApiRouter {
         return;
       }
 
-
-
-
-
-      // Authentication Middleware for the rest
-      const authHeader = req.headers.authorization;
+      // Validate Auth for remaining routes
+      const authHeader = req.headers["authorization"];
       if (!authHeader || !authHeader.startsWith("Bearer ")) {
         res.writeHead(401, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Unauthorized" }));
@@ -1195,8 +1206,6 @@ export class ApiRouter {
       }
 
       const token = authHeader.split(" ")[1];
-      // Token format: "<64-char-hex>:<user@email.com>"
-      // Split on first colon only so email addresses with no colons parse correctly
       const colonIdx = token.indexOf(":");
       if (colonIdx === -1) {
         res.writeHead(401, { "Content-Type": "application/json" });
@@ -1222,9 +1231,12 @@ export class ApiRouter {
       if (cleanUrl === "/api/mailbox/count" && req.method === "GET") {
         try {
           const db = dbModule.default;
-          const row = db.prepare("SELECT COUNT(*) as count FROM received_emails WHERE recipient = ?").get(userEmail);
+          const isPrimary = isPrimaryMailboxUser(userEmail);
+          const row = isPrimary
+            ? db.prepare("SELECT COUNT(*) as count FROM received_emails").get()
+            : db.prepare("SELECT COUNT(*) as count FROM received_emails WHERE recipient = ?").get(userEmail);
           res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ email: userEmail, count: row ? row.count : 0 }));
+          res.end(JSON.stringify({ email: userEmail, count: row ? row.count : 0, isPrimaryMailbox: isPrimary }));
         } catch (err) {
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: err.message }));
@@ -1290,12 +1302,13 @@ export class ApiRouter {
       // GET /api/mailbox/inbox/:id
       if (cleanUrl.match(/\/api\/mailbox\/inbox\/\d+/) && req.method === "GET") {
         const id = cleanUrl.split("/").pop();
+        const isPrimary = isPrimaryMailboxUser(userEmail);
         
-        // Fetch the specific email directly to ensure it belongs to this user
+        // Fetch the specific email directly
         const db = dbModule.default;
         const emailRecord = db.prepare("SELECT file_name, recipient FROM received_emails WHERE id = ?").get(id);
         
-        if (!emailRecord || emailRecord.recipient !== userEmail) {
+        if (!emailRecord || (!isPrimary && emailRecord.recipient !== userEmail)) {
           res.writeHead(404, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "Email not found" }));
           return;
@@ -1317,10 +1330,11 @@ export class ApiRouter {
       // DELETE /api/mailbox/inbox/:id
       if (cleanUrl.match(/\/api\/mailbox\/inbox\/\d+/) && req.method === "DELETE") {
         const id = cleanUrl.split("/").pop();
+        const isPrimary = isPrimaryMailboxUser(userEmail);
         const db = dbModule.default;
         
         const emailRecord = db.prepare("SELECT file_name, recipient FROM received_emails WHERE id = ?").get(id);
-        if (!emailRecord || emailRecord.recipient !== userEmail) {
+        if (!emailRecord || (!isPrimary && emailRecord.recipient !== userEmail)) {
           res.writeHead(404, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "Email not found" }));
           return;
@@ -1341,8 +1355,11 @@ export class ApiRouter {
 
       // GET /api/mailbox/media
       if (cleanUrl === "/api/mailbox/media" && req.method === "GET") {
+        const isPrimary = isPrimaryMailboxUser(userEmail);
         const db = dbModule.default;
-        const emails = db.prepare("SELECT id, sender, created_at, file_name FROM received_emails WHERE recipient = ? AND has_attachment = 1 ORDER BY id DESC").all(userEmail);
+        const emails = isPrimary
+          ? db.prepare("SELECT id, recipient, sender, created_at, file_name FROM received_emails WHERE has_attachment = 1 ORDER BY id DESC").all()
+          : db.prepare("SELECT id, recipient, sender, created_at, file_name FROM received_emails WHERE recipient = ? AND has_attachment = 1 ORDER BY id DESC").all(userEmail);
         
         const targetDir = getTargetStorageDir();
         const allMedia = [];
@@ -1357,6 +1374,7 @@ export class ApiRouter {
                 parsed.attachments.forEach((att, index) => {
                   allMedia.push({
                     emailId: email.id,
+                    recipient: email.recipient,
                     sender: email.sender,
                     date: email.created_at,
                     filename: att.filename || `attachment-${index}`,

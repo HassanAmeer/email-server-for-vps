@@ -371,13 +371,16 @@ export class AdminController {
         key = fs.readFileSync(dkimPath, "utf-8");
       }
       
-      let ip_address = "Failed to get IP";
-      try {
-        const ipRes = await fetch("https://api.ipify.org?format=json");
-        const ipData = await ipRes.json();
-        ip_address = ipData.ip;
-      } catch (e) {
-        console.error("Could not fetch IP:", e);
+      let ip_address = process.env.SERVER_IP || "";
+      if (!ip_address) {
+        try {
+          const ipRes = await fetch("https://api.ipify.org?format=json");
+          const ipData = await ipRes.json();
+          ip_address = ipData.ip;
+        } catch (e) {
+          console.error("Could not fetch IP:", e);
+          ip_address = "127.0.0.1";
+        }
       }
 
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -422,13 +425,53 @@ export class AdminController {
   static getAttachedDomains(req, res) {
     try {
       const db = require('../database/db.js').default;
-      const domains = db.prepare("SELECT * FROM attached_domains ORDER BY created_at DESC").all();
+      const domains = db.prepare("SELECT * FROM attached_domains ORDER BY is_primary DESC, created_at DESC").all();
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(domains));
     } catch (error) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: error.message }));
     }
+  }
+
+  /**
+   * Sets a domain as the primary domain
+   */
+  static setPrimaryAttachedDomain(req, res, id) {
+    let body = "";
+    req.on("data", chunk => body += chunk.toString());
+    req.on("end", () => {
+      try {
+        let prefix = "my";
+        if (body) {
+          try {
+            const parsed = JSON.parse(body);
+            if (parsed.prefix) {
+              prefix = parsed.prefix.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
+            }
+          } catch (e) {}
+        }
+
+        const db = require('../database/db.js').default;
+        const exists = db.prepare("SELECT id, domain FROM attached_domains WHERE id = ?").get(id);
+        if (!exists) {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Domain not found" }));
+          return;
+        }
+
+        db.transaction(() => {
+          db.prepare("UPDATE attached_domains SET is_primary = 0").run();
+          db.prepare("UPDATE attached_domains SET is_primary = 1, primary_prefix = ? WHERE id = ?").run(prefix || 'my', id);
+        })();
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true, primary_id: id, domain: exists.domain, primary_prefix: prefix || 'my' }));
+      } catch (error) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: error.message }));
+      }
+    });
   }
 
   /**
@@ -439,7 +482,7 @@ export class AdminController {
     req.on("data", chunk => body += chunk.toString());
     req.on("end", () => {
       try {
-        const { domain } = JSON.parse(body);
+        const { domain, status = 'pending', plan = 'free', catch_all = 1, is_primary = 0 } = JSON.parse(body);
         if (!domain) {
           res.writeHead(400, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "Domain name is required" }));
@@ -447,13 +490,25 @@ export class AdminController {
         }
 
         const db = require('../database/db.js').default;
-        const stmt = db.prepare("INSERT INTO attached_domains (domain) VALUES (?)");
-        stmt.run(domain.toLowerCase().trim());
+
+        // If this is marked as primary, reset others
+        if (is_primary === 1 || is_primary === true) {
+          db.prepare("UPDATE attached_domains SET is_primary = 0").run();
+        }
+
+        const stmt = db.prepare("INSERT INTO attached_domains (domain, status, plan, catch_all, is_primary) VALUES (?, ?, ?, ?, ?)");
+        stmt.run(
+          domain.toLowerCase().trim(),
+          status,
+          plan,
+          catch_all === 0 || catch_all === false ? 0 : 1,
+          is_primary === 1 || is_primary === true ? 1 : 0
+        );
         
         res.writeHead(201, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ success: true }));
       } catch (err) {
-        if (err.message.includes("UNIQUE constraint failed")) {
+        if (err.message && err.message.includes("UNIQUE constraint failed")) {
           res.writeHead(409, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "Domain is already attached" }));
         } else {
@@ -465,7 +520,7 @@ export class AdminController {
   }
 
   /**
-   * Updates an attached domain's status or catch_all setting
+   * Updates an attached domain's status, plan, catch_all, or is_primary setting
    */
   static updateAttachedDomain(req, res, id) {
     let body = "";
@@ -473,7 +528,7 @@ export class AdminController {
     req.on("end", () => {
       try {
         const payload = JSON.parse(body);
-        if (payload.status === undefined && payload.catch_all === undefined && payload.plan === undefined) {
+        if (payload.status === undefined && payload.catch_all === undefined && payload.plan === undefined && payload.is_primary === undefined) {
           res.writeHead(400, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "No fields to update" }));
           return;
@@ -498,6 +553,15 @@ export class AdminController {
           updates.push("plan = ?");
           values.push(payload.plan);
         }
+
+        if (payload.is_primary !== undefined) {
+          const isPrim = payload.is_primary === true || payload.is_primary === 1 ? 1 : 0;
+          if (isPrim === 1) {
+            db.prepare("UPDATE attached_domains SET is_primary = 0").run();
+          }
+          updates.push("is_primary = ?");
+          values.push(isPrim);
+        }
         
         values.push(id);
         
@@ -516,6 +580,102 @@ export class AdminController {
         res.end(JSON.stringify({ error: err.message }));
       }
     });
+  }
+
+  /**
+   * Verifies DNS configuration for an attached domain
+   */
+  static async verifyAttachedDomain(req, res, id) {
+    try {
+      const db = require('../database/db.js').default;
+      const domainRecord = db.prepare("SELECT * FROM attached_domains WHERE id = ?").get(id);
+      
+      if (!domainRecord) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Domain not found" }));
+        return;
+      }
+
+      const domain = domainRecord.domain;
+      const dns = require('dns').promises;
+      
+      const results = {
+        domain,
+        mx: { valid: false, details: [] },
+        a: { valid: false, details: [] },
+        spf: { valid: false, details: [] },
+        dkim: { valid: false, details: [] }
+      };
+
+      // Check MX
+      try {
+        const mxRecords = await dns.resolveMx(domain);
+        if (mxRecords && mxRecords.length > 0) {
+          results.mx.valid = true;
+          results.mx.details = mxRecords.map(r => `${r.exchange} (priority ${r.priority})`);
+        }
+      } catch (e) {
+        results.mx.error = e.code || e.message;
+      }
+
+      // Check A record (mail.<domain> or <domain>)
+      try {
+        const mailA = await dns.resolve4(`mail.${domain}`).catch(() => []);
+        const rootA = await dns.resolve4(domain).catch(() => []);
+        const ips = Array.from(new Set([...mailA, ...rootA]));
+        if (ips.length > 0) {
+          results.a.valid = true;
+          results.a.details = ips;
+        }
+      } catch (e) {
+        results.a.error = e.code || e.message;
+      }
+
+      // Check SPF TXT
+      try {
+        const txtRecords = await dns.resolveTxt(domain);
+        const flatTxt = txtRecords.map(t => Array.isArray(t) ? t.join("") : t);
+        const spf = flatTxt.find(t => typeof t === "string" && t.toLowerCase().includes("v=spf1"));
+        if (spf) {
+          results.spf.valid = true;
+          results.spf.details = [spf];
+        }
+      } catch (e) {
+        results.spf.error = e.code || e.message;
+      }
+
+      // Check DKIM TXT
+      try {
+        const dkimRecords = await dns.resolveTxt(`default._domainkey.${domain}`);
+        const flatDkim = dkimRecords.map(t => Array.isArray(t) ? t.join("") : t);
+        const dkim = flatDkim.find(t => typeof t === "string" && (t.toLowerCase().includes("v=dkim1") || t.includes("p=")));
+        if (dkim) {
+          results.dkim.valid = true;
+          results.dkim.details = [dkim];
+        }
+      } catch (e) {
+        results.dkim.error = e.code || e.message;
+      }
+
+      // Determine verification outcome
+      const isVerified = results.mx.valid || (results.spf.valid && results.a.valid);
+      const newStatus = isVerified ? "active" : domainRecord.status;
+
+      if (isVerified && domainRecord.status !== "active") {
+        db.prepare("UPDATE attached_domains SET status = 'active' WHERE id = ?").run(id);
+      }
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        success: true,
+        verified: isVerified,
+        status: isVerified ? "active" : domainRecord.status,
+        results
+      }));
+    } catch (error) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+    }
   }
 
   /**

@@ -25,39 +25,53 @@ export default function Overview({ apiUrl, stats }: OverviewProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchApiStats = async () => {
-      if (!apiUrl) return;
+      if (!apiUrl) {
+        if (isMounted) setLoading(false);
+        return;
+      }
       try {
-        const token = localStorage.getItem("admin_token") || "";
+        const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") || "" : "";
         const headers = { "Authorization": `Bearer ${token}` };
 
-        const [res, trafficRes] = await Promise.all([
+        const [res, trafficRes] = await Promise.allSettled([
           fetch(`${apiUrl}/api/admin/api-settings`, { headers }),
           fetch(`${apiUrl}/api/admin/stats/traffic`, { headers })
         ]);
 
-        if (res.ok) {
-          const data = await res.json();
-          setApiRoutes(data);
+        if (!isMounted) return;
+
+        if (res.status === "fulfilled" && res.value.ok) {
+          const data = await res.value.json();
+          if (Array.isArray(data)) {
+            setApiRoutes(data);
+          }
         }
-        if (trafficRes.ok) {
-          const tData = await trafficRes.json();
-          setTrafficStats(tData);
+        if (trafficRes.status === "fulfilled" && trafficRes.value.ok) {
+          const tData = await trafficRes.value.json();
+          if (Array.isArray(tData)) {
+            setTrafficStats(tData);
+          }
         }
       } catch (err) {
-        console.error("Error fetching overview API stats:", err);
+        console.warn("Backend server not reachable at", apiUrl, err);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
     fetchApiStats();
     const interval = setInterval(fetchApiStats, 5000);
-    return () => clearInterval(interval);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [apiUrl]);
 
   const formatBytes = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes";
+    if (!bytes || bytes === 0) return "0 Bytes";
     const k = 1024;
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -65,21 +79,22 @@ export default function Overview({ apiUrl, stats }: OverviewProps) {
   };
 
   // Dynamically calculate SVG Chart Coordinates from trafficStats
-  const maxTraffic = Math.max(1, ...trafficStats.map(s => s.generated + s.received));
+  const safeTrafficStats = Array.isArray(trafficStats) ? trafficStats : [];
+  const maxTraffic = Math.max(1, ...safeTrafficStats.map(s => (s?.generated || 0) + (s?.received || 0)));
 
   // Define chart boundaries
   const chartWidth = 420;
   const startX = 50;
-  const xStep = trafficStats.length > 1 ? chartWidth / (trafficStats.length - 1) : chartWidth;
+  const xStep = safeTrafficStats.length > 1 ? chartWidth / (safeTrafficStats.length - 1) : chartWidth;
   const chartHeight = 130;
   const startY = 155; // Bottom line of the chart
 
-  const points = trafficStats.length === 0 ? [] : trafficStats.map((stat, i) => {
-    const total = stat.generated + stat.received;
+  const points = safeTrafficStats.length === 0 ? [] : safeTrafficStats.map((stat, i) => {
+    const total = (stat?.generated || 0) + (stat?.received || 0);
     const heightPercent = total / maxTraffic;
     const y = startY - (chartHeight * heightPercent);
-    const dateObj = new Date(stat.day);
-    const dayStr = dateObj.toLocaleDateString("en-US", { weekday: 'short' });
+    const dateObj = new Date(stat?.day || Date.now());
+    const dayStr = isNaN(dateObj.getTime()) ? "N/A" : dateObj.toLocaleDateString("en-US", { weekday: 'short' });
 
     return {
       x: startX + (i * xStep),
@@ -95,7 +110,7 @@ export default function Overview({ apiUrl, stats }: OverviewProps) {
   }, "");
 
   // Area Path String (closing the shape to the bottom for the gradient fill)
-  const areaD = pathD ? `${pathD} L ${points[points.length - 1].x} 170 L ${points[0].x} 170 Z` : "";
+  const areaD = pathD && points.length > 0 ? `${pathD} L ${points[points.length - 1].x} 170 L ${points[0].x} 170 Z` : "";
 
   return (
     <div className="flex flex-col gap-8 w-full animate-fade-in">

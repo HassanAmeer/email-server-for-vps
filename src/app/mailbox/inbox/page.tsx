@@ -8,6 +8,7 @@ export default function MailboxInbox() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [user, setUser] = useState<any>(null);
+  const [isPrimaryMailbox, setIsPrimaryMailbox] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState<any>(null);
   const [showCompose, setShowCompose] = useState(false);
   const [composeTo, setComposeTo] = useState("");
@@ -30,7 +31,11 @@ export default function MailboxInbox() {
     }
 
     try {
-      setUser(JSON.parse(userStr));
+      const parsedUser = JSON.parse(userStr);
+      setUser(parsedUser);
+      if (parsedUser.is_primary) {
+        setIsPrimaryMailbox(true);
+      }
       const storedRead = localStorage.getItem("mailbox_read_emails");
       if (storedRead) {
         setReadEmails(new Set(JSON.parse(storedRead)));
@@ -62,6 +67,9 @@ export default function MailboxInbox() {
       if (res.ok) {
         const responseData = await res.json();
         setEmails(responseData.data || []);
+        if (responseData.isPrimaryMailbox !== undefined) {
+          setIsPrimaryMailbox(responseData.isPrimaryMailbox);
+        }
       }
     } catch (err) {
       // Silently fail for background polling
@@ -83,6 +91,9 @@ export default function MailboxInbox() {
       if (res.ok) {
         const responseData = await res.json();
         setEmails(responseData.data || []);
+        if (responseData.isPrimaryMailbox !== undefined) {
+          setIsPrimaryMailbox(responseData.isPrimaryMailbox);
+        }
       } else {
         const err = await res.json();
         setError(err.error || "Failed to load emails");
@@ -273,12 +284,25 @@ export default function MailboxInbox() {
                 <path d="M22.5 6.908V6.75a3 3 0 00-3-3h-15a3 3 0 00-3 3v.158l9.714 5.978a1.5 1.5 0 001.572 0L22.5 6.908z" />
               </svg>
             </div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Mail<span className="text-emerald-400">Box</span></h1>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl font-bold text-white tracking-tight">Mail<span className="text-emerald-400">Box</span></h1>
+              {isPrimaryMailbox ? (
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  Central Admin Mailbox (All Inbound Mail)
+                </span>
+              ) : (
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-violet-500/15 text-violet-400 border border-violet-500/30">
+                  User Mailbox
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-4">
             <div className="hidden md:flex flex-col items-end">
-              <span className="text-xs text-gray-500 font-medium font-mono uppercase tracking-widest">Logged in as</span>
+              <span className="text-xs text-gray-500 font-medium font-mono uppercase tracking-widest">
+                {isPrimaryMailbox ? "Primary Admin" : "Logged in as"}
+              </span>
               <span className="text-sm text-gray-200 font-bold">{user.email}</span>
             </div>
             <div className="h-8 w-px bg-white/[0.08] hidden md:block mx-1"></div>
@@ -411,6 +435,15 @@ export default function MailboxInbox() {
                           </span>
                         </div>
                       </div>
+
+                      {/* Recipient tag for central admin mailbox */}
+                      {isPrimaryMailbox && email.recipient && (
+                        <div className="mb-1">
+                          <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 inline-flex items-center gap-1 max-w-full truncate">
+                            <span className="text-gray-500 font-sans">To:</span> {email.recipient}
+                          </span>
+                        </div>
+                      )}
 
                       <div className={`text-sm font-semibold truncate mb-1.5 ${isSelected ? 'text-violet-200' : 'text-gray-300'}`}>
                         {email.subject || "(No Subject)"}
@@ -558,6 +591,13 @@ export default function MailboxInbox() {
                             <span className="text-[10px] font-mono text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded border border-violet-500/20">{formatBytes(file.size)}</span>
                             <span className="text-[10px] text-gray-500">{formatDate(file.date)}</span>
                           </div>
+                          {file.recipient && isPrimaryMailbox && (
+                            <div className="mt-1">
+                              <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 block truncate">
+                                To: {file.recipient}
+                              </span>
+                            </div>
+                          )}
                           <div className="mt-2 pt-2 border-t border-white/[0.08] flex items-center gap-1.5">
                             <div className="w-4 h-4 rounded bg-white/5 flex items-center justify-center text-[8px] font-bold text-gray-400 border border-white/10">{getInitials(parseSender(file.sender).name, '')}</div>
                             <span className="text-[10px] text-gray-400 truncate flex-1" title={parseSender(file.sender).email || parseSender(file.sender).name}>

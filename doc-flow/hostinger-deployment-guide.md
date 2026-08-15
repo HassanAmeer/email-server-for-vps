@@ -11,7 +11,7 @@ Terminal me kaam shuru karne se pehle, apne Hostinger Dashboard me **Firewall / 
 - **Port 2525** (SMTP Email port)
 
 > [!IMPORTANT]
-> Jab tak aap panel se ports on nahi karenge, aapki website bahar kisi ko show nahi hogi, bhale hi server ke andar app bilkul theek chal rahi ho!
+> Jab tak aap panel se ports on nahi karenge, aapki website bahar kisi ko show nahi hogi, bhale hi server ke andajr app bilkul theek chal rahi ho!
 
 ---
 

@@ -21,7 +21,7 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
   const [error, setError] = useState("");
   const [newUsername, setNewUsername] = useState("");
   const [selectedDomain, setSelectedDomain] = useState("");
-  const [domains, setDomains] = useState<{domain: string}[]>([]);
+  const [domains, setDomains] = useState<{domain: string; is_primary?: boolean | number}[]>([]);
   const [projects, setProjects] = useState<{id: number, name: string}[]>([]);
   const [selectedProject, setSelectedProject] = useState<number | null>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -67,7 +67,10 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
           domain: d.domain.replace(/^https?:\/\//, '').replace(/\/+$/, '')
         }));
         setDomains(sanitizedData);
-        if (sanitizedData.length > 0) {
+        const primary = sanitizedData.find((d: any) => d.is_primary === 1 || d.is_primary === true);
+        if (primary) {
+          setSelectedDomain(primary.domain);
+        } else if (sanitizedData.length > 0) {
           setSelectedDomain(sanitizedData[0].domain);
         }
       }
@@ -203,12 +206,12 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
   return (
     <div className="flex flex-col gap-6 p-6 lg:p-10 flex-grow overflow-y-auto max-h-screen">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold text-white tracking-tight">Project Mailbox Accounts</h1>
-        <p className="text-sm text-gray-400">Manage permanent email addresses that are linked to specific projects.</p>
+        <h1 className="text-2xl font-bold text-white tracking-tight">Users Mailbox Accounts</h1>
+        <p className="text-sm text-gray-400">Manage permanent user mailbox email accounts linked to projects and domains.</p>
       </div>
 
       <div className="bg-[#0D121F] border border-white/[0.05] rounded-2xl p-6 shadow-2xl">
-        <h2 className="text-lg font-bold text-white mb-4">Create New mailbox Account</h2>
+        <h2 className="text-lg font-bold text-white mb-4">Create New User Mailbox Account</h2>
         {domains.length === 0 ? (
           <div className="text-sm text-amber-400 bg-amber-500/10 p-4 rounded-xl border border-amber-500/20">
             Please add at least one domain in the Setup tab before creating mailbox accounts.
@@ -239,7 +242,7 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
                 >
                   {domains.map((d, i) => (
                     <option key={i} value={d.domain} className="bg-[#0D121F] text-white">
-                      {d.domain}
+                      {d.domain} {d.is_primary === 1 || d.is_primary === true ? "★ (Primary)" : ""}
                     </option>
                   ))}
                 </select>
@@ -295,7 +298,7 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
               </svg>
             </div>
-            <h3 className="text-white font-bold mb-1">No mailbox Accounts</h3>
+            <h3 className="text-white font-bold mb-1">No User Mailbox Accounts</h3>
             <p className="text-sm text-gray-400 max-w-sm">Create an account above to start receiving and sending emails globally.</p>
           </div>
         ) : (

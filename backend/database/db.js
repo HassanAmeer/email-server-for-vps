@@ -77,6 +77,8 @@ try { db.exec(`ALTER TABLE projects ADD COLUMN retention_generated_emails_pro IN
 try { db.exec(`ALTER TABLE projects ADD COLUMN allowed_files_free TEXT DEFAULT 'txt,png,jpg,jpeg,pdf,zip';`); } catch (e) { }
 try { db.exec(`ALTER TABLE projects ADD COLUMN allowed_files_pro TEXT DEFAULT 'txt,sql,png,zip,pdf,ai,mp3,mp4,jpg,jpeg,gif';`); } catch (e) { }
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN catch_all BOOLEAN DEFAULT 1;`); } catch (e) { }
+try { db.exec(`ALTER TABLE attached_domains ADD COLUMN is_primary BOOLEAN DEFAULT 0;`); } catch (e) { }
+try { db.exec(`ALTER TABLE attached_domains ADD COLUMN primary_prefix TEXT DEFAULT 'my';`); } catch (e) { }
 try { db.exec(`ALTER TABLE mailbox_users ADD COLUMN plain_password TEXT;`); } catch (e) { }
 
 db.exec(`
@@ -471,7 +473,7 @@ export function getProjectFilesList(project_id) {
 
 export function getActiveDomains() {
   try {
-    const stmt = db.prepare("SELECT domain FROM attached_domains WHERE status = 'active' ORDER BY created_at DESC");
+    const stmt = db.prepare("SELECT domain FROM attached_domains WHERE status = 'active' ORDER BY is_primary DESC, created_at DESC");
     const records = stmt.all();
     return records.map(r => r.domain.replace(/^https?:\/\//, '').replace(/\/+$/, ''));
   } catch (err) {
@@ -482,15 +484,43 @@ export function getActiveDomains() {
 
 export function getActiveDomainsWithPlan() {
   try {
-    const stmt = db.prepare("SELECT domain, plan FROM attached_domains WHERE status = 'active' ORDER BY created_at DESC");
+    const stmt = db.prepare("SELECT domain, plan, is_primary FROM attached_domains WHERE status = 'active' ORDER BY is_primary DESC, created_at DESC");
     const records = stmt.all();
     return records.map(r => ({
       domain: r.domain.replace(/^https?:\/\//, '').replace(/\/+$/, ''),
-      plan: r.plan || 'free'
+      plan: r.plan || 'free',
+      is_primary: r.is_primary === 1
     }));
   } catch (err) {
     console.error("DB Error fetching active domains with plan:", err);
     return [];
+  }
+}
+
+export function getPrimaryDomain() {
+  try {
+    const primary = db.prepare("SELECT * FROM attached_domains WHERE is_primary = 1 LIMIT 1").get();
+    if (primary) return primary;
+    const firstActive = db.prepare("SELECT * FROM attached_domains WHERE status = 'active' ORDER BY created_at ASC LIMIT 1").get();
+    return firstActive || null;
+  } catch (err) {
+    console.error("DB Error fetching primary domain:", err);
+    return null;
+  }
+}
+
+export function setPrimaryDomain(id) {
+  try {
+    const target = db.prepare("SELECT * FROM attached_domains WHERE id = ?").get(id);
+    if (!target) return false;
+    db.transaction(() => {
+      db.prepare("UPDATE attached_domains SET is_primary = 0").run();
+      db.prepare("UPDATE attached_domains SET is_primary = 1 WHERE id = ?").run(id);
+    })();
+    return true;
+  } catch (err) {
+    console.error("DB Error setting primary domain:", err);
+    return false;
   }
 }
 
@@ -703,6 +733,27 @@ export function deleteMailboxUser(userId, projectId) {
   }
 }
 
+export function isPrimaryMailboxUser(email) {
+  if (!email) return false;
+  try {
+    const primary = getPrimaryDomain();
+    if (!primary) return false;
+    const cleanEmail = email.toLowerCase().trim();
+    const primaryDomainName = (primary.domain || "").toLowerCase().trim();
+    const primaryPrefix = (primary.primary_prefix || "my").toLowerCase().trim();
+    const primaryFullAddress = `${primaryPrefix}@${primaryDomainName}`;
+
+    // Exact match with primary address (e.g. my@jk.com) OR any address under primary domain
+    if (cleanEmail === primaryFullAddress || cleanEmail.endsWith(`@${primaryDomainName}`)) {
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.error("Error checking isPrimaryMailboxUser:", err);
+    return false;
+  }
+}
+
 export function verifyMailboxUser(email, password) {
   try {
     const stmt = db.prepare("SELECT * FROM mailbox_users WHERE email = ?");
@@ -713,6 +764,7 @@ export function verifyMailboxUser(email, password) {
     if (isValid) {
       // Don't return the hash
       const { password_hash, ...safeUser } = user;
+      safeUser.is_primary = isPrimaryMailboxUser(user.email);
       return safeUser;
     }
     return null;
@@ -725,23 +777,41 @@ export function verifyMailboxUser(email, password) {
 export function getMailboxInbox(email, page = 1, limit = 50) {
   try {
     const offset = (page - 1) * limit;
+    const isPrimary = isPrimaryMailboxUser(email);
     
-    // Get total count
-    const countStmt = db.prepare("SELECT COUNT(*) as count FROM received_emails WHERE recipient = ?");
-    const totalRecords = countStmt.get(email).count;
-    const totalPages = Math.ceil(totalRecords / limit);
+    let totalRecords = 0;
+    let data = [];
 
-    // Get paginated records
-    const stmt = db.prepare(`
-      SELECT id, recipient, sender, subject, has_attachment, attachment_size, created_at 
-      FROM received_emails 
-      WHERE recipient = ?
-      ORDER BY id DESC LIMIT ? OFFSET ?
-    `);
-    const data = stmt.all(email, limit, offset);
+    if (isPrimary) {
+      // Primary Domain Mailbox: Show ALL received emails across the entire server / all domains!
+      const countStmt = db.prepare("SELECT COUNT(*) as count FROM received_emails");
+      totalRecords = countStmt.get().count;
+      
+      const stmt = db.prepare(`
+        SELECT id, recipient, sender, subject, has_attachment, attachment_size, created_at 
+        FROM received_emails 
+        ORDER BY id DESC LIMIT ? OFFSET ?
+      `);
+      data = stmt.all(limit, offset);
+    } else {
+      // Regular User Mailbox: Show ONLY emails sent to this specific recipient
+      const countStmt = db.prepare("SELECT COUNT(*) as count FROM received_emails WHERE recipient = ?");
+      totalRecords = countStmt.get(email).count;
+
+      const stmt = db.prepare(`
+        SELECT id, recipient, sender, subject, has_attachment, attachment_size, created_at 
+        FROM received_emails 
+        WHERE recipient = ?
+        ORDER BY id DESC LIMIT ? OFFSET ?
+      `);
+      data = stmt.all(email, limit, offset);
+    }
+
+    const totalPages = Math.ceil(totalRecords / limit);
 
     return {
       data,
+      isPrimaryMailbox: isPrimary,
       pagination: {
         page,
         limit,
@@ -751,7 +821,7 @@ export function getMailboxInbox(email, page = 1, limit = 50) {
     };
   } catch (err) {
     console.error("DB Error getting mailbox inbox:", err);
-    return { data: [], pagination: { page: 1, limit: 50, totalRecords: 0, totalPages: 0 } };
+    return { data: [], isPrimaryMailbox: false, pagination: { page: 1, limit: 50, totalRecords: 0, totalPages: 0 } };
   }
 }
 

@@ -968,7 +968,7 @@ export default function LiveConsolePage() {
                       <li>
                         <strong>Create an A Record:</strong>
                         <div className="bg-black/50 p-2 rounded text-emerald-400 mt-1 select-all">
-                          Type: A | Name: mail | Value: [Your_VPS_IP]
+                          Type: A | Name: mail | Value: {process.env.NEXT_PUBLIC_SERVER_IP || "163.223.93.3"}
                         </div>
                       </li>
                       <li>
@@ -980,7 +980,7 @@ export default function LiveConsolePage() {
                       <li>
                         <strong>Add SPF Record (Outbound validation):</strong>
                         <div className="bg-black/50 p-2 rounded text-emerald-400 mt-1 select-all">
-                          Type: TXT | Name: @ | Value: "v=spf1 ip4:[Your_VPS_IP] ~all"
+                          Type: TXT | Name: @ | Value: &quot;v=spf1 ip4:{process.env.NEXT_PUBLIC_SERVER_IP || "163.223.93.3"} ~all&quot;
                         </div>
                       </li>
                     </ol>
