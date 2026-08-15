@@ -78,17 +78,9 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
   // Determine API URL on client side
   useEffect(() => {
     if (typeof window !== "undefined") {
-      let url = "";
-      const host = window.location.hostname;
-      const port = window.location.port;
-
-      if (host === "localhost" || host === "127.0.0.1") {
-        url = API_BASE;
-      } else if (port === "3000" || port === "8080") {
-        url = `${window.location.protocol}//${host}:8081`;
-      } else {
-        url = `${window.location.protocol}//${window.location.host}`;
-      }
+      const host = window.location.hostname || "localhost";
+      const protocol = window.location.protocol || "http:";
+      const url = `${protocol}//${host}:8081`;
       setApiUrl(url);
 
       const token = localStorage.getItem("admin_token");
