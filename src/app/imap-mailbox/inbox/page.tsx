@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 interface Attachment {
@@ -61,8 +61,14 @@ export default function ImapMailboxInbox() {
   const [loadingMedia, setLoadingMedia] = useState(false);
   const [filterType, setFilterType] = useState<"all" | "with_attachments" | "simple">("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [showHeadersModal, setShowHeadersModal] = useState(false);
   const [viewMode, setViewMode] = useState<"html" | "text">("html");
+
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const [limit] = useState(200);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
   const router = useRouter();
 
   useEffect(() => {
@@ -81,11 +87,18 @@ export default function ImapMailboxInbox() {
       if (storedRead) {
         setReadEmails(new Set(JSON.parse(storedRead)));
       }
-      fetchEmails(token);
+      fetchEmails(token, page, filterType, searchQuery);
     } catch (e) {
       handleLogout();
     }
   }, [router]);
+
+  // Refetch when page, filter, or search changes
+  useEffect(() => {
+    const token = localStorage.getItem("imap_mailbox_token");
+    if (!token || !user) return;
+    fetchEmails(token, page, filterType, searchQuery);
+  }, [page, filterType, searchQuery]);
 
   // Auto-fetch emails every 6 seconds silently
   useEffect(() => {
@@ -94,16 +107,18 @@ export default function ImapMailboxInbox() {
     if (!token) return;
 
     const interval = setInterval(() => {
-      fetchEmailsSilent(token);
+      fetchEmailsSilent(token, page, filterType, searchQuery);
     }, 6000);
 
     return () => clearInterval(interval);
-  }, [user, filterType, searchQuery]);
+  }, [user, page, filterType, searchQuery]);
 
-  const fetchEmailsSilent = async (token: string) => {
+  const fetchEmailsSilent = async (token: string, curPage: number, curFilter: string, curSearch: string) => {
     try {
-      let url = `/api/imap-mailbox/inbox?filter=${filterType}`;
-      if (searchQuery) url += `&search=${encodeURIComponent(searchQuery)}`;
+      let url = `/api/imap-mailbox/inbox?page=${curPage}&limit=${limit}&filter=${curFilter}`;
+      if (curSearch && curSearch.trim().length > 0) {
+        url += `&search=${encodeURIComponent(curSearch.trim())}`;
+      }
 
       const res = await fetch(url, {
         headers: { "Authorization": `Bearer ${token}` }
@@ -111,6 +126,10 @@ export default function ImapMailboxInbox() {
       if (res.ok) {
         const responseData = await res.json();
         setEmails(responseData.data || []);
+        if (responseData.pagination) {
+          setTotalRecords(responseData.pagination.totalRecords || 0);
+          setTotalPages(responseData.pagination.totalPages || 1);
+        }
         if (responseData.primaryDomain) {
           setPrimaryDomain(responseData.primaryDomain);
         }
@@ -120,11 +139,13 @@ export default function ImapMailboxInbox() {
     }
   };
 
-  const fetchEmails = async (token: string) => {
+  const fetchEmails = async (token: string, curPage: number, curFilter: string, curSearch: string) => {
     try {
       setLoading(true);
-      let url = `/api/imap-mailbox/inbox?filter=${filterType}`;
-      if (searchQuery) url += `&search=${encodeURIComponent(searchQuery)}`;
+      let url = `/api/imap-mailbox/inbox?page=${curPage}&limit=${limit}&filter=${curFilter}`;
+      if (curSearch && curSearch.trim().length > 0) {
+        url += `&search=${encodeURIComponent(curSearch.trim())}`;
+      }
 
       const res = await fetch(url, {
         headers: { "Authorization": `Bearer ${token}` }
@@ -138,6 +159,10 @@ export default function ImapMailboxInbox() {
       if (res.ok) {
         const responseData = await res.json();
         setEmails(responseData.data || []);
+        if (responseData.pagination) {
+          setTotalRecords(responseData.pagination.totalRecords || 0);
+          setTotalPages(responseData.pagination.totalPages || 1);
+        }
         if (responseData.primaryDomain) {
           setPrimaryDomain(responseData.primaryDomain);
         }
@@ -184,6 +209,7 @@ export default function ImapMailboxInbox() {
       });
       if (res.ok) {
         setEmails(prev => prev.filter(email => email.id !== emailId));
+        setTotalRecords(prev => Math.max(0, prev - 1));
         if (selectedEmail?.id === emailId) {
           setSelectedEmail(null);
         }
@@ -256,7 +282,7 @@ export default function ImapMailboxInbox() {
       setComposeTo("");
       setComposeSubject("");
       setComposeMessage("");
-      if (token) fetchEmailsSilent(token);
+      if (token) fetchEmailsSilent(token, page, filterType, searchQuery);
     } catch (err: any) {
       alert(err.message || "Failed to send email");
     } finally {
@@ -312,17 +338,10 @@ export default function ImapMailboxInbox() {
     return '?';
   };
 
-  const filteredEmails = emails.filter(email => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      (email.recipient && email.recipient.toLowerCase().includes(q)) ||
-      (email.sender && email.sender.toLowerCase().includes(q)) ||
-      (email.subject && email.subject.toLowerCase().includes(q))
-    );
-  });
-
   if (!user) return null;
+
+  const startRecord = totalRecords === 0 ? 0 : (page - 1) * limit + 1;
+  const endRecord = Math.min(page * limit, totalRecords);
 
   return (
     <div className="h-screen bg-[#030712] text-gray-200 font-sans flex flex-col relative overflow-hidden selection:bg-blue-500 selection:text-white">
@@ -375,20 +394,25 @@ export default function ImapMailboxInbox() {
       <main className="flex-1 max-w-[1700px] mx-auto w-full flex overflow-hidden shadow-2xl shadow-black/80 my-0 bg-[#0b0f19] border-x border-white/[0.04] relative z-10">
 
         {/* Email Stream Sidebar (Left Pane) */}
-        <div className={`w-full md:w-[420px] lg:w-[460px] flex flex-col bg-[#030712]/60 border-r border-white/[0.06] overflow-hidden h-full flex-shrink-0 ${(selectedEmail || showCompose || showMedia) ? 'hidden md:flex' : 'flex'}`}>
+        <div className={`w-full md:w-[420px] lg:w-[470px] flex flex-col bg-[#030712]/60 border-r border-white/[0.06] overflow-hidden h-full flex-shrink-0 ${(selectedEmail || showCompose || showMedia) ? 'hidden md:flex' : 'flex'}`}>
           
-          {/* Action Header & Search */}
-          <div className="p-4 border-b border-white/[0.06] bg-[#0b0f19]/90 backdrop-blur-md flex flex-col gap-3 z-10 sticky top-0 shadow-sm relative">
+          {/* Action Header, Search & Filter Controls */}
+          <div className="p-4 border-b border-white/[0.06] bg-[#0b0f19]/95 backdrop-blur-md flex flex-col gap-3 z-10 sticky top-0 shadow-sm relative">
             <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-                All Captured Mail
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 font-mono font-bold border border-blue-500/30">
-                  {emails.length}
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                  Captured Mail
+                </h2>
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 font-mono font-bold border border-blue-500/30">
+                  {totalRecords}
                 </span>
-              </h2>
+              </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => fetchEmails(localStorage.getItem("imap_mailbox_token") || "")}
+                  onClick={() => {
+                    const token = localStorage.getItem("imap_mailbox_token") || "";
+                    fetchEmails(token, page, filterType, searchQuery);
+                  }}
                   className="text-gray-400 hover:text-blue-400 p-2 rounded-xl hover:bg-white/[0.04] transition-colors bg-white/[0.02] border border-white/[0.06]"
                   title="Refresh Email Stream"
                 >
@@ -407,7 +431,7 @@ export default function ImapMailboxInbox() {
                 </button>
                 <button
                   onClick={() => { setSelectedEmail(null); setShowMedia(false); setShowCompose(true); }}
-                  className="flex items-center gap-1.5 text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 px-3.5 py-1.5 rounded-xl transition-all shadow-[0_0_15px_rgba(59,130,246,0.3)]"
+                  className="flex items-center gap-1.5 text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 px-3 py-1.5 rounded-xl transition-all shadow-[0_0_15px_rgba(59,130,246,0.3)]"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
                     <path d="M21.731 2.269a2.625 2.625 0 00-3.712 0l-1.157 1.158 3.712 3.712 1.158-1.157a2.625 2.625 0 000-3.712zM19.513 8.199l-3.712-3.712-12.15 12.15a5.25 5.25 0 00-1.32 2.214l-.8 2.685a.75.75 0 00.933.933l2.685-.8a5.25 5.25 0 002.214-1.32L19.513 8.2z" />
@@ -417,45 +441,55 @@ export default function ImapMailboxInbox() {
               </div>
             </div>
 
+            {/* Fast Search Input */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search sender, recipient, subject, address..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full bg-black/60 border border-white/[0.08] focus:border-blue-500/60 rounded-xl px-3.5 py-2 pl-9 pr-8 text-xs text-white placeholder:text-gray-500 focus:outline-none transition-all font-mono"
+              />
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3.5 h-3.5 absolute left-3 top-2.5 text-gray-400">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+              </svg>
+              {searchQuery && (
+                <button
+                  onClick={() => { setSearchQuery(""); setPage(1); }}
+                  className="absolute right-2.5 top-2 text-xs text-gray-400 hover:text-white p-1"
+                  title="Clear search"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
             {/* Filter pills */}
             <div className="flex items-center gap-1.5">
               <button
-                onClick={() => setFilterType("all")}
+                onClick={() => { setFilterType("all"); setPage(1); }}
                 className={`text-[11px] font-bold px-2.5 py-1 rounded-lg transition-all ${filterType === "all" ? "bg-blue-500/20 text-blue-300 border border-blue-500/40" : "bg-black/30 text-gray-400 hover:text-gray-200 border border-white/[0.05]"}`}
               >
-                All Emails
+                All Mails
               </button>
               <button
-                onClick={() => setFilterType("with_attachments")}
+                onClick={() => { setFilterType("with_attachments"); setPage(1); }}
                 className={`text-[11px] font-bold px-2.5 py-1 rounded-lg transition-all ${filterType === "with_attachments" ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40" : "bg-black/30 text-gray-400 hover:text-gray-200 border border-white/[0.05]"}`}
               >
                 Attachments
               </button>
               <button
-                onClick={() => setFilterType("simple")}
+                onClick={() => { setFilterType("simple"); setPage(1); }}
                 className={`text-[11px] font-bold px-2.5 py-1 rounded-lg transition-all ${filterType === "simple" ? "bg-purple-500/20 text-purple-300 border border-purple-500/40" : "bg-black/30 text-gray-400 hover:text-gray-200 border border-white/[0.05]"}`}
               >
                 Simple Text
               </button>
-            </div>
-
-            {/* Search Input */}
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search sender, recipient, subject..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-black/50 border border-white/[0.08] focus:border-blue-500/50 rounded-xl px-3.5 py-2 pl-9 text-xs text-white placeholder:text-gray-600 focus:outline-none transition-all font-mono"
-              />
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3.5 h-3.5 absolute left-3 top-2.5 text-gray-500">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-              </svg>
-              {searchQuery && (
-                <button onClick={() => setSearchQuery("")} className="absolute right-3 top-2.5 text-xs text-gray-500 hover:text-white">
-                  ✕
-                </button>
-              )}
+              <span className="ml-auto text-[10px] font-mono text-gray-500">
+                Max 200/page
+              </span>
             </div>
           </div>
 
@@ -464,13 +498,13 @@ export default function ImapMailboxInbox() {
             {loading ? (
               <div className="flex flex-col">
                 {[1, 2, 3, 4, 5, 6].map(i => (
-                  <div key={i} className="animate-pulse flex flex-col gap-3 p-5 border-b border-white/[0.04] bg-white/[0.01]">
+                  <div key={i} className="animate-pulse flex flex-col gap-3 p-4 border-b border-white/[0.04] bg-white/[0.01]">
                     <div className="flex justify-between items-center gap-4">
                       <div className="h-4 bg-white/[0.06] rounded-md w-1/3"></div>
                       <div className="h-3 bg-white/[0.03] rounded-md w-12"></div>
                     </div>
                     <div className="h-4 bg-white/[0.03] rounded-md w-2/3"></div>
-                    <div className="h-3 bg-white/[0.02] rounded-md w-full mt-2"></div>
+                    <div className="h-3 bg-white/[0.02] rounded-md w-full mt-1"></div>
                   </div>
                 ))}
               </div>
@@ -481,7 +515,7 @@ export default function ImapMailboxInbox() {
                 </svg>
                 {error}
               </div>
-            ) : filteredEmails.length === 0 ? (
+            ) : emails.length === 0 ? (
               <div className="p-12 text-center text-gray-500 flex flex-col items-center h-full justify-center bg-[#030712]/30">
                 <div className="w-16 h-16 mb-4 rounded-2xl bg-white/[0.02] flex items-center justify-center text-gray-600 border border-white/[0.05]">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-8 h-8">
@@ -489,11 +523,13 @@ export default function ImapMailboxInbox() {
                   </svg>
                 </div>
                 <p className="font-bold text-gray-300 text-base">No Emails Found</p>
-                <p className="text-xs text-gray-500 mt-1">Inbound emails sent to any address on the server will show here in real time.</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {searchQuery ? `No matches for "${searchQuery}"` : "Inbound emails will stream here automatically in real time."}
+                </p>
               </div>
             ) : (
               <div className="flex flex-col bg-[#0b0f19]/40 divide-y divide-white/[0.04]">
-                {filteredEmails.map(email => {
+                {emails.map(email => {
                   const isSelected = selectedEmail?.id === email.id;
                   const isRead = readEmails.has(email.id);
                   const { name: senderName } = parseSender(email.sender);
@@ -573,6 +609,39 @@ export default function ImapMailboxInbox() {
                 })}
               </div>
             )}
+          </div>
+
+          {/* SIDEBAR PAGINATION FOOTER (Max 200 emails per page) */}
+          <div className="p-3 border-t border-white/[0.06] bg-[#0b0f19]/95 backdrop-blur-md flex items-center justify-between z-10 flex-shrink-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-mono text-gray-400">
+                {totalRecords > 0 ? `${startRecord}-${endRecord} of ${totalRecords}` : "0 emails"}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                disabled={page <= 1 || loading}
+                className="px-2.5 py-1 text-xs font-bold font-mono rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 disabled:opacity-40 disabled:pointer-events-none border border-white/[0.06] transition-all flex items-center gap-1"
+                title="Previous Page"
+              >
+                ← Prev
+              </button>
+
+              <span className="text-[11px] font-mono font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
+                {page} / {Math.max(1, totalPages)}
+              </span>
+
+              <button
+                onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={page >= totalPages || loading}
+                className="px-2.5 py-1 text-xs font-bold font-mono rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 disabled:opacity-40 disabled:pointer-events-none border border-white/[0.06] transition-all flex items-center gap-1"
+                title="Next Page"
+              >
+                Next →
+              </button>
+            </div>
           </div>
         </div>
 

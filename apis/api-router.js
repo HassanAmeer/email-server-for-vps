@@ -1218,9 +1218,11 @@ export class ApiRouter {
       if (cleanUrl === "/api/mailbox/inbox" && req.method === "GET") {
         const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
         const page = parseInt(parsedUrl.searchParams.get("page") || "1", 10);
-        const limit = parseInt(parsedUrl.searchParams.get("limit") || "50", 10);
+        const limit = parseInt(parsedUrl.searchParams.get("limit") || "200", 10);
+        const search = parsedUrl.searchParams.get("search") || "";
+        const filter = parsedUrl.searchParams.get("filter") || "all";
 
-        const data = getMailboxInbox(userEmail, page, limit);
+        const data = getMailboxInbox(userEmail, page, limit, search, filter);
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(data));
         return;
@@ -1548,7 +1550,7 @@ export class ApiRouter {
       if (cleanUrl === "/api/imap-mailbox/inbox" && req.method === "GET") {
         const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
         const page = parseInt(parsedUrl.searchParams.get("page") || "1", 10);
-        const limit = parseInt(parsedUrl.searchParams.get("limit") || "100", 10);
+        const limit = parseInt(parsedUrl.searchParams.get("limit") || "200", 10);
         const search = parsedUrl.searchParams.get("search") || "";
         const filter = parsedUrl.searchParams.get("filter") || "all";
 

@@ -53,6 +53,8 @@ export default function ImapMailboxManager({ apiUrl }: ImapMailboxManagerProps) 
   const [viewMode, setViewMode] = useState<"html" | "text">("html");
   const [loading, setLoading] = useState(true);
   const [showHeadersModal, setShowHeadersModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 200;
 
   // Guides state
   const [guideClient, setGuideClient] = useState<"outlook" | "thunderbird" | "apple" | "python" | "node">("outlook");
@@ -428,7 +430,9 @@ export default function ImapMailboxManager({ apiUrl }: ImapMailboxManagerProps) 
                   </p>
                 </div>
               ) : (
-                filteredMails.map((mail) => {
+                filteredMails
+                  .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                  .map((mail) => {
                   const isSelected = selectedMail?.id === mail.id;
                   const senderName = getSenderName(mail.from);
                   const initial = getSenderInitial(mail.from);
@@ -479,6 +483,36 @@ export default function ImapMailboxManager({ apiUrl }: ImapMailboxManagerProps) 
                 })
               )}
             </div>
+
+            {/* Pagination Controls */}
+            {filteredMails.length > 0 && (
+              <div className="p-3 border-t border-white/[0.06] bg-[#0E1424] flex items-center justify-between z-10 flex-shrink-0">
+                <span className="text-[11px] font-mono text-gray-400">
+                  {Math.min((currentPage - 1) * itemsPerPage + 1, filteredMails.length)}-
+                  {Math.min(currentPage * itemsPerPage, filteredMails.length)} of {filteredMails.length}
+                </span>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage <= 1}
+                    className="px-2 py-1 text-xs font-mono font-bold rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 disabled:opacity-30 disabled:pointer-events-none border border-white/[0.06]"
+                  >
+                    ←
+                  </button>
+                  <span className="text-[11px] font-mono font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
+                    {currentPage}/{Math.max(1, Math.ceil(filteredMails.length / itemsPerPage))}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredMails.length / itemsPerPage), p + 1))}
+                    disabled={currentPage >= Math.ceil(filteredMails.length / itemsPerPage)}
+                    className="px-2 py-1 text-xs font-mono font-bold rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 disabled:opacity-30 disabled:pointer-events-none border border-white/[0.06]"
+                  >
+                    →
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Message Viewport Pane */}

@@ -774,54 +774,64 @@ export function verifyMailboxUser(email, password) {
   }
 }
 
-export function getMailboxInbox(email, page = 1, limit = 50) {
+export function getMailboxInbox(email, page = 1, limit = 200, search = "", filter = "all") {
   try {
-    const offset = (page - 1) * limit;
+    const parsedPage = Math.max(1, parseInt(page || 1, 10));
+    const parsedLimit = Math.min(500, Math.max(1, parseInt(limit || 200, 10)));
+    const offset = (parsedPage - 1) * parsedLimit;
     const isPrimary = isPrimaryMailboxUser(email);
     
-    let totalRecords = 0;
-    let data = [];
+    let query = "SELECT id, recipient, sender, subject, has_attachment, attachment_size, created_at, file_name FROM received_emails";
+    let countQuery = "SELECT COUNT(*) as count FROM received_emails";
+    let whereClauses = [];
+    let params = [];
+    let countParams = [];
 
-    if (isPrimary) {
-      // Primary Domain Mailbox: Show ALL received emails across the entire server / all domains!
-      const countStmt = db.prepare("SELECT COUNT(*) as count FROM received_emails");
-      totalRecords = countStmt.get().count;
-      
-      const stmt = db.prepare(`
-        SELECT id, recipient, sender, subject, has_attachment, attachment_size, created_at 
-        FROM received_emails 
-        ORDER BY id DESC LIMIT ? OFFSET ?
-      `);
-      data = stmt.all(limit, offset);
-    } else {
-      // Regular User Mailbox: Show ONLY emails sent to this specific recipient
-      const countStmt = db.prepare("SELECT COUNT(*) as count FROM received_emails WHERE recipient = ?");
-      totalRecords = countStmt.get(email).count;
-
-      const stmt = db.prepare(`
-        SELECT id, recipient, sender, subject, has_attachment, attachment_size, created_at 
-        FROM received_emails 
-        WHERE recipient = ?
-        ORDER BY id DESC LIMIT ? OFFSET ?
-      `);
-      data = stmt.all(email, limit, offset);
+    if (!isPrimary) {
+      whereClauses.push("recipient = ?");
+      params.push(email);
+      countParams.push(email);
     }
 
-    const totalPages = Math.ceil(totalRecords / limit);
+    if (filter === "with_attachments") {
+      whereClauses.push("has_attachment = 1");
+    } else if (filter === "simple") {
+      whereClauses.push("has_attachment = 0");
+    }
+
+    if (search && search.trim().length > 0) {
+      whereClauses.push("(recipient LIKE ? OR sender LIKE ? OR subject LIKE ?)");
+      const s = `%${search.trim()}%`;
+      params.push(s, s, s);
+      countParams.push(s, s, s);
+    }
+
+    if (whereClauses.length > 0) {
+      const whereStr = " WHERE " + whereClauses.join(" AND ");
+      query += whereStr;
+      countQuery += whereStr;
+    }
+
+    query += " ORDER BY id DESC LIMIT ? OFFSET ?";
+    params.push(parsedLimit, offset);
+
+    const totalRecords = db.prepare(countQuery).get(...countParams).count;
+    const data = db.prepare(query).all(...params);
+    const totalPages = Math.ceil(totalRecords / parsedLimit);
 
     return {
       data,
       isPrimaryMailbox: isPrimary,
       pagination: {
-        page,
-        limit,
+        page: parsedPage,
+        limit: parsedLimit,
         totalRecords,
         totalPages
       }
     };
   } catch (err) {
     console.error("DB Error getting mailbox inbox:", err);
-    return { data: [], isPrimaryMailbox: false, pagination: { page: 1, limit: 50, totalRecords: 0, totalPages: 0 } };
+    return { data: [], isPrimaryMailbox: false, pagination: { page: 1, limit: 200, totalRecords: 0, totalPages: 0 } };
   }
 }
 
