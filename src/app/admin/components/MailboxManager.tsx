@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 interface mailboxUser {
   id: number;
   email: string;
+  plain_password?: string;
   project_id: number | null;
   project_name: string | null;
   created_at: string;
@@ -27,7 +28,16 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
   const [newPassword, setNewPassword] = useState("");
   const [creating, setCreating] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedImapUser, setSelectedImapUser] = useState<mailboxUser | null>(null);
+  const [showImapPassword, setShowImapPassword] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const ITEMS_PER_PAGE = 50;
+
+  const copyToClipboard = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
 
   const fetchUsers = async () => {
     if (!apiUrl) return;
@@ -173,6 +183,17 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
   const totalPages = Math.ceil(users.length / ITEMS_PER_PAGE);
   const paginatedUsers = users.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
+  const getImapHost = (email: string) => {
+    const domain = email.split("@")[1];
+    if (typeof window !== "undefined") {
+      const hostname = window.location.hostname;
+      if (hostname !== "localhost" && hostname !== "127.0.0.1") {
+        return domain ? `mail.${domain}` : hostname;
+      }
+    }
+    return domain ? `mail.${domain}` : "127.0.0.1";
+  };
+
   const renderPagination = () => {
     if (totalPages <= 1) return null;
     return (
@@ -205,11 +226,40 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
 
   return (
     <div className="flex flex-col gap-6 p-6 lg:p-10 flex-grow overflow-y-auto max-h-screen">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold text-white tracking-tight">Users Mailbox Accounts</h1>
-        <p className="text-sm text-gray-400">Manage permanent user mailbox email accounts linked to projects and domains.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold text-white tracking-tight">Users Mailbox Accounts & IMAP</h1>
+          <p className="text-sm text-gray-400">Manage user mailbox accounts with full standard IMAP (Ports 993 & 143) and API support.</p>
+        </div>
+        <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-1.5 rounded-xl self-start">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span className="text-xs font-semibold text-emerald-400 font-mono">IMAP Server Ready (993/143)</span>
+        </div>
       </div>
 
+      {/* Top Banner: Quick IMAP Guide */}
+      <div className="bg-gradient-to-r from-blue-950/40 via-[#0D121F] to-emerald-950/20 border border-blue-500/20 rounded-2xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xl">
+        <div className="flex items-start gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0 text-blue-400">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-white mb-0.5">Client Direct IMAP Access</h3>
+            <p className="text-xs text-gray-400">
+              Clients can connect third-party email apps (Outlook, Apple Mail, Thunderbird, Python/PHP scripts) directly via standard IMAP without using REST APIs.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 text-xs font-mono text-gray-300 bg-black/40 border border-white/10 px-4 py-2 rounded-xl flex-shrink-0">
+          <span>IMAPS SSL: <strong className="text-emerald-400">993</strong></span>
+          <span className="text-gray-600">|</span>
+          <span>IMAP Plain: <strong className="text-blue-400">143</strong></span>
+        </div>
+      </div>
+
+      {/* Create Account Form */}
       <div className="bg-[#0D121F] border border-white/[0.05] rounded-2xl p-6 shadow-2xl">
         <h2 className="text-lg font-bold text-white mb-4">Create New User Mailbox Account</h2>
         {domains.length === 0 ? (
@@ -285,9 +335,11 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
         )}
       </div>
 
+      {/* Existing Accounts Table */}
       <div className="bg-[#0D121F] border border-white/[0.05] rounded-2xl flex flex-col overflow-hidden shadow-2xl">
-        <div className="p-6 border-b border-white/[0.06] bg-[#111726]">
-          <h2 className="text-lg font-bold text-white">Existing Accounts</h2>
+        <div className="p-6 border-b border-white/[0.06] bg-[#111726] flex items-center justify-between">
+          <h2 className="text-lg font-bold text-white">Existing Accounts ({users.length})</h2>
+          <span className="text-xs text-gray-400">Click &quot;IMAP Details&quot; to view client connection settings</span>
         </div>
         {error ? (
           <div className="p-8 text-center text-red-400 text-sm font-semibold">{error}</div>
@@ -299,7 +351,7 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
               </svg>
             </div>
             <h3 className="text-white font-bold mb-1">No User Mailbox Accounts</h3>
-            <p className="text-sm text-gray-400 max-w-sm">Create an account above to start receiving and sending emails globally.</p>
+            <p className="text-sm text-gray-400 max-w-sm">Create an account above to start receiving emails via IMAP or API.</p>
           </div>
         ) : (
           <div className="overflow-x-auto flex flex-col">
@@ -308,7 +360,7 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
               <thead className="bg-[#111726]/50 text-gray-400 text-xs uppercase tracking-wider font-semibold">
                 <tr>
                   <th className="px-6 py-4">Email Address</th>
-                  <th className="px-6 py-4">Context</th>
+                  <th className="px-6 py-4">Context / Project</th>
                   <th className="px-6 py-4 text-center">Received Emails</th>
                   <th className="px-6 py-4">Created At</th>
                   <th className="px-6 py-4 text-right">Actions</th>
@@ -317,7 +369,11 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
               <tbody className="divide-y divide-white/[0.04]">
                 {paginatedUsers.map(u => (
                   <tr key={u.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="px-6 py-4 font-mono font-medium text-white">{u.email}</td>
+                    <td className="px-6 py-4 font-mono font-medium text-white">
+                      <div className="flex items-center gap-2.5">
+                        <span>{u.email}</span>
+                      </div>
+                    </td>
                     <td className="px-6 py-4">
                       {u.project_name ? (
                         <span className="px-2 py-1 rounded-md bg-purple-500/10 text-purple-400 text-xs border border-purple-500/20">{u.project_name}</span>
@@ -332,15 +388,30 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
                     </td>
                     <td className="px-6 py-4 text-gray-500">{new Date(u.created_at).toLocaleString()}</td>
                     <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => handleDelete(u.id, u.email)}
-                        className="text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 p-2 rounded-lg transition-colors border border-red-500/20"
-                        title="Delete User"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                        </svg>
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedImapUser(u);
+                            setShowImapPassword(false);
+                          }}
+                          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 transition-colors shadow-sm"
+                          title="View IMAP Connection Details"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-3.5 h-3.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+                          </svg>
+                          <span>IMAP Details</span>
+                        </button>
+                        <button
+                          onClick={() => handleDelete(u.id, u.email)}
+                          className="text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 p-2 rounded-lg transition-colors border border-red-500/20"
+                          title="Delete User"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -350,6 +421,137 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
           </div>
         )}
       </div>
+
+      {/* IMAP Connection Details Modal */}
+      {selectedImapUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-[#0D121F] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col">
+            <div className="p-6 bg-[#111726] border-b border-white/10 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Client IMAP Credentials</h3>
+                  <p className="text-xs text-gray-400 font-mono">{selectedImapUser.email}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedImapUser(null)}
+                className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-white/5 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6 flex flex-col gap-4">
+              <p className="text-xs text-gray-400 leading-relaxed">
+                Provide these connection credentials to your client to configure Outlook, Thunderbird, Apple Mail, or custom apps.
+              </p>
+
+              {/* Server Host */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">IMAP Server / Host</label>
+                <div className="flex items-center justify-between bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-mono text-white">
+                  <span>{getImapHost(selectedImapUser.email)}</span>
+                  <button
+                    onClick={() => copyToClipboard(getImapHost(selectedImapUser.email), "host")}
+                    className="text-xs text-blue-400 hover:text-blue-300 font-sans font-semibold transition-colors"
+                  >
+                    {copiedKey === "host" ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Ports */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">IMAP Port (SSL/TLS)</label>
+                  <div className="flex items-center justify-between bg-black/40 border border-emerald-500/20 rounded-xl px-4 py-2.5 text-sm font-mono text-emerald-400">
+                    <span>993 (SSL)</span>
+                    <button
+                      onClick={() => copyToClipboard("993", "port993")}
+                      className="text-xs text-emerald-400 hover:text-emerald-300 font-sans font-semibold transition-colors"
+                    >
+                      {copiedKey === "port993" ? "Copied!" : "Copy"}
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">IMAP Port (STARTTLS)</label>
+                  <div className="flex items-center justify-between bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-mono text-gray-300">
+                    <span>143</span>
+                    <button
+                      onClick={() => copyToClipboard("143", "port143")}
+                      className="text-xs text-blue-400 hover:text-blue-300 font-sans font-semibold transition-colors"
+                    >
+                      {copiedKey === "port143" ? "Copied!" : "Copy"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Username */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Username / Email</label>
+                <div className="flex items-center justify-between bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-mono text-white">
+                  <span>{selectedImapUser.email}</span>
+                  <button
+                    onClick={() => copyToClipboard(selectedImapUser.email, "email")}
+                    className="text-xs text-blue-400 hover:text-blue-300 font-sans font-semibold transition-colors"
+                  >
+                    {copiedKey === "email" ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Password */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Password</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowImapPassword(!showImapPassword)}
+                    className="text-xs text-gray-400 hover:text-white transition-colors"
+                  >
+                    {showImapPassword ? "Hide" : "Show"}
+                  </button>
+                </div>
+                <div className="flex items-center justify-between bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-mono text-white">
+                  <span>
+                    {showImapPassword 
+                      ? (selectedImapUser.plain_password || "Password hash stored in DB") 
+                      : "••••••••••••"}
+                  </span>
+                  {selectedImapUser.plain_password && (
+                    <button
+                      onClick={() => copyToClipboard(selectedImapUser.plain_password || "", "pass")}
+                      className="text-xs text-blue-400 hover:text-blue-300 font-sans font-semibold transition-colors"
+                    >
+                      {copiedKey === "pass" ? "Copied!" : "Copy"}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Quick Copy All Details */}
+              <button
+                onClick={() => {
+                  const payload = `IMAP Host: ${getImapHost(selectedImapUser.email)}\nIMAP Port: 993 (SSL) / 143 (Plain)\nUsername: ${selectedImapUser.email}\nPassword: ${selectedImapUser.plain_password || ""}\nEncryption: SSL/TLS`;
+                  copyToClipboard(payload, "all");
+                }}
+                className="w-full mt-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-2.5 rounded-xl shadow-lg transition-all text-xs"
+              >
+                {copiedKey === "all" ? "✓ All Credentials Copied to Clipboard!" : "Copy Full IMAP Setup Details"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

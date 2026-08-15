@@ -81,13 +81,75 @@ function extractEmail(str) {
   return match ? match[1].toLowerCase().trim() : str.toLowerCase().trim();
 }
 
-// Folders for local and live emails
+// Folders for local, live, and IMAP Maildir emails
 const localMailDir = path.join(process.cwd(), "backend", "storage", "local");
 const liveMailDir = path.join(process.cwd(), "backend", "storage", "live");
 const attachmentsDir = path.join(process.cwd(), "backend", "storage", "media-mails");
-[localMailDir, liveMailDir, attachmentsDir].forEach(dir => {
+const maildirBase = path.join(process.cwd(), "backend", "storage", "maildir");
+
+[localMailDir, liveMailDir, attachmentsDir, maildirBase].forEach(dir => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
+
+/**
+ * Save raw RFC822 .eml to standard Maildir folder for Dovecot IMAP
+ * Uses standard Maildir layout (tmp -> new) and hardlinks for Master view (0 extra bytes)
+ */
+function saveToMaildir(rawBuffer, recipientEmail) {
+  try {
+    const cleanEmail = extractEmail(recipientEmail);
+    if (!cleanEmail || !cleanEmail.includes("@")) return null;
+
+    const parts = cleanEmail.split("@");
+    const user = parts[0];
+    const domain = parts[1];
+    if (!user || !domain) return null;
+
+    // Standard Maildir paths for user: <domain>/<user>/{tmp, new, cur}
+    const userMaildir = path.join(maildirBase, domain, user);
+    const userTmpDir = path.join(userMaildir, "tmp");
+    const userNewDir = path.join(userMaildir, "new");
+    const userCurDir = path.join(userMaildir, "cur");
+
+    [userTmpDir, userNewDir, userCurDir].forEach(d => {
+      if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+    });
+
+    const now = Date.now();
+    const uniqueId = `${now}.${process.pid}_${Math.random().toString(36).substring(2, 8)}.${domain}`;
+    const fileName = `${uniqueId}.eml`;
+
+    const tmpFilePath = path.join(userTmpDir, fileName);
+    const newFilePath = path.join(userNewDir, fileName);
+
+    // Atomically write raw .eml buffer to Maildir
+    fs.writeFileSync(tmpFilePath, rawBuffer);
+    fs.renameSync(tmpFilePath, newFilePath);
+
+    // Hardlink to _all_mails_ for Master Admin view with 0 duplicate storage bytes
+    try {
+      const allMaildir = path.join(maildirBase, "_all_mails_");
+      const allNewDir = path.join(allMaildir, "new");
+      const allCurDir = path.join(allMaildir, "cur");
+      const allTmpDir = path.join(allMaildir, "tmp");
+      [allTmpDir, allNewDir, allCurDir].forEach(d => {
+        if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+      });
+
+      const allNewFilePath = path.join(allNewDir, `${cleanEmail}_${fileName}`);
+      if (fs.existsSync(newFilePath) && !fs.existsSync(allNewFilePath)) {
+        fs.linkSync(newFilePath, allNewFilePath);
+      }
+    } catch (linkErr) {
+      // Ignored if linkSync fails (e.g. cross-filesystem)
+    }
+
+    return newFilePath;
+  } catch (err) {
+    console.error("Error saving to Maildir:", err);
+    return null;
+  }
+}
 
 // ==========================================
 // 1. SMTP Server Setup
@@ -134,18 +196,29 @@ const smtpServer = new SMTPServer({
     if (isLocal) addLocalLog(msg); else addLiveLog(msg);
     logSystemEvent({ log_type: 'RECEIVE', status: 'INFO', message: 'Receiving Data Stream', details: null });
 
-    simpleParser(stream, {}, (err, parsed) => {
-      if (err) {
-        const errMsg = `❌ ERROR parsing mail: ${err.message}`;
-        if (isLocal) addLocalLog(errMsg); else addLiveLog(errMsg);
-        logSystemEvent({ log_type: 'RECEIVE', status: 'ERROR', message: 'Stream Parsing Failed', details: { error: err.message } });
-        return callback(err);
-      }
+    const chunks = [];
+    stream.on("data", chunk => chunks.push(chunk));
+    stream.on("error", err => {
+      const errMsg = `❌ ERROR reading stream: ${err.message}`;
+      if (isLocal) addLocalLog(errMsg); else addLiveLog(errMsg);
+      logSystemEvent({ log_type: 'RECEIVE', status: 'ERROR', message: 'Stream Reading Failed', details: { error: err.message } });
+      return callback(err);
+    });
+    stream.on("end", () => {
+      const rawBuffer = Buffer.concat(chunks);
 
-      const subject = parsed.subject || "(No Subject)";
-      const parsedMsg = `⏳ Email Parsed. Subject: "${subject}"`;
-      if (isLocal) addLocalLog(parsedMsg); else addLiveLog(parsedMsg);
-      logSystemEvent({ log_type: 'RECEIVE', status: 'INFO', message: 'Email Parsed Successfully', details: { subject } });
+      simpleParser(rawBuffer, {}, (err, parsed) => {
+        if (err) {
+          const errMsg = `❌ ERROR parsing mail: ${err.message}`;
+          if (isLocal) addLocalLog(errMsg); else addLiveLog(errMsg);
+          logSystemEvent({ log_type: 'RECEIVE', status: 'ERROR', message: 'Stream Parsing Failed', details: { error: err.message } });
+          return callback(err);
+        }
+
+        const subject = parsed.subject || "(No Subject)";
+        const parsedMsg = `⏳ Email Parsed. Subject: "${subject}"`;
+        if (isLocal) addLocalLog(parsedMsg); else addLiveLog(parsedMsg);
+        logSystemEvent({ log_type: 'RECEIVE', status: 'INFO', message: 'Email Parsed Successfully', details: { subject } });
 
       const safeSubject = subject
         .replace(/[^a-z0-9]/gi, "_")
@@ -226,6 +299,13 @@ const smtpServer = new SMTPServer({
         "utf-8"
       );
 
+      // Save raw .eml to standard Maildir for Dovecot IMAP (Zero Duplication)
+      const maildirSavedPath = saveToMaildir(rawBuffer, targetEmailClean);
+      if (maildirSavedPath) {
+        const imapLogMsg = `📥 IMAP Maildir synced: ${targetEmailClean}`;
+        if (isLocal) addLocalLog(imapLogMsg); else addLiveLog(imapLogMsg);
+      }
+
       // Log to SQLite Database
       const projectId = project ? project.id : null;
       const totalAttachmentSize = mailData.attachments.reduce((sum, att) => sum + (att.size || 0), 0) || 0;
@@ -264,6 +344,7 @@ const smtpServer = new SMTPServer({
       logSystemEvent({ log_type: 'RECEIVE', status: 'SUCCESS', message: 'Transaction Complete', details: { subject }, project_id: projectId });
 
       return callback();
+    });
     });
   }
 });
