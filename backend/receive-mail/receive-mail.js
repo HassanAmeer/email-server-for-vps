@@ -398,6 +398,11 @@ const httpServer = http.createServer((req, res) => {
     return ApiRouter.handleAllowedFilesApi(req, res);
   }
 
+  // Handle IMAP Master Mailbox Web UI APIs
+  if (cleanUrl.startsWith("/api/imap-mailbox")) {
+    return ApiRouter.handleImapMailboxApi(req, res);
+  }
+
   // Handle Permanent Mailbox Web UI APIs before they get caught by temporary mailbox regex
   if (cleanUrl.startsWith("/api/mailbox/inbox") || 
       cleanUrl.startsWith("/api/mailbox/login") || 

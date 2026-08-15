@@ -1404,6 +1404,347 @@ export class ApiRouter {
     }
   }
 
+  // ==========================================
+  // IMAP MASTER MAILBOX ENDPOINTS (/api/imap-mailbox/*)
+  // ==========================================
+  static async handleImapMailboxApi(req, res) {
+    try {
+      const dbModule = await import("../backend/database/db.js");
+      const { verifyMailboxUser, getPrimaryDomain, getActiveDomains } = dbModule;
+      const cleanUrl = req.url.split("?")[0];
+
+      // CORS Preflight
+      if (req.method === "OPTIONS") {
+        res.writeHead(204);
+        res.end();
+        return;
+      }
+
+      // GET /api/imap-mailbox/info
+      if (cleanUrl === "/api/imap-mailbox/info" && req.method === "GET") {
+        const primary = getPrimaryDomain();
+        const activeDomains = getActiveDomains();
+        const primaryDomain = primary ? primary.domain : (activeDomains[0] || "mailserver10.com");
+        const primaryPrefix = primary?.primary_prefix || "admin";
+        const masterEmail = `${primaryPrefix}@${primaryDomain}`;
+
+        const allUsers = dbModule.default.prepare("SELECT email, plain_password FROM mailbox_users ORDER BY id ASC").all();
+        let defaultCreds = {
+          email: masterEmail,
+          password: process.env.ADMIN_PASSWORD || "1234"
+        };
+        if (allUsers.length > 0) {
+          const primaryUser = allUsers.find(u => u.email && u.email.endsWith(`@${primaryDomain}`)) || allUsers[0];
+          if (primaryUser) {
+            defaultCreds.email = primaryUser.email;
+            if (primaryUser.plain_password) defaultCreds.password = primaryUser.plain_password;
+          }
+        }
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          success: true,
+          primaryDomain: primaryDomain,
+          catchAll: true,
+          imap: {
+            host: `mail.${primaryDomain}`,
+            sslPort: 993,
+            plainPort: 143,
+            status: "active"
+          },
+          defaultCredentials: defaultCreds
+        }));
+        return;
+      }
+
+      // POST /api/imap-mailbox/login
+      if (cleanUrl === "/api/imap-mailbox/login" && req.method === "POST") {
+        let body = "";
+        req.on("data", chunk => body += chunk.toString());
+        req.on("end", async () => {
+          try {
+            const { email, password, isMasterQuickLogin } = JSON.parse(body || "{}");
+            const adminPass = process.env.ADMIN_PASSWORD || "1234";
+
+            // If Master quick login or admin credentials
+            if (isMasterQuickLogin || ((email === "admin" || email === "admin@gmail.com" || email?.startsWith("admin@")) && password === adminPass)) {
+              const primary = getPrimaryDomain();
+              const primaryDomain = primary ? primary.domain : "mailserver10.com";
+              const userEmail = email && email.includes("@") ? email : `admin@${primaryDomain}`;
+
+              const crypto = await import("crypto");
+              const token = "imap_master_" + crypto.randomBytes(32).toString("hex") + ":" + userEmail;
+
+              res.writeHead(200, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({
+                success: true,
+                token,
+                user: {
+                  email: userEmail,
+                  is_primary: true,
+                  is_master: true,
+                  role: "IMAP Master Admin",
+                  domain: primaryDomain
+                }
+              }));
+              return;
+            }
+
+            if (!email || !password) {
+              res.writeHead(400, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ error: "Email and password are required" }));
+              return;
+            }
+
+            // Check if regular mailbox user or primary domain user
+            const user = verifyMailboxUser(email, password);
+            if (user) {
+              const crypto = await import("crypto");
+              const token = "imap_" + crypto.randomBytes(32).toString("hex") + ":" + user.email;
+              user.is_primary = true;
+              user.is_master = true;
+
+              res.writeHead(200, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ success: true, token, user }));
+              return;
+            }
+
+            // Check admin fallback password
+            if (password === adminPass) {
+              const crypto = await import("crypto");
+              const token = "imap_master_" + crypto.randomBytes(32).toString("hex") + ":" + email;
+              res.writeHead(200, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({
+                success: true,
+                token,
+                user: { email, is_primary: true, is_master: true, role: "IMAP Master Admin" }
+              }));
+              return;
+            }
+
+            res.writeHead(401, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "Invalid credentials" }));
+          } catch (e) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: e.message }));
+          }
+        });
+        return;
+      }
+
+      // Validate Auth for remaining IMAP mailbox routes
+      const authHeader = req.headers["authorization"];
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Unauthorized" }));
+        return;
+      }
+
+      const token = authHeader.split(" ")[1];
+      const colonIdx = token.indexOf(":");
+      const userEmail = colonIdx !== -1 ? token.substring(colonIdx + 1) : "admin@primary";
+
+      // GET /api/imap-mailbox/inbox
+      if (cleanUrl === "/api/imap-mailbox/inbox" && req.method === "GET") {
+        const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+        const page = parseInt(parsedUrl.searchParams.get("page") || "1", 10);
+        const limit = parseInt(parsedUrl.searchParams.get("limit") || "100", 10);
+        const search = parsedUrl.searchParams.get("search") || "";
+        const filter = parsedUrl.searchParams.get("filter") || "all";
+
+        const db = dbModule.default;
+        let query = "SELECT id, recipient, sender, subject, has_attachment, attachment_size, created_at, file_name FROM received_emails";
+        let countQuery = "SELECT COUNT(*) as count FROM received_emails";
+        let whereClauses = [];
+        let params = [];
+        let countParams = [];
+
+        if (filter === "with_attachments") {
+          whereClauses.push("has_attachment = 1");
+        } else if (filter === "simple") {
+          whereClauses.push("has_attachment = 0");
+        }
+
+        if (search) {
+          whereClauses.push("(recipient LIKE ? OR sender LIKE ? OR subject LIKE ?)");
+          const s = `%${search}%`;
+          params.push(s, s, s);
+          countParams.push(s, s, s);
+        }
+
+        if (whereClauses.length > 0) {
+          const whereStr = " WHERE " + whereClauses.join(" AND ");
+          query += whereStr;
+          countQuery += whereStr;
+        }
+
+        query += " ORDER BY id DESC LIMIT ? OFFSET ?";
+        const offset = (page - 1) * limit;
+        params.push(limit, offset);
+
+        const totalRecords = db.prepare(countQuery).get(...countParams).count;
+        const data = db.prepare(query).all(...params);
+
+        const primary = getPrimaryDomain();
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          data,
+          isPrimaryMailbox: true,
+          primaryDomain: primary?.domain || "mailserver10.com",
+          pagination: {
+            page,
+            limit,
+            totalRecords,
+            totalPages: Math.ceil(totalRecords / limit)
+          }
+        }));
+        return;
+      }
+
+      // GET /api/imap-mailbox/inbox/:id
+      if (cleanUrl.match(/\/api\/imap-mailbox\/inbox\/\d+/) && req.method === "GET") {
+        const id = cleanUrl.split("/").pop();
+        const db = dbModule.default;
+        const emailRecord = db.prepare("SELECT file_name, recipient FROM received_emails WHERE id = ?").get(id);
+        
+        if (!emailRecord) {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Email not found" }));
+          return;
+        }
+
+        const targetDir = getTargetStorageDir();
+        const filePath = path.join(targetDir, emailRecord.file_name);
+        
+        if (fs.existsSync(filePath)) {
+          const content = fs.readFileSync(filePath, "utf-8");
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(content);
+        } else {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Email file missing" }));
+        }
+        return;
+      }
+
+      // DELETE /api/imap-mailbox/inbox/:id
+      if (cleanUrl.match(/\/api\/imap-mailbox\/inbox\/\d+/) && req.method === "DELETE") {
+        const id = cleanUrl.split("/").pop();
+        const db = dbModule.default;
+        const emailRecord = db.prepare("SELECT file_name FROM received_emails WHERE id = ?").get(id);
+        if (!emailRecord) {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Email not found" }));
+          return;
+        }
+
+        db.prepare("DELETE FROM received_emails WHERE id = ?").run(id);
+
+        const targetDir = getTargetStorageDir();
+        const filePath = path.join(targetDir, emailRecord.file_name);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true }));
+        return;
+      }
+
+      // GET /api/imap-mailbox/media
+      if (cleanUrl === "/api/imap-mailbox/media" && req.method === "GET") {
+        const db = dbModule.default;
+        const emails = db.prepare("SELECT id, recipient, sender, created_at, file_name FROM received_emails WHERE has_attachment = 1 ORDER BY id DESC").all();
+        const targetDir = getTargetStorageDir();
+        const allMedia = [];
+
+        for (const email of emails) {
+          const filePath = path.join(targetDir, email.file_name);
+          if (fs.existsSync(filePath)) {
+            try {
+              const fileContent = fs.readFileSync(filePath, "utf-8");
+              const parsed = JSON.parse(fileContent);
+              if (parsed.attachments && Array.isArray(parsed.attachments)) {
+                for (const att of parsed.attachments) {
+                  allMedia.push({
+                    emailId: email.id,
+                    sender: email.sender,
+                    recipient: email.recipient,
+                    date: email.created_at,
+                    filename: att.filename || "attachment",
+                    contentType: att.contentType || "application/octet-stream",
+                    size: att.size || 0,
+                    url: att.url || (att.content ? `data:${att.contentType || 'image/png'};base64,${att.content}` : "")
+                  });
+                }
+              }
+            } catch (e) {}
+          }
+        }
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ media: allMedia }));
+        return;
+      }
+
+      // POST /api/imap-mailbox/send
+      if (cleanUrl === "/api/imap-mailbox/send" && req.method === "POST") {
+        let body = "";
+        req.on("data", chunk => body += chunk.toString());
+        req.on("end", async () => {
+          try {
+            const data = JSON.parse(body);
+            const { to, subject, message } = data;
+            
+            if (!to || !message) {
+              res.writeHead(400, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ error: "'to' and 'message' fields are required" }));
+              return;
+            }
+
+            const IS_LIVE = process.env.live !== "false";
+            if (IS_LIVE) {
+              const { sendOutboundEmail: sendOutboundEmailLive } = await import("../backend/send-mail-simple/send-mail-from-generated-mail-from-live.js");
+              await sendOutboundEmailLive({
+                from: userEmail,
+                to,
+                subject: subject || "",
+                text: message,
+                html: "",
+                attachments: []
+              });
+            } else {
+              const { sendOutboundEmail: sendOutboundEmailLocal } = await import("../backend/send-mail-simple/send-mail-from-generated-mail-from-local.js");
+              await sendOutboundEmailLocal({
+                from: userEmail,
+                to,
+                subject: subject || "",
+                text: message,
+                html: "",
+                attachments: []
+              });
+            }
+
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ success: true }));
+          } catch (error) {
+            console.error("IMAP Mailbox Send Error:", error);
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: error.message }));
+          }
+        });
+        return;
+      }
+
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "IMAP Mailbox API endpoint not found" }));
+    } catch (err) {
+      console.error("IMAP Mailbox API Error:", err);
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  }
+
   /**
    * Handle /api/project/forbidden-ids
    */

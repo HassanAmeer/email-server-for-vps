@@ -219,6 +219,17 @@ export default function ImapMailboxManager({ apiUrl }: ImapMailboxManagerProps) 
 
         {/* Quick Info Badges */}
         <div className="flex flex-wrap items-center gap-2 relative z-10">
+          <a
+            href="/imap-mailbox"
+            target="_blank"
+            rel="noreferrer"
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs px-3.5 py-2 rounded-2xl flex items-center gap-1.5 shadow-[0_0_15px_rgba(59,130,246,0.3)] transition-all"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+            </svg>
+            Open /imap-mailbox Webmail
+          </a>
           <div className="bg-black/40 border border-white/[0.08] px-3.5 py-2 rounded-2xl flex items-center gap-2 text-xs text-gray-300 font-mono">
             <span className="text-blue-400 font-bold">IMAPS SSL:</span>
             <span className="text-white font-bold">993</span>
