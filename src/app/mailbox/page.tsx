@@ -29,7 +29,18 @@ export default function MailboxLogin() {
         body: JSON.stringify({ email, password })
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(
+          res.status === 404
+            ? "API endpoint not found. Please ensure backend server is running."
+            : "Server returned invalid response."
+        );
+      }
+
       if (res.ok) {
         localStorage.setItem("mailbox_token", data.token);
         localStorage.setItem("mailbox_user", JSON.stringify(data.user));

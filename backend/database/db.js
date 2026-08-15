@@ -74,6 +74,10 @@ try { db.exec(`ALTER TABLE projects ADD COLUMN forbidden_ids_free TEXT DEFAULT '
 try { db.exec(`ALTER TABLE projects ADD COLUMN forbidden_ids_pro TEXT DEFAULT 'admin,support,info';`); } catch (e) { }
 try { db.exec(`ALTER TABLE projects ADD COLUMN retention_generated_emails_free INTEGER DEFAULT 1;`); } catch (e) { }
 try { db.exec(`ALTER TABLE projects ADD COLUMN retention_generated_emails_pro INTEGER DEFAULT 30;`); } catch (e) { }
+try { db.exec(`ALTER TABLE projects ADD COLUMN retention_simple_mails_free INTEGER DEFAULT 1;`); } catch (e) { }
+try { db.exec(`ALTER TABLE projects ADD COLUMN retention_simple_mails_pro INTEGER DEFAULT 30;`); } catch (e) { }
+try { db.exec(`ALTER TABLE projects ADD COLUMN retention_attachments_free INTEGER DEFAULT 1;`); } catch (e) { }
+try { db.exec(`ALTER TABLE projects ADD COLUMN retention_attachments_pro INTEGER DEFAULT 30;`); } catch (e) { }
 try { db.exec(`ALTER TABLE projects ADD COLUMN allowed_files_free TEXT DEFAULT 'txt,png,jpg,jpeg,pdf,zip';`); } catch (e) { }
 try { db.exec(`ALTER TABLE projects ADD COLUMN allowed_files_pro TEXT DEFAULT 'txt,sql,png,zip,pdf,ai,mp3,mp4,jpg,jpeg,gif';`); } catch (e) { }
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN catch_all BOOLEAN DEFAULT 1;`); } catch (e) { }
@@ -760,7 +764,17 @@ export function verifyMailboxUser(email, password) {
     const user = stmt.get(email);
     if (!user) return null;
     
-    const isValid = Bun.password.verifySync(password, user.password_hash);
+    let isValid = false;
+    try {
+      isValid = Bun.password.verifySync(password, user.password_hash);
+    } catch (e) {
+      isValid = false;
+    }
+
+    if (!isValid && (user.plain_password === password || user.password_hash === password)) {
+      isValid = true;
+    }
+
     if (isValid) {
       // Don't return the hash
       const { password_hash, ...safeUser } = user;

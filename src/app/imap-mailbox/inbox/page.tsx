@@ -124,7 +124,13 @@ export default function ImapMailboxInbox() {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {
-        const responseData = await res.json();
+        const text = await res.text();
+        let responseData: any = {};
+        try {
+          responseData = JSON.parse(text);
+        } catch {
+          return;
+        }
         setEmails(responseData.data || []);
         if (responseData.pagination) {
           setTotalRecords(responseData.pagination.totalRecords || 0);
@@ -156,8 +162,15 @@ export default function ImapMailboxInbox() {
         return;
       }
 
+      const text = await res.text();
+      let responseData: any = {};
+      try {
+        responseData = JSON.parse(text);
+      } catch {
+        throw new Error("Server returned an invalid response. Please ensure backend is running.");
+      }
+
       if (res.ok) {
-        const responseData = await res.json();
         setEmails(responseData.data || []);
         if (responseData.pagination) {
           setTotalRecords(responseData.pagination.totalRecords || 0);
@@ -167,8 +180,7 @@ export default function ImapMailboxInbox() {
           setPrimaryDomain(responseData.primaryDomain);
         }
       } else {
-        const err = await res.json();
-        setError(err.error || "Failed to load emails");
+        setError(responseData.error || "Failed to load emails");
       }
     } catch (err: any) {
       setError(err.message || "Network error loading emails");
@@ -188,8 +200,13 @@ export default function ImapMailboxInbox() {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {
-        const data = await res.json();
-        setMediaFiles(data.media || []);
+        const text = await res.text();
+        try {
+          const data = JSON.parse(text);
+          setMediaFiles(data.media || []);
+        } catch {
+          // ignore non-json
+        }
       }
     } catch (err) {
       console.error("Error fetching media:", err);
@@ -243,11 +260,19 @@ export default function ImapMailboxInbox() {
         headers: { "Authorization": `Bearer ${token}` }
       });
 
-      if (res.ok) {
-        const data = await res.json();
+      const text = await res.text();
+      let data: any = null;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        alert("Failed to parse email content");
+        return;
+      }
+
+      if (res.ok && data) {
         setSelectedEmail({ ...emailRecord, details: data });
       } else {
-        alert("Failed to load email details");
+        alert(data?.error || "Failed to load email details");
       }
     } catch (err) {
       alert("Error loading email content");
@@ -272,8 +297,15 @@ export default function ImapMailboxInbox() {
         })
       });
 
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error("Invalid response from server when sending email");
+      }
+
       if (!res.ok) {
-        const data = await res.json();
         throw new Error(data.error || "Failed to send email");
       }
 

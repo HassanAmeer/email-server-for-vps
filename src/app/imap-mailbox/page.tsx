@@ -36,9 +36,16 @@ export default function ImapMailboxLogin() {
 
     // Fetch primary domain & default IMAP credentials info
     fetch("/api/imap-mailbox/info")
-      .then(res => res.json())
+      .then(async res => {
+        const text = await res.text();
+        try {
+          return JSON.parse(text);
+        } catch {
+          return null;
+        }
+      })
       .then(data => {
-        if (data.success) {
+        if (data && data.success) {
           setInfo(data);
           if (data.defaultCredentials?.email) {
             setEmail(data.defaultCredentials.email);
@@ -68,7 +75,18 @@ export default function ImapMailboxLogin() {
         body: JSON.stringify({ email, password })
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(
+          res.status === 404
+            ? "API endpoint not found. Please ensure backend server (port 8081) is running."
+            : "Server returned non-JSON response. Please verify backend service."
+        );
+      }
+
       if (res.ok && data.token) {
         localStorage.setItem("imap_mailbox_token", data.token);
         localStorage.setItem("imap_mailbox_user", JSON.stringify(data.user || { email, is_primary: true }));
@@ -94,7 +112,18 @@ export default function ImapMailboxLogin() {
         body: JSON.stringify({ isMasterQuickLogin: true })
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(
+          res.status === 404
+            ? "API endpoint not found. Please ensure backend server (port 8081) is running."
+            : "Server returned non-JSON response. Please verify backend service."
+        );
+      }
+
       if (res.ok && data.token) {
         localStorage.setItem("imap_mailbox_token", data.token);
         localStorage.setItem("imap_mailbox_user", JSON.stringify(data.user || { email: "master@primary", is_primary: true, is_master: true }));

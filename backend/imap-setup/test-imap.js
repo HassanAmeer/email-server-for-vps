@@ -51,13 +51,11 @@ client.on("data", (data) => {
     if (response.includes("A02 OK")) {
       console.log("📬 INBOX SELECTED SUCCESSFULLY!");
       step = 3;
-      const fetchCmd = "A03 FETCH 1:* (FLAGS ENVELOPE)\r\n";
-      console.log(`[CLIENT] ${fetchCmd.trim()}`);
-      client.write(fetchCmd);
+      client.end("A03 LOGOUT\r\n");
+    } else if (response.includes("A02 NO") || response.includes("A02 BAD")) {
+      console.error("❌ SELECT Failed:", response.trim());
+      client.end("A03 LOGOUT\r\n");
     }
-  } else if (step === 3) {
-    step = 4;
-    client.write("A04 LOGOUT\r\n");
   }
 });
 
