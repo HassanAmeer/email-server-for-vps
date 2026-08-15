@@ -5,16 +5,16 @@ Yeh document is email server ko chalane ke liye zaroori tamam Protocols aur DNS 
 ---
 
 ## ⚡ Quick Reference (Shortcut)
-Agar aap naya server ya domain setup kar rahe hain, toh apne DNS Provider (e.g. DigitalOcean, GoDaddy, Cloudflare) mein yeh records add karein:
+Agar aap naya server ya domain setup kar rahe hain, toh apne DNS Provider (e.g. Cloudflare, Namecheap, GoDaddy) mein yeh records add karein:
 
-| Type | Name / Host | Value / Target | Purpose |
-|------|-------------|----------------|---------|
-| **A** | `@` | `64.227.137.95` (Your VPS IP) | Domain ko VPS se jorta hai. |
-| **A** | `mail` | `64.227.137.95` (Your VPS IP) | Mail server subdomain banata hai. |
-| **MX** | `@` | `mail.llamerada.online` (Priority: 10) | Bata hai ke emails kahan receive hongi. |
-| **TXT** | `@` | `v=spf1 a mx ip4:64.227.137.95 ~all` | **SPF**: Fake emails block karta hai. |
-| **TXT** | `_dmarc` | `v=DMARC1; p=none;` | **DMARC**: Spam handling policy. |
-| **TXT** | `default._domainkey` | `v=DKIM1; k=rsa; p=MIIB... (Public Key)` | **DKIM**: Email ko digitally sign karta hai. |
+| Type | Name / Host | Value / Target | Priority | Purpose |
+|------|-------------|----------------|----------|---------|
+| **A** | `@` | `187.52.117.2` (Your VPS IP) | — | Main website & Web Admin Panel |
+| **A** | `mail` | `187.52.117.2` (Your VPS IP) | — | **SMTP & IMAP Server Subdomain** *(Cloudflare DNS-Only)* |
+| **MX** | `@` | `mail.yourdomain.com` | **`10`** | **Incoming Emails Receive Karna** |
+| **TXT** | `@` | `v=spf1 a mx ip4:187.52.117.2 ~all` | — | **SPF**: Fake emails block karta hai aur deliverability barhata hai. |
+| **TXT** | `_dmarc` | `v=DMARC1; p=none;` | — | **DMARC**: Spam handling policy. |
+| **TXT** | `default._domainkey` | `v=DKIM1; k=rsa; p=... (Public Key)` | — | **DKIM**: Email ko digitally sign karta hai. |
 
 ---
 
@@ -74,3 +74,13 @@ Neechay har Protocol aur Record ki tafseel, wajah, aur pros/cons diye gaye hain.
 > 
 > **⚠️ WARNING (Dobara Generate Karne ka Nuqsan):**
 > Agar aap `generate-dkim.js` ko dobara chalayenge toh purani Private Key delete ho jayegi. Is se purani Public Key kaam karna chor degi aur aapki emails fail hone lagengi (Spam mein jayengi). Jab tak intehai zaroori na ho, DKIM keys dobara generate na karein. Agar karein toh sab domains ke DNS records lazmi update karein!
+
+---
+
+### 7. IMAP & IMAPS (Internet Message Access Protocol)
+* **Kya hai?** Yeh client ko (e.g. Outlook, Thunderbird, Apple Mail, mobile apps ya third-party scripts ko) server se direct emails read aur sync karne ki sahoolat deta hai.
+  * **Port 143:** Standard / STARTTLS IMAP
+  * **Port 993:** Encrypted IMAPS (SSL/TLS)
+* **Kyun Zaroori hai?** Jab client REST API use nahi karna chahta aur standard email app ya custom software me incoming emails dekhna chahta hai.
+* **Server Implementation:** VPS par **Dovecot** daemon ke sath chalaya jata hai jo database se users ko authenticate karta hai aur `Maildir` storage se raw `.eml` emails deliver karta hai.
+
