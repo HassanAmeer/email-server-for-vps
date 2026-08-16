@@ -2066,13 +2066,11 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
 
               {/* iOS Bottom Action Bar with Centered Note Text, Stats, Bulk Actions & Done Button */}
               <div className="px-3.5 py-2.5 bg-[#1C1C1E]/95 backdrop-blur-md border-t border-white/[0.08] flex flex-col gap-2 shrink-0">
-                {/* Clean Centered Text (Without card) */}
-                <div className="text-center text-[10.5px] font-medium text-gray-400 flex items-center justify-center gap-1.5 px-2">
-                  <span className="text-[#0A84FF] text-xs shrink-0">💡</span>
-                  <span className="leading-tight text-gray-300">
-                    Transfer All Emails From Multi Domains to Single Primary Domain/Email
-                  </span>
-                </div>
+                {/* Pure Text (No background / No card) */}
+                <p className="text-center text-[11px] text-gray-400 flex items-center justify-center gap-1.5 px-1 py-0.5 select-none">
+                  <span className="text-xs">💡</span>
+                  <span className="leading-tight">Transfer All Emails From Multi Domains to Single Primary Domain/Email</span>
+                </p>
 
                 {/* Bottom Row Controls */}
                 <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/[0.04]">

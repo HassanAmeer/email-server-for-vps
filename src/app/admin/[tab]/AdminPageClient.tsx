@@ -223,8 +223,12 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
               </svg>
             </div>
             <div className="flex flex-col">
-              <span className="font-extrabold text-sm tracking-widest text-white uppercase font-mono bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">Admin Panel</span>
-              <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider font-mono">Control Panel</span>
+              <span className="font-extrabold text-sm tracking-widest uppercase font-mono bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
+                {isStaticSuperAdmin ? "Super Admin" : "Admin Panel"}
+              </span>
+              <span className={`text-[9px] font-bold uppercase tracking-wider font-mono ${isStaticSuperAdmin ? "text-amber-400" : "text-emerald-400"}`}>
+                {isStaticSuperAdmin ? "Root Access" : "Control Panel"}
+              </span>
             </div>
           </div>
           <button
