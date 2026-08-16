@@ -50,6 +50,21 @@ function addLocalLog(message) {
   if (localLogs.length > 200) localLogs.shift();
 }
 
+// Real-Time Server-Sent Events (SSE) Streaming Clients Set
+const sseClients = new Set();
+
+export function broadcastSseEvent(eventType, payload) {
+  if (sseClients.size === 0) return;
+  const msg = `event: ${eventType}\ndata: ${JSON.stringify(payload)}\n\n`;
+  for (const client of sseClients) {
+    try {
+      client.write(msg);
+    } catch (e) {
+      sseClients.delete(client);
+    }
+  }
+}
+
 function addLiveLog(message) {
   const time = new Date().toLocaleTimeString();
   const formatted = `[${time}] ${message}`;
@@ -58,6 +73,7 @@ function addLiveLog(message) {
   if (liveReceivingLogs.length > 200) liveReceivingLogs.shift();
   liveLogs.push(formatted);
   if (liveLogs.length > 200) liveLogs.shift();
+  broadcastSseEvent("log", { type: "live", message: formatted, timestamp: Date.now() });
 }
 
 function addLocalSendingLog(message) {
@@ -423,6 +439,16 @@ const smtpServer = new SMTPServer({
         project_id: projectId
       });
 
+      broadcastSseEvent("email_received", {
+        recipient,
+        sender: mailData.from,
+        subject,
+        date: mailData.date,
+        file: fileName,
+        hasAttachments: mailData.attachments.length > 0,
+        isLocal
+      });
+
       return callback();
     });
     });
@@ -451,6 +477,34 @@ const httpServer = http.createServer((req, res) => {
   }
 
   const cleanUrl = req.url.split("?")[0];
+
+  // Server-Sent Events (SSE) Real-Time Stream Endpoint
+  if (cleanUrl === "/api/stream/events" && req.method === "GET") {
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+      "Access-Control-Allow-Origin": "*"
+    });
+    res.write(`event: connected\ndata: ${JSON.stringify({ status: "connected", time: Date.now() })}\n\n`);
+    sseClients.add(res);
+
+    // Keep-alive heartbeat ping every 25s
+    const heartbeat = setInterval(() => {
+      try {
+        res.write(`event: ping\ndata: ${Date.now()}\n\n`);
+      } catch (e) {
+        clearInterval(heartbeat);
+        sseClients.delete(res);
+      }
+    }, 25000);
+
+    req.on("close", () => {
+      clearInterval(heartbeat);
+      sseClients.delete(res);
+    });
+    return;
+  }
 
   // Intercept api-router temporary mailbox endpoints
   if (cleanUrl === "/api/domains" && req.method === "GET") {

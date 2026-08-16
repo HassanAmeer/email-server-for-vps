@@ -20,14 +20,15 @@
     "next": "next"
   },
   "dependencies": {
+    "mailparser": "^3.7.1",
     "next": "16.2.10",
+    "nodemailer": "^6.9.13",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "mailparser": "^3.7.1",
-    "nodemailer": "^6.9.13",
     "serve": "^14.2.4",
     "smtp-server": "^3.13.5",
-    "tailwindcss": "^4"
+    "tailwindcss": "^4",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

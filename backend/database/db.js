@@ -11,9 +11,17 @@ if (!fs.existsSync(storageDir)) {
 const dbPath = path.join(storageDir, "email_logs.sqlite");
 const db = new Database(dbPath);
 
-// Enable WAL mode for better concurrency and set busy timeout
-db.exec("PRAGMA journal_mode = WAL;");
-db.exec("PRAGMA busy_timeout = 10000;");
+// Enable high-performance production PRAGMAs
+try {
+  db.exec("PRAGMA journal_mode = WAL;");
+  db.exec("PRAGMA synchronous = NORMAL;");
+  db.exec("PRAGMA temp_store = MEMORY;");
+  db.exec("PRAGMA busy_timeout = 10000;");
+  db.exec("PRAGMA mmap_size = 30000000000;");
+  db.exec("PRAGMA cache_size = -64000;");
+} catch (e) {
+  console.warn("Notice setting SQLite PRAGMAs:", e.message);
+}
 
 // Initialize Tables
 db.exec(`
@@ -136,16 +144,25 @@ for (const [key, val] of Object.entries(flagDefaults)) {
   } catch (e) {}
 }
 
+// In-memory server flags cache (Zero disk read on SMTP hot paths)
+const flagsMemoryCache = new Map();
+
 export function getSetting(key) {
+  if (flagsMemoryCache.has(key)) {
+    return flagsMemoryCache.get(key);
+  }
   try {
     const row = db.prepare("SELECT value FROM server_flags WHERE key = ?").get(key);
-    return row ? row.value : null;
+    const val = row ? row.value : null;
+    flagsMemoryCache.set(key, val);
+    return val;
   } catch (e) { return null; }
 }
 
 export function setSetting(key, value) {
   try {
     db.prepare("INSERT OR REPLACE INTO server_flags (key, value) VALUES (?, ?)").run(key, String(value));
+    flagsMemoryCache.set(key, String(value));
     return true;
   } catch (e) { return false; }
 }
@@ -153,7 +170,11 @@ export function setSetting(key, value) {
 export function getAllFlags() {
   try {
     const rows = db.prepare("SELECT key, value FROM server_flags").all();
-    return Object.fromEntries(rows.map(r => [r.key, r.value]));
+    const result = Object.fromEntries(rows.map(r => [r.key, r.value]));
+    for (const [k, v] of Object.entries(result)) {
+      flagsMemoryCache.set(k, v);
+    }
+    return result;
   } catch (e) { return {}; }
 }
 
@@ -513,11 +534,29 @@ export function getProjectFilesList(project_id) {
   }
 }
 
+// In-memory cache for active domains (avoids disk reads on SMTP handshake)
+let cachedActiveDomains = null;
+let cachedDomainsWithPlan = null;
+let domainCacheExpiry = 0;
+
+export function invalidateDomainCache() {
+  cachedActiveDomains = null;
+  cachedDomainsWithPlan = null;
+  domainCacheExpiry = 0;
+}
+
 export function getActiveDomains() {
+  const now = Date.now();
+  if (cachedActiveDomains && now < domainCacheExpiry) {
+    return cachedActiveDomains;
+  }
   try {
     const stmt = db.prepare("SELECT domain FROM attached_domains WHERE status = 'active' ORDER BY is_primary DESC, created_at DESC");
     const records = stmt.all();
-    return records.map(r => r.domain.replace(/^https?:\/\//, '').replace(/\/+$/, ''));
+    const result = records.map(r => r.domain.replace(/^https?:\/\//, '').replace(/\/+$/, ''));
+    cachedActiveDomains = result;
+    domainCacheExpiry = now + 15000; // 15 seconds TTL
+    return result;
   } catch (err) {
     console.error("DB Error fetching active domains:", err);
     return [];
@@ -525,14 +564,21 @@ export function getActiveDomains() {
 }
 
 export function getActiveDomainsWithPlan() {
+  const now = Date.now();
+  if (cachedDomainsWithPlan && now < domainCacheExpiry) {
+    return cachedDomainsWithPlan;
+  }
   try {
     const stmt = db.prepare("SELECT domain, plan, is_primary FROM attached_domains WHERE status = 'active' ORDER BY is_primary DESC, created_at DESC");
     const records = stmt.all();
-    return records.map(r => ({
+    const result = records.map(r => ({
       domain: r.domain.replace(/^https?:\/\//, '').replace(/\/+$/, ''),
       plan: r.plan || 'free',
       is_primary: r.is_primary === 1
     }));
+    cachedDomainsWithPlan = result;
+    domainCacheExpiry = now + 15000;
+    return result;
   } catch (err) {
     console.error("DB Error fetching active domains with plan:", err);
     return [];
@@ -559,6 +605,7 @@ export function setPrimaryDomain(id) {
       db.prepare("UPDATE attached_domains SET is_primary = 0").run();
       db.prepare("UPDATE attached_domains SET is_primary = 1 WHERE id = ?").run(id);
     })();
+    invalidateDomainCache();
     return true;
   } catch (err) {
     console.error("DB Error setting primary domain:", err);
@@ -603,14 +650,36 @@ db.exec(`
   );
 `);
 
+// High-Performance B-Tree Database Indexes
+try {
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_received_emails_recipient ON received_emails(recipient, id DESC);
+    CREATE INDEX IF NOT EXISTS idx_received_emails_created ON received_emails(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_received_emails_has_att ON received_emails(has_attachment);
+    CREATE INDEX IF NOT EXISTS idx_system_logs_type_id ON system_logs(log_type, id DESC);
+    CREATE INDEX IF NOT EXISTS idx_system_logs_created ON system_logs(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_mailbox_users_email ON mailbox_users(email);
+    CREATE INDEX IF NOT EXISTS idx_generated_emails_email ON generated_emails(email);
+    CREATE INDEX IF NOT EXISTS idx_project_api_logs_proj ON project_api_logs(project_id, created_at);
+  `);
+} catch (e) {
+  console.warn("Notice creating SQLite indexes:", e.message);
+}
+
+// Counter to throttle background cleanup (1 out of every 500 logs)
+let logCounter = 0;
+
 // Helper to log system events
 export function logSystemEvent({ log_type, status, message, details = null, project_id = null }) {
   try {
     const stmt = db.prepare("INSERT INTO system_logs (log_type, status, message, details, project_id) VALUES (?, ?, ?, ?, ?)");
     stmt.run(log_type, status, message, details ? JSON.stringify(details) : null, project_id);
     
-    // Auto cleanup old logs (older than 15 days)
-    cleanupOldSystemLogs(15);
+    // Auto cleanup old logs periodically without choking write throughput
+    logCounter++;
+    if (logCounter % 500 === 0) {
+      cleanupOldSystemLogs(15);
+    }
   } catch (err) {
     console.error("DB Error logging system event:", err);
   }

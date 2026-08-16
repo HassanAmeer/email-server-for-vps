@@ -115,17 +115,43 @@ export default function ImapMailboxInbox() {
     }
   }, [page]);
 
-  // Auto-fetch emails every 6 seconds silently
+  // Smart Auto-fetch: Polls every 6 seconds when tab is active, pauses in background, and auto-refreshes on tab focus
   useEffect(() => {
     if (!user) return;
     const token = localStorage.getItem("imap_mailbox_token");
     if (!token) return;
 
-    const interval = setInterval(() => {
+    let isFocused = typeof document !== "undefined" ? !document.hidden : true;
+
+    const handleVisibility = () => {
+      isFocused = !document.hidden;
+      if (isFocused) {
+        fetchEmailsSilent(token, page, filterType, searchQuery);
+      }
+    };
+
+    const handleFocus = () => {
       fetchEmailsSilent(token, page, filterType, searchQuery);
+    };
+
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", handleVisibility);
+      window.addEventListener("focus", handleFocus);
+    }
+
+    const interval = setInterval(() => {
+      if (isFocused) {
+        fetchEmailsSilent(token, page, filterType, searchQuery);
+      }
     }, 6000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", handleVisibility);
+        window.removeEventListener("focus", handleFocus);
+      }
+    };
   }, [user, page, filterType, searchQuery]);
 
   const fetchEmailsSilent = async (token: string, curPage: number, curFilter: string, curSearch: string) => {
