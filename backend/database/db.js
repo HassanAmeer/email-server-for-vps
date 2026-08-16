@@ -120,6 +120,43 @@ db.exec(`
   );
 `);
 
+// Key-Value server flags table (persists across restarts)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS server_flags (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL DEFAULT '0'
+  );
+`);
+
+// Initialize default flags (only if not already set)
+const flagDefaults = { rcpt_logging: '0' };
+for (const [key, val] of Object.entries(flagDefaults)) {
+  try {
+    db.prepare("INSERT OR IGNORE INTO server_flags (key, value) VALUES (?, ?)").run(key, val);
+  } catch (e) {}
+}
+
+export function getSetting(key) {
+  try {
+    const row = db.prepare("SELECT value FROM server_flags WHERE key = ?").get(key);
+    return row ? row.value : null;
+  } catch (e) { return null; }
+}
+
+export function setSetting(key, value) {
+  try {
+    db.prepare("INSERT OR REPLACE INTO server_flags (key, value) VALUES (?, ?)").run(key, String(value));
+    return true;
+  } catch (e) { return false; }
+}
+
+export function getAllFlags() {
+  try {
+    const rows = db.prepare("SELECT key, value FROM server_flags").all();
+    return Object.fromEntries(rows.map(r => [r.key, r.value]));
+  } catch (e) { return {}; }
+}
+
 // Helper to log generated emails
 export function logGeneratedEmail(email, ip_address, project_id = null) {
   try {

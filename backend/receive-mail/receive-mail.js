@@ -8,7 +8,7 @@ import nodemailer from "nodemailer";
 import { sendOutboundEmail as sendOutboundEmailLive } from "../send-mail-simple/send-mail-from-generated-mail-from-live.js";
 import { sendOutboundEmail as sendOutboundEmailLocal } from "../send-mail-simple/send-mail-from-generated-mail-from-local.js";
 import { ApiRouter } from "../../apis/api-router.js";
-import { logReceivedEmail, getProjectByEmail, logSystemEvent, runDataRetentionCleanupJob, validateRecipientCatchAll, getProjectAllowedFiles, getActiveDomainsWithPlan } from "../database/db.js";
+import { logReceivedEmail, getProjectByEmail, logSystemEvent, runDataRetentionCleanupJob, validateRecipientCatchAll, getProjectAllowedFiles, getActiveDomainsWithPlan, getSetting, setSetting, getAllFlags } from "../database/db.js";
 
 // Load .env file manually if it exists
 const envPath = path.join(process.cwd(), ".env");
@@ -174,6 +174,33 @@ function saveToMaildir(rawBuffer, recipientEmail) {
 }
 
 // ==========================================
+// SMTP IP Rate Limiter (in-memory, no DB)
+// Prevents spam bots from flooding logs
+// ==========================================
+const ipRateLimiter = new Map(); // ip -> { count, resetAt }
+const IP_RATE_LIMIT = 15;         // max RCPT TO per window
+const IP_RATE_WINDOW_MS = 60000;  // 60 second window
+
+function checkIpRateLimit(ip) {
+  const now = Date.now();
+  let entry = ipRateLimiter.get(ip);
+  if (!entry || now > entry.resetAt) {
+    entry = { count: 0, resetAt: now + IP_RATE_WINDOW_MS };
+    ipRateLimiter.set(ip, entry);
+  }
+  entry.count++;
+  return entry.count <= IP_RATE_LIMIT;
+}
+
+// Periodically clean up old IP entries (every 5 min)
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of ipRateLimiter.entries()) {
+    if (now > entry.resetAt) ipRateLimiter.delete(ip);
+  }
+}, 300000);
+
+// ==========================================
 // 1. SMTP Server Setup
 // ==========================================
 const smtpServer = new SMTPServer({
@@ -184,30 +211,41 @@ const smtpServer = new SMTPServer({
     const isLocal = ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1";
     session.isLocalConnection = isLocal;
 
-    const msg = `🔌 Connection opened from ${isLocal ? 'local' : 'public'} IP: ${ip}`;
+    // Only log connections in-memory (not to DB) to avoid log flood from spam bots
+    const msg = `🔌 Connection from ${isLocal ? 'local' : 'public'} IP: ${ip}`;
     if (isLocal) addLocalLog(msg); else addLiveLog(msg);
-    logSystemEvent({ log_type: 'RECEIVE', status: 'INFO', message: 'Connection Opened', details: { ip, isLocal } });
 
     return callback();
   },
   onMailFrom(address, session, callback) {
-    const msg = `✉️ MAIL FROM (Sender): ${address.address}`;
+    // Only in-memory log — do NOT write to DB for every MAIL FROM (spam bots hit this constantly)
+    const msg = `✉️ MAIL FROM: ${address.address}`;
     if (session.isLocalConnection) addLocalLog(msg); else addLiveLog(msg);
-    logSystemEvent({ log_type: 'RECEIVE', status: 'INFO', message: 'MAIL FROM received', details: { sender: address.address } });
     return callback();
   },
   onRcptTo(address, session, callback) {
-    const msg = `➡️ RCPT TO (Recipient): ${address.address}`;
-    if (session.isLocalConnection) addLocalLog(msg); else addLiveLog(msg);
-    logSystemEvent({ log_type: 'RECEIVE', status: 'INFO', message: 'RCPT TO received', details: { recipient: address.address } });
+    const ip = session.remoteAddress;
 
-    // Check Catch-All validation
+    // Rate limit: drop connections from IPs that send too many RCPT TO
+    if (!session.isLocalConnection && !checkIpRateLimit(ip)) {
+      return callback(new Error('421 Too many connections from your IP. Please try again later.'));
+    }
+
+    // Only in-memory log for RCPT TO — written to DB only if rcpt_logging flag is ON
+    const msg = `➡️ RCPT TO: ${address.address}`;
+    if (session.isLocalConnection) addLocalLog(msg); else addLiveLog(msg);
+
+    // Validate recipient (Catch-All check)
     const isValid = validateRecipientCatchAll(address.address);
     if (!isValid) {
-      const rejectMsg = `❌ Rejected RCPT TO: Mailbox unavailable (Catch-All disabled for this domain)`;
-      if (session.isLocalConnection) addLocalLog(rejectMsg); else addLiveLog(rejectMsg);
-      logSystemEvent({ log_type: 'RECEIVE', status: 'WARNING', message: 'Rejected Recipient (Catch-All OFF)', details: { recipient: address.address } });
+      // Always log rejections to DB (meaningful event)
+      logSystemEvent({ log_type: 'RECEIVE', status: 'WARNING', message: 'Rejected Recipient (Catch-All OFF)', details: { recipient: address.address, ip } });
       return callback(new Error("550 Requested action not taken: mailbox unavailable"));
+    }
+
+    // Log to DB only if rcpt_logging is enabled (default: OFF)
+    if (getSetting('rcpt_logging') === '1') {
+      logSystemEvent({ log_type: 'RECEIVE', status: 'INFO', message: 'RCPT TO received', details: { recipient: address.address, ip } });
     }
 
     return callback();
@@ -525,6 +563,49 @@ const httpServer = http.createServer((req, res) => {
 
   if (cleanUrl === "/api/admin/dkim/generate" && req.method === "POST") {
     return ApiRouter.generateDkimKey(req, res);
+  }
+
+  // SMTP Server Flags: GET all flags
+  if (cleanUrl === "/api/admin/smtp-flags" && req.method === "GET") {
+    const authHeader = req.headers["authorization"] || "";
+    const adminToken = Buffer.from("admin:1234").toString("base64");
+    if (authHeader !== `Bearer ${adminToken}`) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: "Unauthorized" }));
+    }
+    const flags = getAllFlags();
+    res.writeHead(200, { "Content-Type": "application/json" });
+    return res.end(JSON.stringify({ success: true, flags }));
+  }
+
+  // SMTP Server Flags: POST to toggle/set a flag
+  if (cleanUrl === "/api/admin/smtp-flags" && req.method === "POST") {
+    const authHeader = req.headers["authorization"] || "";
+    const adminToken = Buffer.from("admin:1234").toString("base64");
+    if (authHeader !== `Bearer ${adminToken}`) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: "Unauthorized" }));
+    }
+    let body = "";
+    req.on("data", chunk => { body += chunk.toString(); });
+    req.on("end", () => {
+      try {
+        const { flag, value } = JSON.parse(body || "{}");
+        if (!flag) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ error: "flag is required" }));
+        }
+        const newVal = (value === true || value === "1" || value === 1) ? "1" : "0";
+        setSetting(flag, newVal);
+        const updated = getAllFlags();
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true, flags: updated }));
+      } catch (e) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid JSON body" }));
+      }
+    });
+    return;
   }
 
   // Helper to safely read recent JSON email files

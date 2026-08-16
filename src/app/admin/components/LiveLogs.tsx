@@ -17,6 +17,8 @@ export default function LiveLogs({ apiUrl, systemMode }: LiveLogsProps) {
   const [activeType, setActiveType] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const [rcptLogging, setRcptLogging] = useState<boolean>(false);
+  const [rcptLoggingLoading, setRcptLoggingLoading] = useState(false);
 
   const showToast = (text: string, type: "success" | "error" = "success") => {
     setToastMessage({ text, type });
@@ -53,6 +55,50 @@ export default function LiveLogs({ apiUrl, systemMode }: LiveLogsProps) {
     setSelectedIds([]);
     fetchLogs(pagination.page, pagination.limit, activeType);
   }, [apiUrl, pagination.page, pagination.limit, activeType]);
+
+  // Fetch current RCPT TO logging flag state
+  const fetchRcptFlag = async () => {
+    if (!apiUrl) return;
+    try {
+      const token = localStorage.getItem("admin_token");
+      const res = await fetch(`${apiUrl}/api/admin/smtp-flags`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setRcptLogging(json.flags?.rcpt_logging === "1");
+      }
+    } catch (e) {}
+  };
+
+  useEffect(() => { fetchRcptFlag(); }, [apiUrl]);
+
+  // Toggle RCPT TO logging
+  const toggleRcptLogging = async () => {
+    if (!apiUrl || rcptLoggingLoading) return;
+    setRcptLoggingLoading(true);
+    try {
+      const token = localStorage.getItem("admin_token");
+      const res = await fetch(`${apiUrl}/api/admin/smtp-flags`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ flag: "rcpt_logging", value: rcptLogging ? 0 : 1 })
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const newState = json.flags?.rcpt_logging === "1";
+        setRcptLogging(newState);
+        showToast(
+          newState ? "RCPT TO Logging enabled — all SMTP attempts will be saved to DB" : "RCPT TO Logging disabled — only real deliveries will be logged",
+          "success"
+        );
+      }
+    } catch (e) {
+      showToast("Failed to toggle RCPT TO logging", "error");
+    } finally {
+      setRcptLoggingLoading(false);
+    }
+  };
 
   // Handle Clear ALL logs
   const handleClearLogs = async () => {
@@ -308,7 +354,30 @@ export default function LiveLogs({ apiUrl, systemMode }: LiveLogsProps) {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2.5 flex-wrap w-full lg:w-auto justify-start lg:justify-end">
+
+          {/* RCPT TO Logging Toggle Switch */}
+          <button
+            onClick={toggleRcptLogging}
+            disabled={rcptLoggingLoading}
+            title={rcptLogging ? "Click to disable RCPT TO logging" : "Click to enable RCPT TO logging (warning: logs flood fast)"}
+            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer disabled:opacity-60 ${
+              rcptLogging
+                ? "bg-red-500/10 border-red-500/30 text-red-400 shadow-[0_0_12px_rgba(239,68,68,0.15)]"
+                : "bg-slate-800/60 border-white/[0.08] text-gray-400 hover:border-white/[0.15] hover:text-gray-300"
+            }`}
+          >
+            {/* Switch Track */}
+            <div className={`relative w-8 h-4.5 rounded-full transition-colors shrink-0 ${rcptLogging ? "bg-red-500" : "bg-slate-700"}`}>
+              <div className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white shadow transition-all duration-200 ${rcptLogging ? "left-4" : "left-0.5"}`} />
+            </div>
+            <span>RCPT Logging</span>
+            <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${rcptLogging ? "bg-red-500/20 text-red-300" : "bg-slate-700 text-gray-500"}`}>
+              {rcptLoggingLoading ? "..." : rcptLogging ? "ON" : "OFF"}
+            </span>
+          </button>
+
           {/* Refresh Button */}
+
           <button
             onClick={() => fetchLogs(pagination.page, pagination.limit, activeType)}
             disabled={loading}

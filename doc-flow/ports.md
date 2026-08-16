@@ -42,3 +42,24 @@ Email server aur web applications ko sahi tarah se chalane ke liye mukhtalif **P
 | **2525** | Local/Client App | Kisi project se hamare server ko email pass karna. | ✅ Yes |
 | **80** | Live VPS | Live Dashboard (UI) dekhna. | - |
 | **8081**| Local Machine| Local Development Dashboard (UI) dekhna. | - |
+
+
+
+
+
+EMAIL PORTS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Port 25    = SMTP  → Server se Server (email delivery)
+Port 587   = SMTP  → Client se Server (Outlook, Thunderbird)
+Port 465   = SMTPS → SSL wala submission
+Port 110   = POP3  → Email download karna
+Port 143   = IMAP  → Email sync (Dovecot)
+Port 993   = IMAPS → SSL wala IMAP
+
+WEB/HTTP PORTS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Port 80    = HTTP  → Websites
+Port 443   = HTTPS → Secure websites
+Port 8080  = HTTP  → Developer servers / proxies
+Port 8081  = HTTP  → Aap ka backend API server ← YEH EMAIL NAHI
+Port 3000  = HTTP  → Next.js dev server
