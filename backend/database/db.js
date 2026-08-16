@@ -11,8 +11,9 @@ if (!fs.existsSync(storageDir)) {
 const dbPath = path.join(storageDir, "email_logs.sqlite");
 const db = new Database(dbPath);
 
-// Enable WAL mode for better concurrency
+// Enable WAL mode for better concurrency and set busy timeout
 db.exec("PRAGMA journal_mode = WAL;");
+db.exec("PRAGMA busy_timeout = 10000;");
 
 // Initialize Tables
 db.exec(`

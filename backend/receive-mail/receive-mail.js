@@ -145,6 +145,27 @@ function saveToMaildir(rawBuffer, recipientEmail) {
       // Ignored if linkSync fails (e.g. cross-filesystem)
     }
 
+    // Hardlink to domain's primary/admin mailbox so IMAP/POP3 catch-all works seamlessly
+    try {
+      const primaryPrefix = "admin";
+      if (user.toLowerCase() !== primaryPrefix) {
+        const domainAdminDir = path.join(maildirBase, domain, primaryPrefix);
+        const adminNewDir = path.join(domainAdminDir, "new");
+        const adminCurDir = path.join(domainAdminDir, "cur");
+        const adminTmpDir = path.join(domainAdminDir, "tmp");
+        [adminTmpDir, adminNewDir, adminCurDir].forEach(d => {
+          if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+        });
+
+        const domainAdminFilePath = path.join(adminNewDir, fileName);
+        if (fs.existsSync(newFilePath) && !fs.existsSync(domainAdminFilePath)) {
+          fs.linkSync(newFilePath, domainAdminFilePath);
+        }
+      }
+    } catch (adminLinkErr) {
+      // Ignored if link fails
+    }
+
     return newFilePath;
   } catch (err) {
     console.error("Error saving to Maildir:", err);

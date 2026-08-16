@@ -60,9 +60,10 @@ export default function ImapMailboxInbox() {
   const [showMedia, setShowMedia] = useState(false);
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
-  const [filterType, setFilterType] = useState<"all" | "with_attachments" | "simple">("all");
+  const [filterType, setFilterType] = useState<"all" | "with_attachments" | "simple" | "pinned">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"html" | "text">("html");
+  const [pinnedEmails, setPinnedEmails] = useState<Set<number>>(new Set());
 
   // Pagination State
   const [page, setPage] = useState(1);
@@ -87,6 +88,10 @@ export default function ImapMailboxInbox() {
       const storedRead = localStorage.getItem("imap_mailbox_read_emails");
       if (storedRead) {
         setReadEmails(new Set(JSON.parse(storedRead)));
+      }
+      const storedPinned = localStorage.getItem("imap_mailbox_pinned_emails");
+      if (storedPinned) {
+        setPinnedEmails(new Set(JSON.parse(storedPinned)));
       }
       fetchEmails(token, page, filterType, searchQuery);
     } catch (e) {
@@ -117,7 +122,10 @@ export default function ImapMailboxInbox() {
   const fetchEmailsSilent = async (token: string, curPage: number, curFilter: string, curSearch: string) => {
     try {
       const apiBase = getApiBaseUrl();
-      let url = `${apiBase}/api/imap-mailbox/inbox?page=${curPage}&limit=${limit}&filter=${curFilter}`;
+      const effFilter = curFilter === "pinned" ? "all" : curFilter;
+      const effLimit = curFilter === "pinned" ? 500 : limit;
+      const effPage = curFilter === "pinned" ? 1 : curPage;
+      let url = `${apiBase}/api/imap-mailbox/inbox?page=${effPage}&limit=${effLimit}&filter=${effFilter}`;
       if (curSearch && curSearch.trim().length > 0) {
         url += `&search=${encodeURIComponent(curSearch.trim())}`;
       }
@@ -151,7 +159,10 @@ export default function ImapMailboxInbox() {
     try {
       setLoading(true);
       const apiBase = getApiBaseUrl();
-      let url = `${apiBase}/api/imap-mailbox/inbox?page=${curPage}&limit=${limit}&filter=${curFilter}`;
+      const effFilter = curFilter === "pinned" ? "all" : curFilter;
+      const effLimit = curFilter === "pinned" ? 500 : limit;
+      const effPage = curFilter === "pinned" ? 1 : curPage;
+      let url = `${apiBase}/api/imap-mailbox/inbox?page=${effPage}&limit=${effLimit}&filter=${effFilter}`;
       if (curSearch && curSearch.trim().length > 0) {
         url += `&search=${encodeURIComponent(curSearch.trim())}`;
       }
@@ -232,6 +243,12 @@ export default function ImapMailboxInbox() {
       if (res.ok) {
         setEmails(prev => prev.filter(email => email.id !== emailId));
         setTotalRecords(prev => Math.max(0, prev - 1));
+        setPinnedEmails(prev => {
+          const next = new Set(prev);
+          next.delete(emailId);
+          localStorage.setItem("imap_mailbox_pinned_emails", JSON.stringify(Array.from(next)));
+          return next;
+        });
         if (selectedEmail?.id === emailId) {
           setSelectedEmail(null);
         }
@@ -239,6 +256,20 @@ export default function ImapMailboxInbox() {
     } catch (err) {
       alert("Error deleting email");
     }
+  };
+
+  const togglePin = (emailId: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setPinnedEmails(prev => {
+      const next = new Set(prev);
+      if (next.has(emailId)) {
+        next.delete(emailId);
+      } else {
+        next.add(emailId);
+      }
+      localStorage.setItem("imap_mailbox_pinned_emails", JSON.stringify(Array.from(next)));
+      return next;
+    });
   };
 
   const handleLogout = () => {
@@ -382,6 +413,10 @@ export default function ImapMailboxInbox() {
   const startRecord = totalRecords === 0 ? 0 : (page - 1) * limit + 1;
   const endRecord = Math.min(page * limit, totalRecords);
 
+  const isPinnedFilter = filterType === "pinned";
+  const visibleEmails = isPinnedFilter ? emails.filter(e => pinnedEmails.has(e.id)) : emails;
+  const pinnedCount = pinnedEmails.size;
+
   return (
     <div className="h-screen bg-[#030712] text-gray-200 font-sans flex flex-col relative overflow-hidden selection:bg-blue-500 selection:text-white">
       {/* Background glowing ambient orbs */}
@@ -452,7 +487,7 @@ export default function ImapMailboxInbox() {
                     const token = localStorage.getItem("imap_mailbox_token") || "";
                     fetchEmails(token, page, filterType, searchQuery);
                   }}
-                  className="text-gray-400 hover:text-blue-400 p-2 rounded-xl hover:bg-white/[0.04] transition-colors bg-white/[0.02] border border-white/[0.06]"
+                  className="w-9 h-9 flex items-center justify-center rounded-xl border border-white/[0.12] bg-transparent text-gray-300 hover:text-blue-400 hover:border-blue-500/40 hover:bg-blue-500/5 transition-colors"
                   title="Refresh Email Stream"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.2" stroke="currentColor" className="w-4 h-4">
@@ -460,22 +495,36 @@ export default function ImapMailboxInbox() {
                   </svg>
                 </button>
                 <button
-                  onClick={fetchMediaFiles}
-                  className="flex items-center gap-1.5 text-xs font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 hover:bg-indigo-500/20 px-3 py-1.5 rounded-xl transition-colors"
+                  onClick={() => {
+                    setFilterType("all");
+                    setPage(1);
+                    const token = localStorage.getItem("imap_mailbox_token") || "";
+                    fetchEmails(token, 1, "all", searchQuery);
+                  }}
+                  className={`w-9 h-9 flex items-center justify-center rounded-xl border bg-transparent transition-colors ${filterType === "all" ? "text-blue-400 border-blue-500/40 bg-blue-500/5" : "border-white/[0.12] text-gray-300 hover:text-blue-400 hover:border-blue-500/40 hover:bg-blue-500/5"}`}
+                  title="Incoming Emails"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3.5 h-3.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.2" stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H6.911a2.25 2.25 0 00-2.15 1.588L2.35 13.177a2.25 2.25 0 00-.1.661z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={fetchMediaFiles}
+                  className="w-9 h-9 flex items-center justify-center rounded-xl border border-white/[0.12] bg-transparent text-gray-300 hover:text-indigo-400 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-colors"
+                  title="Server Media Library"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
                   </svg>
-                  Media
                 </button>
                 <button
                   onClick={() => { setSelectedEmail(null); setShowMedia(false); setShowCompose(true); }}
-                  className="flex items-center gap-1.5 text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 px-3 py-1.5 rounded-xl transition-all shadow-[0_0_15px_rgba(59,130,246,0.3)]"
+                  className="w-9 h-9 flex items-center justify-center rounded-xl border border-white/[0.12] bg-transparent text-gray-300 hover:text-white hover:border-blue-500/40 hover:bg-blue-500/10 transition-colors"
+                  title="Compose New Message"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
                     <path d="M21.731 2.269a2.625 2.625 0 00-3.712 0l-1.157 1.158 3.712 3.712 1.158-1.157a2.625 2.625 0 000-3.712zM19.513 8.199l-3.712-3.712-12.15 12.15a5.25 5.25 0 00-1.32 2.214l-.8 2.685a.75.75 0 00.933.933l2.685-.8a5.25 5.25 0 002.214-1.32L19.513 8.2z" />
                   </svg>
-                  Compose
                 </button>
               </div>
             </div>
@@ -526,8 +575,17 @@ export default function ImapMailboxInbox() {
               >
                 Simple Text
               </button>
+              <button
+                onClick={() => { setFilterType("pinned"); setPage(1); }}
+                className={`text-[11px] font-bold px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 ${filterType === "pinned" ? "bg-amber-500/20 text-amber-300 border border-amber-500/40" : "bg-black/30 text-gray-400 hover:text-gray-200 border border-white/[0.05]"}`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
+                  <path fillRule="evenodd" d="M5.375 2a.75.75 0 00-.75.75v1.5a.75.75 0 001 0v-.5h1.125V9a.75.75 0 01-.75.75H5.375a.75.75 0 00-.75.75v1.125c0 .414.336.75.75.75h8.25a.75.75 0 00.75-.75V10.5a.75.75 0 00-.75-.75h-1.625a.75.75 0 01-.75-.75V3.75h1.125v.5a.75.75 0 001 0v-1.5a.75.75 0 00-.75-.75H5.375z" clipRule="evenodd" />
+                </svg>
+                Pinned ({pinnedCount})
+              </button>
               <span className="ml-auto text-[10px] font-mono text-gray-500">
-                Max 200/page
+                {isPinnedFilter ? "Pinned only" : "Max 200/page"}
               </span>
             </div>
           </div>
@@ -554,6 +612,18 @@ export default function ImapMailboxInbox() {
                 </svg>
                 {error}
               </div>
+            ) : isPinnedFilter && pinnedCount === 0 ? (
+              <div className="p-12 text-center text-gray-500 flex flex-col items-center h-full justify-center bg-[#030712]/30">
+                <div className="w-16 h-16 mb-4 rounded-2xl bg-white/[0.02] flex items-center justify-center text-gray-600 border border-white/[0.05]">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-8 h-8">
+                    <path fillRule="evenodd" d="M5.375 2a.75.75 0 00-.75.75v1.5a.75.75 0 001 0v-.5h1.125V9a.75.75 0 01-.75.75H5.375a.75.75 0 00-.75.75v1.125c0 .414.336.75.75.75h8.25a.75.75 0 00.75-.75V10.5a.75.75 0 00-.75-.75h-1.625a.75.75 0 01-.75-.75V3.75h1.125v.5a.75.75 0 001 0v-1.5a.75.75 0 00-.75-.75H5.375z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <p className="font-bold text-gray-300 text-base">No Pinned Emails</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Click the pin icon on any email to save it here for quick access.
+                </p>
+              </div>
             ) : emails.length === 0 ? (
               <div className="p-12 text-center text-gray-500 flex flex-col items-center h-full justify-center bg-[#030712]/30">
                 <div className="w-16 h-16 mb-4 rounded-2xl bg-white/[0.02] flex items-center justify-center text-gray-600 border border-white/[0.05]">
@@ -568,10 +638,11 @@ export default function ImapMailboxInbox() {
               </div>
             ) : (
               <div className="flex flex-col bg-[#0b0f19]/40 divide-y divide-white/[0.04]">
-                {emails.map(email => {
+                {visibleEmails.map(email => {
                   const isSelected = selectedEmail?.id === email.id;
                   const isRead = readEmails.has(email.id);
-                  const { name: senderName } = parseSender(email.sender);
+                  const isPinned = pinnedEmails.has(email.id);
+                  const { name: senderName, email: senderEmail } = parseSender(email.sender);
 
                   return (
                     <div
@@ -599,6 +670,15 @@ export default function ImapMailboxInbox() {
                         </div>
                         <div className="flex items-center gap-2">
                           <button
+                            onClick={(e) => togglePin(email.id, e)}
+                            className={`p-1 opacity-0 group-hover:opacity-100 transition-opacity ${isPinned ? "text-amber-400 opacity-100" : "text-gray-500 hover:text-amber-400"}`}
+                            title={isPinned ? "Unpin Email" : "Pin Email"}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                              <path fillRule="evenodd" d="M5.375 2a.75.75 0 00-.75.75v1.5a.75.75 0 001 0v-.5h1.125V9a.75.75 0 01-.75.75H5.375a.75.75 0 00-.75.75v1.125c0 .414.336.75.75.75h8.25a.75.75 0 00.75-.75V10.5a.75.75 0 00-.75-.75h-1.625a.75.75 0 01-.75-.75V3.75h1.125v.5a.75.75 0 001 0v-1.5a.75.75 0 00-.75-.75H5.375z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                          <button
                             onClick={(e) => handleDeleteEmail(email.id, e)}
                             className="text-gray-500 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity p-1"
                             title="Delete Email"
@@ -613,35 +693,21 @@ export default function ImapMailboxInbox() {
                         </div>
                       </div>
 
-                      {/* Recipient tag */}
-                      {email.recipient && (
-                        <div className="mb-1.5">
-                          <span className="text-[10px] font-mono text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 inline-flex items-center gap-1 max-w-full truncate">
-                            <span className="text-gray-500 font-sans">To:</span> {email.recipient}
-                          </span>
+                      {/* From mail */}
+                      {senderEmail && (
+                        <div className="mb-1.5 flex items-center gap-1.5 max-w-full">
+                          <span className="text-[10px] font-mono text-gray-500 font-semibold flex-shrink-0">From:</span>
+                          <span className="text-[10px] font-mono text-gray-400 truncate">{senderEmail}</span>
+                          {email.has_attachment === 1 && (
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 text-emerald-400 flex-shrink-0" aria-label="Has Attachment">
+                              <path fillRule="evenodd" d="M15.621 4.379a3 3 0 00-4.242 0l-7 7a3 3 0 004.241 4.243h.001l.497-.5a.75.75 0 011.064 1.057l-.498.501-.002.002a4.5 4.5 0 01-6.364-6.364l7-7a4.5 4.5 0 016.368 6.36l-3.455 3.553A2.625 2.625 0 119.52 9.52l3.45-3.451a.75.75 0 111.061 1.06l-3.45 3.451a1.125 1.125 0 001.587 1.595l3.454-3.553a3 3 0 000-4.242z" clipRule="evenodd" />
+                            </svg>
+                          )}
                         </div>
                       )}
 
-                      <div className={`text-xs font-semibold truncate mb-2 ${isSelected ? 'text-blue-100' : 'text-gray-300'}`}>
+                      <div className={`text-xs font-semibold truncate ${isSelected ? 'text-blue-100' : 'text-gray-300'}`}>
                         {email.subject || "(No Subject)"}
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        {email.has_attachment === 1 ? (
-                          <span className="bg-emerald-500/10 text-emerald-400 text-[10px] px-2 py-0.5 rounded font-semibold flex items-center gap-1 border border-emerald-500/20">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
-                              <path fillRule="evenodd" d="M15.621 4.379a3 3 0 00-4.242 0l-7 7a3 3 0 004.241 4.243h.001l.497-.5a.75.75 0 011.064 1.057l-.498.501-.002.002a4.5 4.5 0 01-6.364-6.364l7-7a4.5 4.5 0 016.368 6.36l-3.455 3.553A2.625 2.625 0 119.52 9.52l3.45-3.451a.75.75 0 111.061 1.06l-3.45 3.451a1.125 1.125 0 001.587 1.595l3.454-3.553a3 3 0 000-4.242z" clipRule="evenodd" />
-                            </svg>
-                            Attached
-                          </span>
-                        ) : (
-                          <span className="bg-white/[0.04] text-gray-400 text-[10px] px-2 py-0.5 rounded font-semibold border border-white/[0.08]">
-                            Simple
-                          </span>
-                        )}
-                        <span className="text-[10px] text-gray-600 font-mono">
-                          {formatBytes(email.attachment_size || 0)}
-                        </span>
                       </div>
                     </div>
                   );
@@ -654,7 +720,9 @@ export default function ImapMailboxInbox() {
           <div className="p-3 border-t border-white/[0.06] bg-[#0b0f19]/95 backdrop-blur-md flex items-center justify-between z-10 flex-shrink-0">
             <div className="flex items-center gap-1.5">
               <span className="text-[11px] font-mono text-gray-400">
-                {totalRecords > 0 ? `${startRecord}-${endRecord} of ${totalRecords}` : "0 emails"}
+                {isPinnedFilter
+                  ? `${pinnedCount} pinned`
+                  : totalRecords > 0 ? `${startRecord}-${endRecord} of ${totalRecords}` : "0 emails"}
               </span>
             </div>
 

@@ -21,8 +21,6 @@ export function generateStaticParams() {
     { tab: "logs" },
     { tab: "projects" },
     { tab: "mailbox" },
-    { tab: "imap" },
-    { tab: "imap-mailbox" },
     { tab: "domains" },
     { tab: "primary-domain" },
     { tab: "primary-domains" },

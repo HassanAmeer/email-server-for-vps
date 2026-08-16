@@ -13,7 +13,7 @@ import SetupManager from "../components/SetupManager";
 import DomainsManager from "../components/DomainsManager";
 import PrimaryDomainManager from "../components/PrimaryDomainManager";
 import MailboxManager from "../components/MailboxManager";
-import ImapMailboxManager from "../components/ImapMailboxManager";
+import { APP_VERSION } from "@/lib/version";
 
 const API_BASE = "http://localhost:8081";
 
@@ -43,8 +43,6 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
     logs: "logs-tab",
     projects: "projects-tab",
     mailbox: "mailbox-tab",
-    imap: "imap-tab",
-    "imap-mailbox": "imap-tab",
     domains: "domains-tab",
     "primary-domain": "primary-domain-tab",
     "primary-domains": "primary-domain-tab",
@@ -59,7 +57,6 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
     "logs-tab": "logs",
     "projects-tab": "projects",
     "mailbox-tab": "mailbox",
-    "imap-tab": "imap",
     "domains-tab": "domains",
     "primary-domain-tab": "primary-domain",
     "setup-tab": "domains"
@@ -188,7 +185,7 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
 
   if (!isAuthenticated) {
     return (
-      <div className="bg-[#070A13] text-gray-100 min-h-screen relative overflow-x-hidden font-sans">
+      <div className="bg-[#070A13] text-gray-100 h-screen w-screen overflow-hidden relative font-sans">
         <LoginOverlay apiUrl={apiUrl} onLoginSuccess={() => setIsAuthenticated(true)} />
       </div>
     );
@@ -217,7 +214,7 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
               </svg>
             </div>
             <div className="flex flex-col">
-              <span className="font-extrabold text-sm tracking-widest text-white uppercase font-mono bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">TempEmail</span>
+              <span className="font-extrabold text-sm tracking-widest text-white uppercase font-mono bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">Admin Panel</span>
               <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider font-mono">Control Panel</span>
             </div>
           </div>
@@ -266,6 +263,53 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
           </button>
 
           <button
+            onClick={() => handleTabClick("domains-tab")}
+            className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
+              activeTab === "domains-tab" || activeTab === "setup-tab"
+                ? "rounded-none text-emerald-400 bg-emerald-500/10 shadow-[0_2px_12px_rgba(16,185,129,0.03)]" 
+                : "rounded-none text-gray-400 hover:text-white hover:bg-white/[0.02]"
+            }`}
+          >
+            {(activeTab === "domains-tab" || activeTab === "setup-tab") && (
+              <span className="absolute left-0 inset-y-0 w-[3px] bg-emerald-400"></span>
+            )}
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
+            </svg>
+            <span>Domains</span>
+          </button>
+
+          <button
+            onClick={() => handleTabClick("primary-domain-tab")}
+            className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
+              activeTab === "primary-domain-tab" 
+                ? "rounded-none text-amber-400 bg-amber-500/10 shadow-[0_2px_12px_rgba(245,158,11,0.03)]" 
+                : "rounded-none text-gray-400 hover:text-white hover:bg-white/[0.02]"
+            }`}
+          >
+            {activeTab === "primary-domain-tab" && (
+              <span className="absolute left-0 inset-y-0 w-[3px] bg-amber-400"></span>
+            )}
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+            </svg>
+            <span>Primary Domain</span>
+          </button>
+
+          {/* DEV Section Divider with Horizontal Line and Centered Badge */}
+          <div className="relative my-4 px-2 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center" aria-hidden="true">
+              <div className="w-full border-t border-white/[0.08]"></div>
+            </div>
+            <div className="relative flex items-center justify-center">
+              <span className="bg-[#090C16] px-2.5 text-[9px] font-mono font-bold tracking-widest uppercase text-emerald-400/90 border border-emerald-500/20 rounded-full py-0.5 shadow-sm">
+                DEV
+              </span>
+            </div>
+          </div>
+
+          {/* DEV Section Navigation Buttons */}
+          <button
             onClick={() => handleTabClick("projects-tab")}
             className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
               activeTab === "projects-tab" 
@@ -300,26 +344,6 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
           </button>
 
           <button
-            onClick={() => handleTabClick("imap-tab")}
-            className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
-              activeTab === "imap-tab" 
-                ? "rounded-none text-blue-400 bg-blue-500/10 shadow-[0_2px_12px_rgba(59,130,246,0.03)]" 
-                : "rounded-none text-gray-400 hover:text-white hover:bg-white/[0.02]"
-            }`}
-          >
-            {activeTab === "imap-tab" && (
-              <span className="absolute left-0 inset-y-0 w-[3px] bg-blue-400"></span>
-            )}
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.75 5.25a3 3 0 012.4-1.2h7.7a3 3 0 012.4 1.2l2.1 3.3a4.5 4.5 0 01.9 2.7" />
-            </svg>
-            <div className="flex items-center justify-between w-full">
-              <span>IMAP Mailbox</span>
-              <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono font-bold">993</span>
-            </div>
-          </button>
-
-          <button
             onClick={() => handleTabClick("logs-tab")}
             className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
               activeTab === "logs-tab" 
@@ -335,43 +359,6 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
             </svg>
             <span>Server Logs</span>
           </button>
-
-          <button
-            onClick={() => handleTabClick("domains-tab")}
-            className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
-              activeTab === "domains-tab" || activeTab === "setup-tab"
-                ? "rounded-none text-emerald-400 bg-emerald-500/10 shadow-[0_2px_12px_rgba(16,185,129,0.03)]" 
-                : "rounded-none text-gray-400 hover:text-white hover:bg-white/[0.02]"
-            }`}
-          >
-            {(activeTab === "domains-tab" || activeTab === "setup-tab") && (
-              <span className="absolute left-0 inset-y-0 w-[3px] bg-emerald-400"></span>
-            )}
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
-            </svg>
-            <span>Domains</span>
-          </button>
-
-          <button
-            onClick={() => handleTabClick("primary-domain-tab")}
-            className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
-              activeTab === "primary-domain-tab" 
-                ? "rounded-none text-amber-400 bg-amber-500/10 shadow-[0_2px_12px_rgba(245,158,11,0.03)]" 
-                : "rounded-none text-gray-400 hover:text-white hover:bg-white/[0.02]"
-            }`}
-          >
-            {activeTab === "primary-domain-tab" && (
-              <span className="absolute left-0 inset-y-0 w-[3px] bg-amber-400"></span>
-            )}
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
-            </svg>
-            <span>Primary Domain</span>
-          </button>
-
-          {/* Separator before advanced sections */}
-          <div className="mx-4 my-2 border-t border-white/[0.04]"></div>
 
           <button
             onClick={() => handleTabClick("api-tab")}
@@ -392,16 +379,23 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
         </nav>
 
         {/* Logout section */}
-        <div className="p-4 border-t border-white/[0.04]">
+        <div className="p-4 border-t border-white/[0.04] space-y-2.5">
           <button
             onClick={handleLogout}
-            className="w-full bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/25 px-4 py-3 rounded-2xl text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-2 shadow-lg shadow-red-500/5"
+            className="w-full bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/25 px-4 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-2 shadow-lg shadow-red-500/5"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4.5 h-4.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
             </svg>
             <span>Logout</span>
           </button>
+          <div className="flex items-center justify-between px-2 text-[10px] font-mono text-gray-500">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              <span>Online</span>
+            </span>
+            <span className="text-gray-400">{APP_VERSION}</span>
+          </div>
         </div>
       </aside>
 
@@ -438,10 +432,6 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
 
           {activeTab === "mailbox-tab" && (
             <MailboxManager apiUrl={apiUrl} />
-          )}
-
-          {activeTab === "imap-tab" && (
-            <ImapMailboxManager apiUrl={apiUrl} />
           )}
 
           {(activeTab === "domains-tab" || activeTab === "setup-tab") && (

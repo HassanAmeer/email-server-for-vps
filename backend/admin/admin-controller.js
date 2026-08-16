@@ -463,6 +463,21 @@ export class AdminController {
         db.transaction(() => {
           db.prepare("UPDATE attached_domains SET is_primary = 0").run();
           db.prepare("UPDATE attached_domains SET is_primary = 1, primary_prefix = ? WHERE id = ?").run(prefix || 'my', id);
+
+          const fullEmail = `${(prefix || 'my').trim().toLowerCase()}@${exists.domain.toLowerCase()}`;
+          const existingUser = db.prepare("SELECT id FROM mailbox_users WHERE LOWER(email) = LOWER(?) OR email LIKE ?").get(fullEmail, `%@${exists.domain.toLowerCase()}`);
+          if (existingUser) {
+            db.prepare("UPDATE mailbox_users SET email = ? WHERE id = ?").run(fullEmail, existingUser.id);
+          } else {
+            const defaultPwd = "Admin@" + Math.random().toString(36).slice(-8);
+            let hash = defaultPwd;
+            try {
+              if (typeof Bun !== "undefined" && Bun.password) {
+                hash = Bun.password.hashSync(defaultPwd, { algorithm: "bcrypt", cost: 10 });
+              }
+            } catch (e) {}
+            db.prepare("INSERT INTO mailbox_users (email, password_hash, plain_password, project_id) VALUES (?, ?, ?, ?)").run(fullEmail, hash, defaultPwd, 1);
+          }
         })();
 
         res.writeHead(200, { "Content-Type": "application/json" });
@@ -644,10 +659,12 @@ export class AdminController {
         results.spf.error = e.code || e.message;
       }
 
-      // Check DKIM TXT
+      // Check DKIM TXT (check both mail._domainkey and default._domainkey)
       try {
-        const dkimRecords = await dns.resolveTxt(`default._domainkey.${domain}`);
-        const flatDkim = dkimRecords.map(t => Array.isArray(t) ? t.join("") : t);
+        const mailDkim = await dns.resolveTxt(`mail._domainkey.${domain}`).catch(() => []);
+        const defDkim = await dns.resolveTxt(`default._domainkey.${domain}`).catch(() => []);
+        const allDkim = [...mailDkim, ...defDkim];
+        const flatDkim = allDkim.map(t => Array.isArray(t) ? t.join("") : t);
         const dkim = flatDkim.find(t => typeof t === "string" && (t.toLowerCase().includes("v=dkim1") || t.includes("p=")));
         if (dkim) {
           results.dkim.valid = true;

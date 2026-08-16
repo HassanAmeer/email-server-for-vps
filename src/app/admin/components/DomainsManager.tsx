@@ -382,37 +382,6 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
     }
   };
 
-  // Subnav Tab State (All Domains vs Primary Domain)
-  const [activeDomainTab, setActiveDomainTab] = useState<"all" | "primary">("all");
-
-  const handleSetPrimaryDomain = async (id: number) => {
-    // Pure Local State Management: Update immediately in UI
-    setDomains(prev => prev.map(d => ({
-      ...d,
-      is_primary: d.id === id ? 1 : 0
-    })));
-    try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/domains/${id}/primary`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
-      });
-      if (res.ok) {
-        const primaryDomain = domains.find(d => d.id === id);
-        showToast(`Domain ${primaryDomain ? primaryDomain.domain : ""} set as Primary Mailbox Domain!`, "success");
-      } else {
-        await fetchDomains(false);
-        showToast("Failed to set Primary Domain", "error");
-      }
-    } catch (err) {
-      await fetchDomains(false);
-      showToast("Failed to set Primary Domain", "error");
-    }
-  };
-
   const handleConfirmGenerateDkim = async () => {
     setShowDkimConfirmModal(false);
     setGeneratingDkim(true);
@@ -440,8 +409,6 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
   const filteredDomains = domains.filter((d) =>
     d.domain.toLowerCase().includes(searchQuery.toLowerCase().trim())
   );
-
-  const primaryDomainObj = domains.find(d => d.is_primary === 1 || d.is_primary === true) || (domains.length > 0 ? domains[0] : null);
 
   return (
     <div className="flex flex-col gap-8 animate-fade-in w-full max-w-7xl mx-auto pb-16">
@@ -657,8 +624,7 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
                       <th className="py-4 px-6">Domain</th>
                       <th className="py-4 px-6">Plan</th>
                       <th className="py-4 px-6">Catch-All</th>
-                      <th className="py-4 px-6">Primary</th>
-                      <th className="py-4 px-6">Status & Verification</th>
+                      <th className="py-4 px-6">Verification</th>
                       <th className="py-4 px-6">DNS Guide</th>
                       <th className="py-4 px-6 text-right">Actions</th>
                     </tr>
@@ -675,11 +641,8 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
                               </svg>
                             </div>
                             <div className="flex flex-col">
-                              <span className="font-mono font-bold text-white text-sm tracking-wide flex items-center gap-2">
+                              <span className="font-mono font-bold text-white text-sm tracking-wide">
                                 {domain.domain}
-                                {(domain.is_primary === 1 || domain.is_primary === true) && (
-                                  <span className="text-amber-400 text-xs" title="Primary Domain">★</span>
-                                )}
                               </span>
                               <span className="text-[11px] text-gray-500">
                                 Added {new Date(domain.created_at).toLocaleDateString()}
@@ -720,67 +683,28 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
                           </button>
                         </td>
 
-                        {/* Primary Domain Status / Toggle */}
+                        {/* Verification Column */}
                         <td className="py-4.5 px-6">
-                          {domain.is_primary === 1 || domain.is_primary === true ? (
-                            <span className="px-3 py-1.5 rounded-xl font-extrabold uppercase tracking-wider text-[11px] bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 shadow-sm shadow-amber-500/10 w-fit">
-                              <span className="text-amber-400">★</span> Primary
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleSetPrimaryDomain(domain.id)}
-                              className="px-3 py-1.5 rounded-xl font-bold text-[11px] text-gray-400 hover:text-amber-300 hover:bg-amber-500/10 border border-white/5 hover:border-amber-500/20 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 w-fit"
-                              title="Click to set this domain as Primary for Mailbox"
-                            >
-                              <span className="text-gray-500 hover:text-amber-400">☆</span> Set Primary
-                            </button>
-                          )}
-                        </td>
-
-                        {/* Status & Outline Verify Button */}
-                        <td className="py-4.5 px-6">
-                          <div className="flex items-center gap-3 flex-wrap">
-                            {domain.status === "active" ? (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
-                                </svg>
-                                Active
-                              </span>
-                            ) : domain.status === "paused" ? (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-500/10 border border-gray-500/30 text-gray-400 text-xs font-bold">
-                                Paused
-                              </span>
+                          <button
+                            onClick={() => handleVerifyDomain(domain)}
+                            disabled={verifyingId === domain.id}
+                            className="border border-emerald-500/40 hover:border-emerald-400 text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50 font-bold px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm shadow-emerald-500/10 active:scale-95"
+                            title="Verify live DNS records (MX, A, SPF, DKIM)"
+                          >
+                            {verifyingId === domain.id ? (
+                              <>
+                                <div className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
+                                <span>Verifying...</span>
+                              </>
                             ) : (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold">
-                                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-                                Pending
-                              </span>
+                              <>
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>Verify DNS</span>
+                              </>
                             )}
-
-                            {/* OUTLINE VERIFY BUTTON */}
-                            <button
-                              onClick={() => handleVerifyDomain(domain)}
-                              disabled={verifyingId === domain.id}
-                              className="border border-emerald-500/40 hover:border-emerald-400 text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50 font-bold px-3 py-1 rounded-lg text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm shadow-emerald-500/10"
-                              title="Verify DNS records (MX, SPF, A, DKIM)"
-                            >
-                              {verifyingId === domain.id ? (
-                                <>
-                                  <div className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
-                                  <span>Verifying...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                  <span>Verify</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
+                          </button>
                         </td>
 
                         {/* View DNS Setup Button */}
@@ -803,23 +727,33 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
                           <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => handleUpdateDomainStatus(domain.id, domain.status)}
-                              className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
-                              title={domain.status === "active" ? "Pause domain" : "Activate domain"}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border active:scale-95 ${
+                                domain.status === "active"
+                                  ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/30"
+                                  : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                              }`}
+                              title={domain.status === "active" ? "Pause domain receiving" : "Resume / Activate domain"}
                             >
                               {domain.status === "active" ? (
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
+                                <>
+                                  <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  <span>Pause</span>
+                                </>
                               ) : (
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
+                                <>
+                                  <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  <span>Resume</span>
+                                </>
                               )}
                             </button>
                             <button
                               onClick={() => setShowDeleteConfirmModal(domain.id)}
-                              className="p-2 rounded-xl text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
+                              className="p-2 rounded-xl text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer border border-transparent hover:border-red-500/20"
                               title="Delete Domain"
                             >
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -1006,19 +1006,33 @@ export class ApiRouter {
               cost: 10,
             });
 
-            const stmt = db.prepare("INSERT INTO mailbox_users (email, password_hash, plain_password, project_id) VALUES (?, ?, ?, ?)");
-            const result = stmt.run(email, hash, password, project_id);
+            // Upsert mailbox user
+            const existing = db.prepare("SELECT id FROM mailbox_users WHERE LOWER(email) = LOWER(?)").get(email);
+            let userId;
+            if (existing) {
+              userId = existing.id;
+              db.prepare("UPDATE mailbox_users SET password_hash = ?, plain_password = ?, project_id = COALESCE(?, project_id) WHERE id = ?").run(hash, password, project_id || null, userId);
+            } else {
+              const stmt = db.prepare("INSERT INTO mailbox_users (email, password_hash, plain_password, project_id) VALUES (?, ?, ?, ?)");
+              const result = stmt.run(email, hash, password, project_id || 1);
+              userId = result.lastInsertRowid;
+            }
+
+            // If this email belongs to an attached primary domain, sync primary_prefix
+            if (email && email.includes("@")) {
+              const [prefix, dom] = email.split("@");
+              if (prefix && dom) {
+                try {
+                  db.prepare("UPDATE attached_domains SET primary_prefix = ? WHERE LOWER(domain) = LOWER(?) AND is_primary = 1").run(prefix, dom);
+                } catch (e) {}
+              }
+            }
             
             res.writeHead(201, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ id: result.lastInsertRowid, email, plain_password: password, project_id }));
+            res.end(JSON.stringify({ id: userId, email, plain_password: password, project_id }));
           } catch (err) {
-            if (err.message && err.message.includes("UNIQUE constraint failed")) {
-              res.writeHead(409, { "Content-Type": "application/json" });
-              res.end(JSON.stringify({ error: "Mailbox user with this email already exists" }));
-            } else {
-              res.writeHead(500, { "Content-Type": "application/json" });
-              res.end(JSON.stringify({ error: err.message }));
-            }
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: err.message }));
           }
         });
         return;
@@ -1037,7 +1051,7 @@ export class ApiRouter {
         req.on("data", chunk => body += chunk.toString());
         req.on("end", () => {
           try {
-            const { password, project_id } = JSON.parse(body);
+            const { email, password, project_id } = JSON.parse(body);
             if (!password) {
               res.writeHead(400, { "Content-Type": "application/json" });
               res.end(JSON.stringify({ error: "Password is required" }));
@@ -1049,14 +1063,28 @@ export class ApiRouter {
               cost: 10,
             });
 
-            if (project_id) {
+            if (email && project_id) {
+              db.prepare("UPDATE mailbox_users SET email = ?, password_hash = ?, plain_password = ?, project_id = ? WHERE id = ?").run(email, hash, password, project_id, id);
+            } else if (email) {
+              db.prepare("UPDATE mailbox_users SET email = ?, password_hash = ?, plain_password = ? WHERE id = ?").run(email, hash, password, id);
+            } else if (project_id) {
               db.prepare("UPDATE mailbox_users SET password_hash = ?, plain_password = ?, project_id = ? WHERE id = ?").run(hash, password, project_id, id);
             } else {
               db.prepare("UPDATE mailbox_users SET password_hash = ?, plain_password = ? WHERE id = ?").run(hash, password, id);
             }
 
+            // Sync primary_prefix in attached_domains if this email belongs to primary domain
+            if (email && email.includes("@")) {
+              const [prefix, dom] = email.split("@");
+              if (prefix && dom) {
+                try {
+                  db.prepare("UPDATE attached_domains SET primary_prefix = ? WHERE LOWER(domain) = LOWER(?) AND is_primary = 1").run(prefix, dom);
+                } catch (e) {}
+              }
+            }
+
             res.writeHead(200, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ success: true, id, plain_password: password }));
+            res.end(JSON.stringify({ success: true, id, email, plain_password: password }));
           } catch (err) {
             res.writeHead(500, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ error: err.message }));

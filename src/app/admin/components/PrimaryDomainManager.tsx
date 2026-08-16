@@ -39,6 +39,8 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
 
   // Settings Sheet / Drawer State for Mailbox Login Credentials
   const [isSettingsSheetOpen, setIsSettingsSheetOpen] = useState<boolean>(false);
+  const [settingsDomain, setSettingsDomain] = useState<string>("");
+  const [settingsTab, setSettingsTab] = useState<"credentials" | "forwarding">("credentials");
   const [mailboxUserEmail, setMailboxUserEmail] = useState<string>("");
   const [mailboxUserPassword, setMailboxUserPassword] = useState<string>("");
   const [mailboxUserId, setMailboxUserId] = useState<number | null>(null);
@@ -112,19 +114,18 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
     }
   };
 
-  // Open Settings Sheet & Fetch Credentials for Primary Mailbox
-  const handleOpenSettingsSheet = async (domain: string) => {
-    const emailToFind = `${(primaryPrefix || "my").trim().toLowerCase()}@${domain}`;
-    setMailboxUserEmail(emailToFind);
-    setMailboxUserPassword("");
-    setMailboxUserId(null);
-    setShowPassword(false);
-    setIsSettingsSheetOpen(true);
+  // Fetch Credentials for Mailbox
+  const fetchMailboxCredentials = async (domain: string, prefix?: string) => {
+    const domainObj = domains.find((d) => d.domain === domain);
+    const prefixToUse = prefix || domainObj?.primary_prefix || primaryPrefix || "admin";
+    const defaultEmail = `${prefixToUse.trim().toLowerCase()}@${domain}`;
+
+    setSettingsDomain(domain);
     setMailboxLoading(true);
 
     try {
       const token = localStorage.getItem("admin_token") || "";
-      
+
       // 1. Fetch projects to get a valid default project_id
       const projRes = await fetch(`${apiUrl}/api/admin/projects`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -143,11 +144,15 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
       if (usersRes.ok) {
         const usersData = await usersRes.json();
         if (Array.isArray(usersData)) {
-          const matchedUser = usersData.find((u: any) => u.email?.toLowerCase() === emailToFind.toLowerCase());
+          const matchedUser =
+            usersData.find((u: any) => u.email?.toLowerCase() === defaultEmail.toLowerCase()) ||
+            usersData.find((u: any) => u.email?.toLowerCase().endsWith(`@${domain.toLowerCase()}`));
           if (matchedUser) {
             setMailboxUserId(matchedUser.id);
+            setMailboxUserEmail(matchedUser.email);
             setMailboxUserPassword(matchedUser.plain_password || "");
           } else {
+            setMailboxUserEmail(defaultEmail);
             handleGeneratePassword();
           }
         }
@@ -157,6 +162,14 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
     } finally {
       setMailboxLoading(false);
     }
+  };
+
+  // Open Settings Sheet & Fetch Credentials for Primary Mailbox
+  const handleOpenSettingsSheet = async (domain: string) => {
+    setSettingsDomain(domain);
+    setShowPassword(false);
+    setIsSettingsSheetOpen(true);
+    await fetchMailboxCredentials(domain);
   };
 
   const handleGeneratePassword = () => {
@@ -180,7 +193,7 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
       const token = localStorage.getItem("admin_token") || "";
       let res;
       if (mailboxUserId) {
-        // Update existing user password
+        // Update existing user email & password
         res = await fetch(`${apiUrl}/api/admin/mailbox-users/${mailboxUserId}`, {
           method: "PUT",
           headers: {
@@ -188,6 +201,7 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
             Authorization: `Bearer ${token}`
           },
           body: JSON.stringify({
+            email: mailboxUserEmail,
             password: mailboxUserPassword,
             project_id: defaultProjectId
           })
@@ -211,7 +225,23 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
       if (res.ok) {
         const data = await res.json();
         if (data.id) setMailboxUserId(data.id);
-        showToast("Primary mailbox login credentials saved successfully!", "success");
+
+        const emailParts = mailboxUserEmail.split("@");
+        const newPrefix = emailParts[0]?.trim().toLowerCase();
+        const emailDomain = emailParts[1]?.trim().toLowerCase();
+
+        if (newPrefix && emailDomain) {
+          setPrimaryPrefix(newPrefix);
+          setDomains((prev) =>
+            prev.map((d) =>
+              d.domain.toLowerCase() === emailDomain.toLowerCase() && (d.is_primary === 1 || d.is_primary === true)
+                ? { ...d, primary_prefix: newPrefix }
+                : d
+            )
+          );
+        }
+
+        showToast("Mailbox login credentials saved successfully! IMAP & POP3 updated.", "success");
       } else {
         const data = await res.json();
         throw new Error(data.error || "Failed to save credentials");
@@ -260,6 +290,9 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
 
       if (res.ok) {
         showToast(`Primary Domain set to "${target?.domain}" with mailbox "${cleanPrefix}@${target?.domain}"!`, "success");
+        if (target?.domain) {
+          fetchMailboxCredentials(target.domain, cleanPrefix);
+        }
       } else {
         setDomains(previousDomains);
         const data = await res.json();
@@ -326,6 +359,7 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
 
   const activePrefix = primaryDomain?.primary_prefix || "my";
   const activeFullEmail = primaryDomain ? `${activePrefix}@${primaryDomain.domain}` : "my@yourdomain.com";
+  const currentHost = settingsDomain || primaryDomain?.domain || "mailserver10.com";
 
   return (
     <div className="flex flex-col gap-8 animate-fade-in w-full max-w-7xl mx-auto pb-24">
@@ -498,33 +532,33 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
                   
                   {/* Domain Name Cell */}
                   <td className="py-3.5 px-5">
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex flex-col">
                       <span className="font-mono font-bold text-white text-sm">
                         {primaryDomain.domain}
                       </span>
-                      <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-[4px] border border-amber-500/20 font-semibold">
-                        Primary
+                      <span className="text-gray-400 text-xs font-mono mt-0.5">
+                        {activeFullEmail}
                       </span>
                     </div>
                   </td>
 
                   {/* Routing Mode Cell */}
                   <td className="py-3.5 px-5">
-                    <span className="px-2.5 py-1 rounded-[6px] bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-bold text-[11px] flex items-center gap-1.5 w-fit">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                      Catch-All Active
-                    </span>
+                    <div className="flex items-center gap-2 text-xs font-mono text-emerald-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block shadow-[0_0_8px_rgba(52,211,153,0.6)]"></span>
+                      <span>Catch-All Active</span>
+                    </div>
                   </td>
 
                   {/* Live Status Cell */}
                   <td className="py-3.5 px-5">
-                    <span className="px-2.5 py-1 rounded-[6px] bg-cyan-500/10 text-cyan-300 border border-cyan-500/25 font-bold text-[11px] flex items-center gap-2 w-fit">
+                    <div className="flex items-center gap-2 text-xs font-mono text-cyan-400">
                       <span className="relative flex h-2 w-2">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400"></span>
                       </span>
-                      Live & Receiving
-                    </span>
+                      <span>Live & Receiving</span>
+                    </div>
                   </td>
 
                   {/* Action Buttons Cell */}
@@ -546,7 +580,7 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
 
                       {/* Mailbox UI Button */}
                       <a
-                        href="/mailbox"
+                        href="/imap-mailbox"
                         target="_blank"
                         rel="noreferrer"
                         className="px-3 py-1.5 rounded-[8px] border border-amber-500/40 hover:border-amber-400 bg-amber-500/5 hover:bg-amber-500/15 text-amber-400 hover:text-amber-300 text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95"
@@ -1180,220 +1214,603 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
             onClick={() => setIsSettingsSheetOpen(false)}
           ></div>
 
-          <div className="fixed inset-y-0 right-0 max-w-lg w-full flex pl-4 sm:pl-8 z-50">
-            <div className="w-full bg-[#090C16] border-l border-white/10 shadow-2xl flex flex-col justify-between animate-slide-left overflow-hidden">
+          <div className="fixed inset-y-0 right-0 max-w-lg w-full flex pl-3 sm:pl-6 z-50">
+            <div className="w-full bg-[#000000] sm:bg-[#121214] border-l border-white/10 shadow-2xl flex flex-col justify-between animate-slide-left overflow-hidden">
               
-              {/* Drawer Header */}
-              <div className="px-5 py-4 border-b border-white/[0.08] flex items-center justify-between bg-white/[0.02] shrink-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  </div>
-                  <div className="flex flex-col">
-                    <h3 className="text-base font-extrabold text-white">Mailbox Login Credentials</h3>
-                    <span className="text-xs text-gray-400 font-mono">
-                      {mailboxUserEmail}
-                    </span>
-                  </div>
-                </div>
-
+              {/* iOS Navigation Bar */}
+              <div className="px-4 py-2.5 border-b border-white/[0.08] flex items-center justify-between bg-[#1C1C1E]/80 backdrop-blur-md shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsSettingsSheetOpen(false)}
-                  className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer border border-transparent hover:border-white/10"
-                  title="Close Drawer"
+                  className="text-xs font-medium text-[#0A84FF] hover:text-[#409CFF] cursor-pointer"
                 >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  Cancel
+                </button>
+                <div className="flex flex-col items-center">
+                  <h3 className="text-xs font-semibold text-white">Mail Account Setup</h3>
+                  <span className="text-[10px] text-gray-400 font-mono truncate max-w-[180px]">{mailboxUserEmail}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsSettingsSheetOpen(false)}
+                  className="text-xs font-semibold text-[#0A84FF] hover:text-[#409CFF] cursor-pointer"
+                >
+                  Done
                 </button>
               </div>
 
+              {/* iOS Segmented Control */}
+              <div className="px-3.5 pt-2.5 pb-1 shrink-0">
+                <div className="bg-[#1C1C1E] p-0.5 rounded-lg border border-white/[0.08] flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => setSettingsTab("credentials")}
+                    className={`flex-1 py-1 px-2 text-center text-xs font-medium rounded-md transition-all cursor-pointer ${
+                      settingsTab === "credentials"
+                        ? "bg-[#636366]/40 text-white shadow-sm font-semibold"
+                        : "text-gray-400 hover:text-gray-200"
+                    }`}
+                  >
+                    Account Credentials
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSettingsTab("forwarding")}
+                    className={`flex-1 py-1 px-2 text-center text-xs font-medium rounded-md transition-all cursor-pointer ${
+                      settingsTab === "forwarding"
+                        ? "bg-[#636366]/40 text-white shadow-sm font-semibold"
+                        : "text-gray-400 hover:text-gray-200"
+                    }`}
+                  >
+                    Server Settings (IMAP/POP)
+                  </button>
+                </div>
+              </div>
+
               {/* Drawer Content */}
-              <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-grow">
+              <div className="p-3.5 overflow-y-auto space-y-3 flex-grow">
                 {mailboxLoading ? (
-                  <div className="flex flex-col items-center justify-center py-16 text-gray-500 gap-3">
-                    <div className="w-8 h-8 border-2 border-amber-500/20 border-t-amber-400 rounded-full animate-spin"></div>
-                    <span className="text-xs font-medium">Checking existing credentials...</span>
+                  <div className="flex flex-col items-center justify-center py-12 text-gray-500 gap-2">
+                    <div className="w-5 h-5 border-2 border-[#0A84FF] border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-xs font-medium">Loading...</span>
                   </div>
-                ) : (
-                  <form onSubmit={handleSaveMailboxCredentials} className="flex flex-col gap-4">
+                ) : settingsTab === "credentials" ? (
+                  <form onSubmit={handleSaveMailboxCredentials} className="flex flex-col gap-3">
                     
-                    {/* Informational Banner */}
-                    <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300/90 leading-relaxed flex items-start gap-2.5">
-                      <span className="text-base shrink-0">💡</span>
-                      <div>
-                        In credentials ki madad se aap <strong>/mailbox</strong> Webmail portal me log in karke tamam converged emails ko parh aur send kar saktay hain.
-                      </div>
-                    </div>
-
-                    {/* Email / Username Field */}
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-extrabold text-gray-300 uppercase tracking-wider flex items-center justify-between">
-                        <span>Mailbox Login Email / Username</span>
-                        <span className="text-[10px] text-emerald-400 font-mono">Auto-Assigned</span>
-                      </label>
-                      <div className="relative flex items-center bg-black/60 border border-white/15 rounded-2xl px-4 py-3 shadow-inner">
-                        <input
-                          type="email"
-                          value={mailboxUserEmail}
-                          onChange={(e) => setMailboxUserEmail(e.target.value)}
-                          className="w-full bg-transparent text-sm text-white font-mono font-bold focus:outline-none"
-                          required
-                        />
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard(mailboxUserEmail, "sheet_email")}
-                          className="text-gray-400 hover:text-amber-400 p-1 cursor-pointer"
-                          title="Copy Email"
-                        >
-                          {copiedKey === "sheet_email" ? (
-                            <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : (
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                            </svg>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Password Field */}
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-extrabold text-gray-300 uppercase tracking-wider">
-                          Mailbox Password
-                        </label>
-                        <button
-                          type="button"
-                          onClick={handleGeneratePassword}
-                          className="text-[11px] font-bold text-amber-400 hover:text-amber-300 cursor-pointer flex items-center gap-1 transition-colors"
-                        >
-                          <span>🎲 Generate Password</span>
-                        </button>
-                      </div>
-                      <div className="relative flex items-center bg-black/60 border border-white/15 focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-500/20 rounded-2xl px-4 py-3 shadow-inner transition-all">
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          value={mailboxUserPassword}
-                          onChange={(e) => setMailboxUserPassword(e.target.value)}
-                          placeholder="Enter or generate password"
-                          className="w-full bg-transparent text-sm text-amber-300 font-mono font-bold focus:outline-none"
-                          required
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="text-gray-400 hover:text-white p-1 mr-1 cursor-pointer"
-                          title={showPassword ? "Hide Password" : "Show Password"}
-                        >
-                          {showPassword ? (
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
-                            </svg>
-                          ) : (
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard(mailboxUserPassword, "sheet_pwd")}
-                          className="text-gray-400 hover:text-amber-400 p-1 cursor-pointer"
-                          title="Copy Password"
-                        >
-                          {copiedKey === "sheet_pwd" ? (
-                            <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : (
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                            </svg>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Quick Access Card */}
-                    <div className="p-4 rounded-2xl bg-black/40 border border-white/10 flex flex-col gap-2.5 mt-2">
-                      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
-                        Quick Summary For Login
+                    {/* iOS Grouped Card: Account Info */}
+                    <div>
+                      <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2 mb-1 block">
+                        Account Info
                       </span>
-                      <div className="flex items-center justify-between text-xs font-mono">
-                        <span className="text-gray-500">Username:</span>
-                        <span className="text-white font-bold">{mailboxUserEmail}</span>
+                      <div className="bg-[#1C1C1E] rounded-xl border border-white/[0.08] divide-y divide-white/[0.06] overflow-hidden">
+                        
+                        {/* Email Row */}
+                        <div className="flex items-center justify-between px-3 py-2">
+                          <span className="text-[11px] font-medium text-gray-400 w-20 shrink-0">Email</span>
+                          <input
+                            type="text"
+                            value={mailboxUserEmail}
+                            onChange={(e) => setMailboxUserEmail(e.target.value)}
+                            placeholder="admin@domain.com"
+                            className="bg-transparent text-xs text-white font-mono font-medium focus:outline-none flex-1 text-right pr-2"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(mailboxUserEmail, "sheet_email")}
+                            className="text-gray-400 hover:text-white p-0.5 cursor-pointer shrink-0"
+                            title="Copy Email"
+                          >
+                            {copiedKey === "sheet_email" ? (
+                              <svg className="w-3.5 h-3.5 text-[#30D158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Password Row */}
+                        <div className="flex items-center justify-between px-3 py-2">
+                          <span className="text-[11px] font-medium text-gray-400 w-20 shrink-0">Password</span>
+                          <input
+                            type={showPassword ? "text" : "password"}
+                            value={mailboxUserPassword}
+                            onChange={(e) => setMailboxUserPassword(e.target.value)}
+                            placeholder="Password"
+                            className="bg-transparent text-xs text-amber-300 font-mono font-medium focus:outline-none flex-1 text-right pr-2"
+                            required
+                          />
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(!showPassword)}
+                              className="text-gray-400 hover:text-white p-0.5 cursor-pointer"
+                              title={showPassword ? "Hide" : "Show"}
+                            >
+                              {showPassword ? (
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
+                                </svg>
+                              ) : (
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleGeneratePassword}
+                              className="text-[10px] text-[#0A84FF] hover:text-[#409CFF] font-semibold px-1 cursor-pointer"
+                              title="Generate random password"
+                            >
+                              🎲
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(mailboxUserPassword, "sheet_pwd")}
+                              className="text-gray-400 hover:text-amber-400 p-0.5 cursor-pointer"
+                              title="Copy Password"
+                            >
+                              {copiedKey === "sheet_pwd" ? (
+                                <svg className="w-3.5 h-3.5 text-[#30D158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                                </svg>
+                              ) : (
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
                       </div>
-                      <div className="flex items-center justify-between text-xs font-mono">
-                        <span className="text-gray-500">Password:</span>
-                        <span className="text-amber-400 font-bold">{showPassword ? mailboxUserPassword : "••••••••••••"}</span>
-                      </div>
-                      <div className="pt-2 border-t border-white/5 flex items-center justify-between">
-                        <span className="text-[11px] text-gray-400">Webmail Portal:</span>
+                    </div>
+
+                    {/* iOS Action Button */}
+                    <button
+                      type="submit"
+                      disabled={mailboxSaving}
+                      className="w-full py-2.5 rounded-xl bg-[#0A84FF] hover:bg-[#0071E3] text-white font-semibold text-xs tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 disabled:opacity-50 shadow-sm"
+                    >
+                      {mailboxSaving ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <span>Saving Changes...</span>
+                        </>
+                      ) : (
+                        <span>Save Account Changes</span>
+                      )}
+                    </button>
+
+                    {/* iOS Grouped Link: Webmail */}
+                    <div>
+                      <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2 mb-1 block">
+                        Webmail
+                      </span>
+                      <div className="bg-[#1C1C1E] rounded-xl border border-white/[0.08] overflow-hidden">
                         <a
-                          href="/mailbox"
+                          href="/imap-mailbox"
                           target="_blank"
                           rel="noreferrer"
-                          className="text-xs text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1"
+                          className="flex items-center justify-between px-3.5 py-2.5 hover:bg-white/[0.04] transition-colors"
                         >
-                          <span>Open /mailbox</span>
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
+                          <span className="text-xs font-medium text-white">Open Webmail Inbox</span>
+                          <span className="text-xs text-gray-400 flex items-center gap-1 font-mono">
+                            <span>/imap-mailbox</span>
+                            <span className="text-gray-500 font-sans text-sm">›</span>
+                          </span>
                         </a>
                       </div>
                     </div>
 
-                    {/* Sleek Thin Outlined Submit Button */}
-                    <button
-                      type="submit"
-                      disabled={mailboxSaving}
-                      className="mt-2 w-full py-3.5 rounded-2xl border border-amber-500/40 hover:border-amber-400 bg-amber-500/5 hover:bg-amber-500/15 text-amber-400 hover:text-amber-300 active:scale-98 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                    >
-                      {mailboxSaving ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
-                          <span>Saving Credentials...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>💾</span>
-                          <span>{mailboxUserId ? "Update Credentials" : "Create & Save Login"}</span>
-                        </>
-                      )}
-                    </button>
-
                   </form>
+                ) : (
+                  /* TAB 2: IOS GROUPED SERVER SETTINGS */
+                  <div className="flex flex-col gap-3">
+                    
+                    {/* iOS Group 1: POP3 (Gmail Web) */}
+                    <div>
+                      <div className="flex items-center justify-between px-2 mb-1">
+                        <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">
+                          Incoming Server (POP3 — Gmail Web)
+                        </span>
+                        <span className="text-[9px] font-mono text-gray-400 bg-white/[0.05] px-1.5 py-0.2 rounded">
+                          Port 110 / 995 SSL
+                        </span>
+                      </div>
+
+                      <div className="bg-[#1C1C1E] rounded-xl border border-white/[0.08] divide-y divide-white/[0.06] overflow-hidden text-xs">
+                        
+                        {/* Connected Server Node (Domain OR IP) */}
+                        <div className="flex items-center justify-between px-3 py-1.5">
+                          <div className="flex flex-col shrink-0">
+                            <span className="text-[11px] font-medium text-gray-400">POP Server</span>
+                            <span className="text-[9px] text-gray-500 font-mono">Domain ya IP</span>
+                          </div>
+                          
+                          {/* Connected Node Group */}
+                          <div className="inline-flex items-stretch rounded-lg overflow-hidden border border-white/10 shadow-sm bg-black/40">
+                            {/* Domain Node */}
+                            <div className="flex items-center gap-1 px-2 py-0.5 bg-white/[0.04] hover:bg-white/[0.08] transition-colors">
+                              <span className="text-white font-semibold text-xs font-mono">{currentHost}</span>
+                              <button
+                                type="button"
+                                onClick={() => copyToClipboard(currentHost, "pop_host")}
+                                className="text-gray-400 hover:text-white p-0.5 cursor-pointer"
+                                title="Copy Domain"
+                              >
+                                {copiedKey === "pop_host" ? (
+                                  <svg className="w-3.5 h-3.5 text-[#30D158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                  </svg>
+                                )}
+                              </button>
+                            </div>
+
+                            {/* Connected Center OR Node */}
+                            <div className="flex items-center justify-center px-1.5 bg-[#2C2C2E] border-x border-white/10 text-[9px] font-black text-amber-400 uppercase tracking-wider select-none">
+                              OR
+                            </div>
+
+                            {/* Server IP Node */}
+                            <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-500/10 hover:bg-amber-500/15 transition-colors">
+                              <span className="text-amber-300 font-semibold text-xs font-mono">{serverIp || "187.52.117.2"}</span>
+                              <button
+                                type="button"
+                                onClick={() => copyToClipboard(serverIp || "187.52.117.2", "pop_ip")}
+                                className="text-gray-400 hover:text-amber-400 p-0.5 cursor-pointer"
+                                title="Copy Server IP"
+                              >
+                                {copiedKey === "pop_ip" ? (
+                                  <svg className="w-3.5 h-3.5 text-[#30D158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                  </svg>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Port */}
+                        <div className="flex items-center justify-between px-3 py-1.5">
+                          <span className="text-[11px] font-medium text-gray-400 w-20 shrink-0">Port</span>
+                          <span className="font-mono text-emerald-400 font-semibold text-right flex-1 pr-2">110 (Plain) / 995 (SSL)</span>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard("110", "pop_port")}
+                            className="text-gray-400 hover:text-white p-0.5 cursor-pointer shrink-0"
+                            title="Copy Port"
+                          >
+                            {copiedKey === "pop_port" ? (
+                              <svg className="w-3.5 h-3.5 text-[#30D158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* User Name */}
+                        <div className="flex items-center justify-between px-3 py-1.5">
+                          <span className="text-[11px] font-medium text-gray-400 w-20 shrink-0">User Name</span>
+                          <span className="font-mono text-white font-semibold truncate text-right flex-1 pr-2">{mailboxUserEmail}</span>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(mailboxUserEmail, "pop_user")}
+                            className="text-gray-400 hover:text-white p-0.5 cursor-pointer shrink-0"
+                            title="Copy Username"
+                          >
+                            {copiedKey === "pop_user" ? (
+                              <svg className="w-3.5 h-3.5 text-[#30D158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Password */}
+                        <div className="flex items-center justify-between px-3 py-1.5">
+                          <span className="text-[11px] font-medium text-gray-400 w-20 shrink-0">Password</span>
+                          <span className="font-mono text-amber-300 font-semibold truncate text-right flex-1 pr-2">{mailboxUserPassword || "••••••••••••"}</span>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(mailboxUserPassword, "pop_pwd")}
+                            className="text-gray-400 hover:text-amber-400 p-0.5 cursor-pointer shrink-0"
+                            title="Copy Password"
+                          >
+                            {copiedKey === "pop_pwd" ? (
+                              <svg className="w-3.5 h-3.5 text-[#30D158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+
+                      </div>
+                    </div>
+
+                    {/* iOS Group 2: IMAP (Apps & Mobile) */}
+                    <div>
+                      <div className="flex items-center justify-between px-2 mb-1">
+                        <span className="text-[10px] font-semibold text-[#0A84FF] uppercase tracking-wider">
+                          Incoming Server (IMAP — Apps & Mobile)
+                        </span>
+                        <span className="text-[9px] font-mono text-gray-400 bg-white/[0.05] px-1.5 py-0.2 rounded">
+                          Port 993 SSL / 143
+                        </span>
+                      </div>
+
+                      <div className="bg-[#1C1C1E] rounded-xl border border-white/[0.08] divide-y divide-white/[0.06] overflow-hidden text-xs">
+                        
+                        {/* Connected Server Node (Domain OR IP) */}
+                        <div className="flex items-center justify-between px-3 py-1.5">
+                          <div className="flex flex-col shrink-0">
+                            <span className="text-[11px] font-medium text-gray-400">IMAP Server</span>
+                            <span className="text-[9px] text-gray-500 font-mono">Domain ya IP</span>
+                          </div>
+                          
+                          {/* Connected Node Group */}
+                          <div className="inline-flex items-stretch rounded-lg overflow-hidden border border-white/10 shadow-sm bg-black/40">
+                            {/* Domain Node */}
+                            <div className="flex items-center gap-1 px-2 py-0.5 bg-white/[0.04] hover:bg-white/[0.08] transition-colors">
+                              <span className="text-white font-semibold text-xs font-mono">{currentHost}</span>
+                              <button
+                                type="button"
+                                onClick={() => copyToClipboard(currentHost, "imap_host")}
+                                className="text-gray-400 hover:text-white p-0.5 cursor-pointer"
+                                title="Copy Domain"
+                              >
+                                {copiedKey === "imap_host" ? (
+                                  <svg className="w-3.5 h-3.5 text-[#30D158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                  </svg>
+                                )}
+                              </button>
+                            </div>
+
+                            {/* Connected Center OR Node */}
+                            <div className="flex items-center justify-center px-1.5 bg-[#2C2C2E] border-x border-white/10 text-[9px] font-black text-[#0A84FF] uppercase tracking-wider select-none">
+                              OR
+                            </div>
+
+                            {/* Server IP Node */}
+                            <div className="flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 hover:bg-blue-500/15 transition-colors">
+                              <span className="text-blue-300 font-semibold text-xs font-mono">{serverIp || "187.52.117.2"}</span>
+                              <button
+                                type="button"
+                                onClick={() => copyToClipboard(serverIp || "187.52.117.2", "imap_ip")}
+                                className="text-gray-400 hover:text-blue-400 p-0.5 cursor-pointer"
+                                title="Copy Server IP"
+                              >
+                                {copiedKey === "imap_ip" ? (
+                                  <svg className="w-3.5 h-3.5 text-[#30D158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                  </svg>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Port */}
+                        <div className="flex items-center justify-between px-3 py-1.5">
+                          <span className="text-[11px] font-medium text-gray-400 w-20 shrink-0">Port</span>
+                          <span className="font-mono text-[#0A84FF] font-semibold text-right flex-1 pr-2">993 (SSL) / 143</span>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard("993", "imap_port")}
+                            className="text-gray-400 hover:text-white p-0.5 cursor-pointer shrink-0"
+                            title="Copy Port"
+                          >
+                            {copiedKey === "imap_port" ? (
+                              <svg className="w-3.5 h-3.5 text-[#30D158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* User Name */}
+                        <div className="flex items-center justify-between px-3 py-1.5">
+                          <span className="text-[11px] font-medium text-gray-400 w-20 shrink-0">User Name</span>
+                          <span className="font-mono text-white font-semibold truncate text-right flex-1 pr-2">{mailboxUserEmail}</span>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(mailboxUserEmail, "imap_user")}
+                            className="text-gray-400 hover:text-white p-0.5 cursor-pointer shrink-0"
+                            title="Copy Username"
+                          >
+                            {copiedKey === "imap_user" ? (
+                              <svg className="w-3.5 h-3.5 text-[#30D158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Password */}
+                        <div className="flex items-center justify-between px-3 py-1.5">
+                          <span className="text-[11px] font-medium text-gray-400 w-20 shrink-0">Password</span>
+                          <span className="font-mono text-amber-300 font-semibold truncate text-right flex-1 pr-2">{mailboxUserPassword || "••••••••••••"}</span>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(mailboxUserPassword, "imap_pwd")}
+                            className="text-gray-400 hover:text-amber-400 p-0.5 cursor-pointer shrink-0"
+                            title="Copy Password"
+                          >
+                            {copiedKey === "imap_pwd" ? (
+                              <svg className="w-3.5 h-3.5 text-[#30D158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+
+                      </div>
+                    </div>
+
+                    {/* iOS Group 3: SMTP (Outgoing) */}
+                    <div>
+                      <div className="flex items-center justify-between px-2 mb-1">
+                        <span className="text-[10px] font-semibold text-purple-400 uppercase tracking-wider">
+                          Outgoing Server (SMTP)
+                        </span>
+                        <span className="text-[9px] font-mono text-gray-400 bg-white/[0.05] px-1.5 py-0.2 rounded">
+                          Port 25 / 587
+                        </span>
+                      </div>
+
+                      <div className="bg-[#1C1C1E] rounded-xl border border-white/[0.08] divide-y divide-white/[0.06] overflow-hidden text-xs">
+                        
+                        {/* Connected Server Node (Domain OR IP) */}
+                        <div className="flex items-center justify-between px-3 py-1.5">
+                          <div className="flex flex-col shrink-0">
+                            <span className="text-[11px] font-medium text-gray-400">SMTP Server</span>
+                            <span className="text-[9px] text-gray-500 font-mono">Domain ya IP</span>
+                          </div>
+                          
+                          {/* Connected Node Group */}
+                          <div className="inline-flex items-stretch rounded-lg overflow-hidden border border-white/10 shadow-sm bg-black/40">
+                            {/* Domain Node */}
+                            <div className="flex items-center gap-1 px-2 py-0.5 bg-white/[0.04] hover:bg-white/[0.08] transition-colors">
+                              <span className="text-white font-semibold text-xs font-mono">{currentHost}</span>
+                              <button
+                                type="button"
+                                onClick={() => copyToClipboard(currentHost, "smtp_host")}
+                                className="text-gray-400 hover:text-white p-0.5 cursor-pointer"
+                                title="Copy Domain"
+                              >
+                                {copiedKey === "smtp_host" ? (
+                                  <svg className="w-3.5 h-3.5 text-[#30D158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                  </svg>
+                                )}
+                              </button>
+                            </div>
+
+                            {/* Connected Center OR Node */}
+                            <div className="flex items-center justify-center px-1.5 bg-[#2C2C2E] border-x border-white/10 text-[9px] font-black text-purple-400 uppercase tracking-wider select-none">
+                              OR
+                            </div>
+
+                            {/* Server IP Node */}
+                            <div className="flex items-center gap-1 px-2 py-0.5 bg-purple-500/10 hover:bg-purple-500/15 transition-colors">
+                              <span className="text-purple-300 font-semibold text-xs font-mono">{serverIp || "187.52.117.2"}</span>
+                              <button
+                                type="button"
+                                onClick={() => copyToClipboard(serverIp || "187.52.117.2", "smtp_ip")}
+                                className="text-gray-400 hover:text-purple-400 p-0.5 cursor-pointer"
+                                title="Copy Server IP"
+                              >
+                                {copiedKey === "smtp_ip" ? (
+                                  <svg className="w-3.5 h-3.5 text-[#30D158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                  </svg>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Port */}
+                        <div className="flex items-center justify-between px-3 py-1.5">
+                          <span className="text-[11px] font-medium text-gray-400 w-20 shrink-0">Port</span>
+                          <span className="font-mono text-purple-400 font-semibold text-right flex-1 pr-2">25 / 587</span>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard("25", "smtp_port")}
+                            className="text-gray-400 hover:text-white p-0.5 cursor-pointer shrink-0"
+                            title="Copy Port"
+                          >
+                            {copiedKey === "smtp_port" ? (
+                              <svg className="w-3.5 h-3.5 text-[#30D158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+
+
+                        {/* Auth */}
+                        <div className="flex items-center justify-between px-3 py-1.5">
+                          <span className="text-[11px] font-medium text-gray-400 w-20 shrink-0">Authentication</span>
+                          <span className="font-mono text-gray-300 font-medium text-right flex-1 text-[11px]">Same as Incoming</span>
+                        </div>
+
+                      </div>
+                    </div>
+
+                  </div>
                 )}
               </div>
 
-              {/* Drawer Footer */}
-              <div className="p-4 bg-black/60 border-t border-white/[0.08] flex items-center justify-between shrink-0">
+              {/* iOS Bottom Action Bar */}
+              <div className="px-4 py-2 bg-[#1C1C1E]/60 border-t border-white/[0.08] flex items-center justify-between shrink-0">
+                <span className="text-[10px] text-gray-500 font-mono">TLS/STARTTLS Supported</span>
                 <button
                   type="button"
                   onClick={() => setIsSettingsSheetOpen(false)}
-                  className="px-4 py-2.5 text-xs font-bold text-gray-400 hover:text-white transition-colors cursor-pointer"
+                  className="px-4 py-1 bg-[#0A84FF] hover:bg-[#0071E3] text-white text-xs font-semibold rounded-lg transition-all cursor-pointer shadow-sm"
                 >
-                  Close
+                  Done
                 </button>
-                <a
-                  href="/mailbox"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-4 py-2 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-extrabold rounded-xl transition-all flex items-center gap-1.5"
-                >
-                  <span>Go to Mailbox Login</span>
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
               </div>
 
             </div>
