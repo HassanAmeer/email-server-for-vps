@@ -2064,8 +2064,8 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
 
               </div>
 
-              {/* iOS Bottom Fixed Section (Transparent, No Background Box) */}
-              <div className="px-3.5 pt-2 pb-3 bg-transparent border-t border-white/[0.08] flex flex-col gap-2 shrink-0">
+              {/* iOS Bottom Fixed Section (Transparent, No Background Box, No Top Border) */}
+              <div className="px-3.5 pt-2 pb-3 bg-transparent flex flex-col gap-2 shrink-0">
                 {/* Centered Note Text (No background) */}
                 <p className="text-center text-[10.5px] text-gray-400 flex items-center justify-center gap-1.5 select-none">
                   <span className="text-xs">💡</span>
