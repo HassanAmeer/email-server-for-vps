@@ -1798,7 +1798,7 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
                           Outgoing Server (SMTP)
                         </span>
                         <span className="text-[9px] font-mono text-gray-400 bg-white/[0.05] px-1.5 py-0.2 rounded">
-                          Port 25 / 587
+                          Port 587 / 25
                         </span>
                       </div>
 
@@ -1863,11 +1863,11 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
 
                         {/* Port */}
                         <div className="flex items-center justify-between px-3 py-1.5">
-                          <span className="text-[11px] font-medium text-gray-400 w-20 shrink-0">Port</span>
-                          <span className="font-mono text-purple-400 font-semibold text-right flex-1 pr-2">25 / 587</span>
+                          <span className="text-[11px] font-medium text-gray-400 w-24 shrink-0">Port</span>
+                          <span className="font-mono text-purple-400 font-semibold text-right flex-1 pr-2">587 (STARTTLS) / 25</span>
                           <button
                             type="button"
-                            onClick={() => copyToClipboard("25", "smtp_port")}
+                            onClick={() => copyToClipboard("587", "smtp_port")}
                             className="text-gray-400 hover:text-white p-0.5 cursor-pointer shrink-0"
                             title="Copy Port"
                           >
@@ -1883,13 +1883,76 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
                           </button>
                         </div>
 
-
-                        {/* Auth */}
+                        {/* User Name */}
                         <div className="flex items-center justify-between px-3 py-1.5">
-                          <span className="text-[11px] font-medium text-gray-400 w-20 shrink-0">Authentication</span>
-                          <span className="font-mono text-gray-300 font-medium text-right flex-1 text-[11px]">Same as Incoming</span>
+                          <span className="text-[11px] font-medium text-gray-400 w-24 shrink-0">User Name</span>
+                          <span className="font-mono text-white font-semibold truncate text-right flex-1 pr-2">{mailboxUserEmail}</span>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(mailboxUserEmail, "smtp_user")}
+                            className="text-gray-400 hover:text-white p-0.5 cursor-pointer shrink-0"
+                            title="Copy Username"
+                          >
+                            {copiedKey === "smtp_user" ? (
+                              <svg className="w-3.5 h-3.5 text-[#30D158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                            )}
+                          </button>
                         </div>
 
+                        {/* Password */}
+                        <div className="flex items-center justify-between px-3 py-1.5">
+                          <span className="text-[11px] font-medium text-gray-400 w-24 shrink-0">Password</span>
+                          <span className="font-mono text-amber-300 font-semibold truncate text-right flex-1 pr-2">{mailboxUserPassword || "••••••••••••"}</span>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(mailboxUserPassword, "smtp_pwd")}
+                            className="text-gray-400 hover:text-amber-400 p-0.5 cursor-pointer shrink-0"
+                            title="Copy Password"
+                          >
+                            {copiedKey === "smtp_pwd" ? (
+                              <svg className="w-3.5 h-3.5 text-[#30D158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Authentication Type */}
+                        <div className="flex items-center justify-between px-3 py-1.5">
+                          <span className="text-[11px] font-medium text-gray-400 w-24 shrink-0">Authentication</span>
+                          <span className="font-mono text-emerald-400 font-semibold text-right flex-1 text-[11px] pr-1">Password / Plain (Required)</span>
+                        </div>
+
+                        {/* Encryption */}
+                        <div className="flex items-center justify-between px-3 py-1.5">
+                          <span className="text-[11px] font-medium text-gray-400 w-24 shrink-0">Encryption</span>
+                          <span className="font-mono text-purple-300 font-semibold text-right flex-1 text-[11px] pr-1">STARTTLS / TLS (Port 587)</span>
+                        </div>
+
+                      </div>
+
+                      {/* Step-by-Step Setup Guide */}
+                      <div className="mt-2 bg-[#1C1C1E] border border-white/[0.08] rounded-xl p-3 text-[11px] text-gray-300 flex flex-col gap-1.5">
+                        <div className="flex items-center gap-1.5 text-purple-400 font-semibold text-xs">
+                          <span>⚙️</span>
+                          <span>SMTP Setup Steps:</span>
+                        </div>
+                        <div className="space-y-1 text-[10.5px] text-gray-400 leading-relaxed">
+                          <div><strong className="text-white">1. Outgoing Server:</strong> Enter <code className="text-purple-300 font-mono bg-white/5 px-1 py-0.2 rounded">{currentHost}</code> (or IP <code className="text-purple-300 font-mono bg-white/5 px-1 py-0.2 rounded">{serverIp}</code>).</div>
+                          <div><strong className="text-white">2. Port &amp; Encryption:</strong> Port <code className="text-white font-mono bg-white/5 px-1 py-0.2 rounded">587</code> with <code className="text-emerald-300 font-mono bg-white/5 px-1 py-0.2 rounded">STARTTLS</code> (or Port 25).</div>
+                          <div><strong className="text-white">3. Authentication:</strong> Enable <code className="text-white font-mono bg-white/5 px-1 py-0.2 rounded">"My outgoing server requires authentication"</code> / <code className="text-white font-mono bg-white/5 px-1 py-0.2 rounded">Password</code>.</div>
+                          <div><strong className="text-white">4. Credentials:</strong> Use your primary email <code className="text-amber-300 font-mono bg-white/5 px-1 py-0.2 rounded">{mailboxUserEmail}</code> and mailbox password.</div>
+                        </div>
                       </div>
                     </div>
 
