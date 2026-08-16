@@ -14,6 +14,7 @@ interface AttachedDomain {
   catch_all?: number | boolean;
   is_primary?: number | boolean;
   primary_prefix?: string;
+  route_to_primary?: number | boolean;
   created_at: string;
 }
 
@@ -344,6 +345,85 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
     }
   };
 
+  // Toggle individual domain routing to primary
+  const handleToggleDomainRouting = async (domainId: number, currentRouting: number | boolean | undefined) => {
+    const isCurrentlyOn = currentRouting === 1 || currentRouting === true || currentRouting === undefined;
+    const newRouting = isCurrentlyOn ? 0 : 1;
+    const targetDomain = domains.find((d) => d.id === domainId);
+
+    // Optimistic UI update
+    setDomains((prev) =>
+      prev.map((d) => (d.id === domainId ? { ...d, route_to_primary: newRouting } : d))
+    );
+
+    try {
+      const token = localStorage.getItem("admin_token") || "";
+      const res = await fetch(`${apiUrl}/api/admin/domains/${domainId}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ route_to_primary: newRouting })
+      });
+
+      if (res.ok) {
+        showToast(
+          newRouting === 1
+            ? `"${targetDomain?.domain}" linked to Primary Mailbox! All emails will be routed.`
+            : `"${targetDomain?.domain}" unlinked from Primary Mailbox.`,
+          "success"
+        );
+      } else {
+        setDomains((prev) =>
+          prev.map((d) => (d.id === domainId ? { ...d, route_to_primary: isCurrentlyOn ? 1 : 0 } : d))
+        );
+        showToast("Failed to update domain routing", "error");
+      }
+    } catch (err) {
+      setDomains((prev) =>
+        prev.map((d) => (d.id === domainId ? { ...d, route_to_primary: isCurrentlyOn ? 1 : 0 } : d))
+      );
+      showToast("Network error updating domain routing", "error");
+    }
+  };
+
+  // Bulk toggle all domains routing to primary
+  const handleBulkToggleRouting = async (routeAll: boolean) => {
+    const targetFlag = routeAll ? 1 : 0;
+    const previousDomains = [...domains];
+
+    // Optimistic UI update
+    setDomains((prev) => prev.map((d) => ({ ...d, route_to_primary: targetFlag })));
+
+    try {
+      const token = localStorage.getItem("admin_token") || "";
+      const res = await fetch(`${apiUrl}/api/admin/domains/bulk-routing`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ route_to_primary: targetFlag })
+      });
+
+      if (res.ok) {
+        showToast(
+          routeAll
+            ? "All domains successfully linked to Primary Mailbox!"
+            : "All secondary domains unlinked from Primary Mailbox.",
+          "success"
+        );
+      } else {
+        setDomains(previousDomains);
+        showToast("Failed to bulk update domain routing", "error");
+      }
+    } catch (err) {
+      setDomains(previousDomains);
+      showToast("Network error during bulk routing update", "error");
+    }
+  };
+
   const handleOpenDnsSheet = (domainName: string) => {
     setSheetDomain(domainName);
     setActiveSheetTab("receive");
@@ -609,6 +689,277 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
             </table>
           </div>
         )}
+      </div>
+
+      {/* ========================================================= */}
+      {/* SECTION 2.5: MULTI-DOMAIN ROUTING & IMAP LINKING MATRIX   */}
+      {/* ========================================================= */}
+      <div className="bg-[#090C16] border border-white/[0.08] rounded-2xl overflow-hidden flex flex-col shadow-2xl">
+        {/* Section Header */}
+        <div className="px-6 py-4 border-b border-white/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-white/[0.03] via-transparent to-white/[0.01]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.2)] shrink-0">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+              </svg>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm sm:text-base font-extrabold text-white tracking-wide">
+                  Domain Routing & IMAP Linking Matrix
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/25">
+                  Catch-All Aggregation
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Check the domains you want to link into your Primary Mailbox (<span className="text-amber-300 font-mono font-bold">{activeFullEmail}</span>). All emails sent to any checked domain are automatically aggregated and searchable via IMAP for Laravel and email clients.
+              </p>
+            </div>
+          </div>
+
+          {/* Bulk Action Controls */}
+          <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+            <button
+              onClick={() => handleBulkToggleRouting(true)}
+              className="px-3 py-1.5 rounded-xl border border-emerald-500/40 hover:border-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer shadow-sm shadow-emerald-500/10"
+              title="Route all attached domains into the primary mailbox"
+            >
+              <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+              </svg>
+              <span>Link All Domains</span>
+            </button>
+            <button
+              onClick={() => handleBulkToggleRouting(false)}
+              className="px-3 py-1.5 rounded-xl border border-white/10 hover:border-red-500/40 bg-white/5 hover:bg-red-500/10 text-gray-400 hover:text-red-300 text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
+              title="Isolate secondary domains from primary mailbox"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              <span>Unlink All</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Domains Routing Matrix Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="border-b border-white/[0.06] bg-black/40 text-gray-400 font-bold uppercase tracking-wider text-[11px]">
+                <th className="py-3.5 px-6 w-12 text-center">Route</th>
+                <th className="py-3.5 px-6">Domain Name</th>
+                <th className="py-3.5 px-6">Routing Mode</th>
+                <th className="py-3.5 px-6">IMAP Search Target</th>
+                <th className="py-3.5 px-6">Plan</th>
+                <th className="py-3.5 px-6 text-right">Quick Toggle</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.04]">
+              {domains.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-gray-500 font-mono">
+                    No domains attached yet. Attach a domain in Domains tab.
+                  </td>
+                </tr>
+              ) : (
+                domains.map((d) => {
+                  const isPrimary = d.is_primary === 1 || d.is_primary === true;
+                  const isLinked = isPrimary || d.route_to_primary === 1 || d.route_to_primary === true || d.route_to_primary === undefined;
+
+                  return (
+                    <tr key={d.id} className="hover:bg-white/[0.02] transition-colors group">
+                      {/* Checkbox */}
+                      <td className="py-4 px-6 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isLinked}
+                          onChange={() => handleToggleDomainRouting(d.id, d.route_to_primary)}
+                          disabled={isPrimary}
+                          className="w-4 h-4 rounded border-gray-700 bg-slate-900 text-amber-500 focus:ring-amber-400 focus:ring-offset-slate-950 cursor-pointer disabled:opacity-60"
+                          title={isPrimary ? "Primary domain is always linked" : "Toggle domain routing to primary mailbox"}
+                        />
+                      </td>
+
+                      {/* Domain Name + Badge */}
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-2.5">
+                          <span className="font-mono font-bold text-white text-sm">
+                            {d.domain}
+                          </span>
+                          {isPrimary ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                              <span>⭐</span> Primary Master
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                              Attached
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Routing Status */}
+                      <td className="py-4 px-6">
+                        {isLinked ? (
+                          <div className="flex items-center gap-2 text-emerald-400 font-mono font-semibold">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                            </span>
+                            <span>⚡ Linked to {activeFullEmail}</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-gray-400 font-mono">
+                            <span className="w-2 h-2 rounded-full bg-gray-500"></span>
+                            <span>🔒 Isolated Mailbox</span>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* IMAP Search Target */}
+                      <td className="py-4 px-6">
+                        <div className="flex flex-col">
+                          <span className="font-mono text-gray-300 text-[11px]">
+                            {isLinked ? `UID SEARCH TO "*@${d.domain}"` : "Local domain only"}
+                          </span>
+                          <span className="text-[10px] text-gray-500">
+                            {isLinked ? "Visible in primary IMAP search" : "Requires separate IMAP login"}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Plan */}
+                      <td className="py-4 px-6">
+                        <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider font-mono ${
+                          d.plan === "premium" || d.plan === "pro"
+                            ? "bg-purple-500/15 text-purple-300 border border-purple-500/30"
+                            : "bg-blue-500/15 text-blue-300 border border-blue-500/30"
+                        }`}>
+                          {d.plan || "free"}
+                        </span>
+                      </td>
+
+                      {/* Quick Toggle Button */}
+                      <td className="py-4 px-6 text-right">
+                        {isPrimary ? (
+                          <span className="text-[11px] font-mono text-amber-400 font-semibold px-2 py-1 bg-amber-500/5 rounded-lg border border-amber-500/20">
+                            Master Core
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleToggleDomainRouting(d.id, d.route_to_primary)}
+                            className={`px-3 py-1.5 rounded-xl font-mono text-xs font-bold transition-all cursor-pointer border active:scale-95 ${
+                              isLinked
+                                ? "bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/20"
+                                : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
+                            }`}
+                          >
+                            {isLinked ? "Unlink" : "Link Domain"}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Laravel & Third-Party IMAP Integration Card */}
+        <div className="border-t border-white/[0.08] bg-black/50 p-5 sm:p-6 flex flex-col gap-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-base">🚀</span>
+              <h4 className="text-sm font-extrabold text-white tracking-wide">
+                Laravel & IMAP Apps Quick Connection
+              </h4>
+            </div>
+            <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-500/30 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              All Checked Domains Filter Automatically
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+            {/* Host */}
+            <div className="bg-[#0c1020] border border-white/10 rounded-xl p-3 flex flex-col justify-between">
+              <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">IMAP Host</span>
+              <div className="flex items-center justify-between mt-1">
+                <span className="font-mono text-white font-bold truncate">mail.{primaryDomain?.domain || "yourdomain.com"}</span>
+                <button
+                  onClick={() => copyToClipboard(`mail.${primaryDomain?.domain || "yourdomain.com"}`, "imap_host")}
+                  className="text-gray-400 hover:text-amber-400 p-1 cursor-pointer"
+                  title="Copy Host"
+                >
+                  {copiedKey === "imap_host" ? "✓" : "📋"}
+                </button>
+              </div>
+            </div>
+
+            {/* Port & Encryption */}
+            <div className="bg-[#0c1020] border border-white/10 rounded-xl p-3 flex flex-col justify-between">
+              <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Port & Encryption</span>
+              <div className="flex items-center justify-between mt-1">
+                <span className="font-mono text-emerald-300 font-bold">993 (SSL) / 143 (TLS)</span>
+                <button
+                  onClick={() => copyToClipboard("993", "imap_port")}
+                  className="text-gray-400 hover:text-amber-400 p-1 cursor-pointer"
+                  title="Copy Port"
+                >
+                  {copiedKey === "imap_port" ? "✓" : "📋"}
+                </button>
+              </div>
+            </div>
+
+            {/* Username */}
+            <div className="bg-[#0c1020] border border-white/10 rounded-xl p-3 flex flex-col justify-between">
+              <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Master Username</span>
+              <div className="flex items-center justify-between mt-1">
+                <span className="font-mono text-amber-300 font-bold truncate">{activeFullEmail}</span>
+                <button
+                  onClick={() => copyToClipboard(activeFullEmail, "imap_user")}
+                  className="text-gray-400 hover:text-amber-400 p-1 cursor-pointer"
+                  title="Copy Username"
+                >
+                  {copiedKey === "imap_user" ? "✓" : "📋"}
+                </button>
+              </div>
+            </div>
+
+            {/* Settings & Password */}
+            <div className="bg-[#0c1020] border border-white/10 rounded-xl p-3 flex flex-col justify-between">
+              <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Password / Credentials</span>
+              <div className="flex items-center justify-between mt-1">
+                <button
+                  onClick={() => primaryDomain && handleOpenSettingsSheet(primaryDomain.domain)}
+                  className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>⚙️ Manage Password</span>
+                </button>
+                <a
+                  href="/imap-mailbox"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-gray-400 hover:text-white text-[11px] underline"
+                >
+                  Webmail UI ↗
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-[#030611] border border-white/5 rounded-xl p-3.5 text-xs text-gray-400 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="text-amber-400 font-mono font-bold text-sm">💡</span>
+              <span>
+                <strong>Laravel Temp-Mail Note:</strong> In your Laravel code, <code className="text-amber-300 bg-white/5 px-1.5 py-0.5 rounded font-mono font-semibold">$folder-&gt;query()-&gt;to($email)-&gt;get()</code> will effortlessly find emails across all checked domains in the list above without any additional configuration!
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ========================================================= */}

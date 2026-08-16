@@ -697,6 +697,10 @@ export class ApiRouter {
       return AdminController.setPrimaryAttachedDomain(req, res, id);
     }
 
+    if (parts.length === 4 && parts[3] === "bulk-routing" && req.method === "POST") {
+      return AdminController.bulkUpdateDomainRouting(req, res);
+    }
+
     if (req.method === "GET") {
       return AdminController.getAttachedDomains(req, res);
     }

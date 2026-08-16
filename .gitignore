@@ -30,4 +30,5 @@ storage/
 backend/storage/
 *.key
 backend/dkim-key-for-send-mail/private.key
+*.tsbuildinfo
 

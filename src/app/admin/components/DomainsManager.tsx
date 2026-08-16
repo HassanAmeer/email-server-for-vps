@@ -13,6 +13,7 @@ interface AttachedDomain {
   plan?: string;
   catch_all?: number | boolean;
   is_primary?: number | boolean;
+  route_to_primary?: number | boolean;
   created_at: string;
 }
 
@@ -348,6 +349,35 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
     }
   };
 
+  const handleUpdateDomainRouting = async (id: number, currentRouting: number | boolean | undefined) => {
+    const isCurrentlyOn = currentRouting === 1 || currentRouting === true || currentRouting === undefined;
+    const newRouting = isCurrentlyOn ? 0 : 1;
+    // Pure Local State Management: Update immediately in UI
+    setDomains(prev => prev.map(d => d.id === id ? { ...d, route_to_primary: newRouting } : d));
+    try {
+      const token = localStorage.getItem("admin_token") || "";
+      const res = await fetch(`${apiUrl}/api/admin/domains/${id}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ route_to_primary: newRouting })
+      });
+      if (res.ok) {
+        showToast(`Primary mailbox routing ${newRouting === 1 ? "enabled" : "disabled"}`);
+      } else {
+        // Rollback state on error
+        setDomains(prev => prev.map(d => d.id === id ? { ...d, route_to_primary: isCurrentlyOn ? 1 : 0 } : d));
+        showToast("Failed to update routing status", "error");
+      }
+    } catch (err) {
+      // Rollback state on error
+      setDomains(prev => prev.map(d => d.id === id ? { ...d, route_to_primary: isCurrentlyOn ? 1 : 0 } : d));
+      showToast("Failed to update routing status", "error");
+    }
+  };
+
   const handleDeleteDomain = async () => {
     if (showDeleteConfirmModal === null) return;
     const id = showDeleteConfirmModal;
@@ -624,6 +654,7 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
                       <th className="py-4 px-6">Domain</th>
                       <th className="py-4 px-6">Plan</th>
                       <th className="py-4 px-6">Catch-All</th>
+                      <th className="py-4 px-6">Route to Primary</th>
                       <th className="py-4 px-6">Verification</th>
                       <th className="py-4 px-6">DNS Guide</th>
                       <th className="py-4 px-6 text-right">Actions</th>
@@ -680,6 +711,22 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
                           >
                             <span className={`w-2 h-2 rounded-full ${domain.catch_all === 1 || domain.catch_all === true ? "bg-emerald-400" : "bg-red-400"}`}></span>
                             {domain.catch_all === 1 || domain.catch_all === true ? "Enabled" : "Disabled"}
+                          </button>
+                        </td>
+
+                        {/* Route to Primary */}
+                        <td className="py-4.5 px-6">
+                          <button
+                            onClick={() => handleUpdateDomainRouting(domain.id, domain.route_to_primary)}
+                            className={`px-3 py-1.5 rounded-xl font-extrabold uppercase tracking-wider text-[11px] transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95 ${
+                              domain.route_to_primary === 1 || domain.route_to_primary === true || domain.route_to_primary === undefined
+                                ? "bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 shadow-amber-500/10"
+                                : "bg-gray-800/60 text-gray-400 border border-white/10 hover:bg-gray-800 shadow-none"
+                            }`}
+                            title="Click to toggle routing to primary mailbox (Enabled / Isolated)"
+                          >
+                            <span className={`w-2 h-2 rounded-full ${domain.route_to_primary === 1 || domain.route_to_primary === true || domain.route_to_primary === undefined ? "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]" : "bg-gray-500"}`}></span>
+                            {domain.route_to_primary === 1 || domain.route_to_primary === true || domain.route_to_primary === undefined ? "⚡ Linked" : "🔒 Isolated"}
                           </button>
                         </td>
 

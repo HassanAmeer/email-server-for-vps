@@ -92,6 +92,7 @@ try { db.exec(`ALTER TABLE projects ADD COLUMN allowed_files_pro TEXT DEFAULT 't
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN catch_all BOOLEAN DEFAULT 1;`); } catch (e) { }
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN is_primary BOOLEAN DEFAULT 0;`); } catch (e) { }
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN primary_prefix TEXT DEFAULT 'my';`); } catch (e) { }
+try { db.exec(`ALTER TABLE attached_domains ADD COLUMN route_to_primary BOOLEAN DEFAULT 1;`); } catch (e) { }
 try { db.exec(`ALTER TABLE mailbox_users ADD COLUMN plain_password TEXT;`); } catch (e) { }
 
 db.exec(`
@@ -100,11 +101,17 @@ db.exec(`
     domain TEXT NOT NULL UNIQUE,
     status TEXT DEFAULT 'active',
     plan TEXT DEFAULT 'free',
+    catch_all BOOLEAN DEFAULT 1,
+    is_primary BOOLEAN DEFAULT 0,
+    primary_prefix TEXT DEFAULT 'my',
+    route_to_primary BOOLEAN DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 `);
 
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN plan TEXT DEFAULT 'free';`); } catch (e) { }
+try { db.exec(`ALTER TABLE attached_domains ADD COLUMN route_to_primary BOOLEAN DEFAULT 1;`); } catch (e) { }
+try { db.exec(`UPDATE attached_domains SET route_to_primary = 1 WHERE route_to_primary IS NULL;`); } catch (e) { }
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS api_settings (
@@ -610,6 +617,23 @@ export function setPrimaryDomain(id) {
   } catch (err) {
     console.error("DB Error setting primary domain:", err);
     return false;
+  }
+}
+
+export function getDomainRoutingRule(domain) {
+  try {
+    if (!domain) return { route_to_primary: true, is_primary: false, primary_prefix: 'admin' };
+    const row = db.prepare("SELECT route_to_primary, is_primary, primary_prefix FROM attached_domains WHERE LOWER(domain) = LOWER(?) LIMIT 1").get(domain.trim());
+    if (row) {
+      return {
+        route_to_primary: row.route_to_primary !== 0,
+        is_primary: row.is_primary === 1,
+        primary_prefix: row.primary_prefix || 'admin'
+      };
+    }
+    return { route_to_primary: true, is_primary: false, primary_prefix: 'admin' };
+  } catch (err) {
+    return { route_to_primary: true, is_primary: false, primary_prefix: 'admin' };
   }
 }
 

@@ -516,7 +516,7 @@ export class AdminController {
         return;
       }
 
-      const { domain, status = 'pending', plan = 'free', catch_all = 1, is_primary = 0 } = parsed;
+      const { domain, status = 'pending', plan = 'free', catch_all = 1, is_primary = 0, route_to_primary = 1 } = parsed;
       if (!domain) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Domain name is required" }));
@@ -530,13 +530,14 @@ export class AdminController {
         db.prepare("UPDATE attached_domains SET is_primary = 0").run();
       }
 
-      const stmt = db.prepare("INSERT INTO attached_domains (domain, status, plan, catch_all, is_primary) VALUES (?, ?, ?, ?, ?)");
+      const stmt = db.prepare("INSERT INTO attached_domains (domain, status, plan, catch_all, is_primary, route_to_primary) VALUES (?, ?, ?, ?, ?, ?)");
       stmt.run(
         domain.toLowerCase().trim(),
         status,
         plan,
         catch_all === 0 || catch_all === false ? 0 : 1,
-        is_primary === 1 || is_primary === true ? 1 : 0
+        is_primary === 1 || is_primary === true ? 1 : 0,
+        route_to_primary === 0 || route_to_primary === false ? 0 : 1
       );
       
       res.writeHead(201, { "Content-Type": "application/json" });
@@ -553,12 +554,12 @@ export class AdminController {
   }
 
   /**
-   * Updates an attached domain's status, plan, catch_all, or is_primary setting
+   * Updates an attached domain's status, plan, catch_all, is_primary, or route_to_primary setting
    */
   static async updateAttachedDomain(req, res, id) {
     try {
       const payload = await parseJsonBody(req);
-      if (!payload || (payload.status === undefined && payload.catch_all === undefined && payload.plan === undefined && payload.is_primary === undefined)) {
+      if (!payload || (payload.status === undefined && payload.catch_all === undefined && payload.plan === undefined && payload.is_primary === undefined && payload.route_to_primary === undefined)) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "No fields to update" }));
         return;
@@ -584,6 +585,11 @@ export class AdminController {
         values.push(payload.plan);
       }
 
+      if (payload.route_to_primary !== undefined) {
+        updates.push("route_to_primary = ?");
+        values.push(payload.route_to_primary === true || payload.route_to_primary === 1 ? 1 : 0);
+      }
+
       if (payload.is_primary !== undefined) {
         const isPrim = payload.is_primary === true || payload.is_primary === 1 ? 1 : 0;
         if (isPrim === 1) {
@@ -605,6 +611,36 @@ export class AdminController {
         res.writeHead(404, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Domain not found" }));
       }
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  }
+
+  /**
+   * Bulk updates routing for attached domains
+   */
+  static async bulkUpdateDomainRouting(req, res) {
+    try {
+      const payload = await parseJsonBody(req);
+      if (!payload || payload.route_to_primary === undefined) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "route_to_primary field is required" }));
+        return;
+      }
+      const db = require('../database/db.js').default;
+      const routeFlag = payload.route_to_primary === true || payload.route_to_primary === 1 ? 1 : 0;
+      
+      if (Array.isArray(payload.domain_ids) && payload.domain_ids.length > 0) {
+        const placeholders = payload.domain_ids.map(() => '?').join(',');
+        db.prepare(`UPDATE attached_domains SET route_to_primary = ? WHERE id IN (${placeholders})`).run(routeFlag, ...payload.domain_ids);
+      } else {
+        // Apply to all attached domains
+        db.prepare("UPDATE attached_domains SET route_to_primary = ?").run(routeFlag);
+      }
+      
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true, route_to_primary: routeFlag }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));

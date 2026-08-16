@@ -8,7 +8,7 @@ import nodemailer from "nodemailer";
 import { sendOutboundEmail as sendOutboundEmailLive } from "../send-mail-simple/send-mail-from-generated-mail-from-live.js";
 import { sendOutboundEmail as sendOutboundEmailLocal } from "../send-mail-simple/send-mail-from-generated-mail-from-local.js";
 import { ApiRouter } from "../../apis/api-router.js";
-import { logReceivedEmail, getProjectByEmail, logSystemEvent, runDataRetentionCleanupJob, validateRecipientCatchAll, getProjectAllowedFiles, getActiveDomainsWithPlan, getSetting, setSetting, getAllFlags } from "../database/db.js";
+import { logReceivedEmail, getProjectByEmail, logSystemEvent, runDataRetentionCleanupJob, validateRecipientCatchAll, getProjectAllowedFiles, getActiveDomainsWithPlan, getSetting, setSetting, getAllFlags, getPrimaryDomain, getDomainRoutingRule } from "../database/db.js";
 
 // Load .env file manually if it exists
 const envPath = path.join(process.cwd(), ".env");
@@ -161,11 +161,41 @@ function saveToMaildir(rawBuffer, recipientEmail) {
       // Ignored if linkSync fails (e.g. cross-filesystem)
     }
 
-    // Hardlink to domain's primary/admin mailbox so IMAP/POP3 catch-all works seamlessly
+    // 1. Hardlink to Global Primary Domain Mailbox (e.g. admin@micorna.biz) if this domain routes to primary
     try {
-      const primaryPrefix = "admin";
-      if (user.toLowerCase() !== primaryPrefix) {
-        const domainAdminDir = path.join(maildirBase, domain, primaryPrefix);
+      const routingRule = getDomainRoutingRule(domain);
+      if (routingRule.route_to_primary) {
+        const primaryDomainObj = getPrimaryDomain();
+        if (primaryDomainObj && primaryDomainObj.domain) {
+          const primDomain = primaryDomainObj.domain.toLowerCase().trim();
+          const primPrefix = (primaryDomainObj.primary_prefix || "admin").toLowerCase().trim();
+
+          // Only hardlink if target recipient is NOT already the primary mailbox itself
+          if (!(domain.toLowerCase() === primDomain && user.toLowerCase() === primPrefix)) {
+            const primaryMaildir = path.join(maildirBase, primDomain, primPrefix);
+            const primNewDir = path.join(primaryMaildir, "new");
+            const primCurDir = path.join(primaryMaildir, "cur");
+            const primTmpDir = path.join(primaryMaildir, "tmp");
+            [primTmpDir, primNewDir, primCurDir].forEach(d => {
+              if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+            });
+
+            const primFilePath = path.join(primNewDir, `${domain}_${fileName}`);
+            if (fs.existsSync(newFilePath) && !fs.existsSync(primFilePath)) {
+              fs.linkSync(newFilePath, primFilePath);
+            }
+          }
+        }
+      }
+    } catch (primLinkErr) {
+      // Ignored if link fails
+    }
+
+    // 2. Also hardlink to local domain's admin mailbox if different from global primary
+    try {
+      const localPrefix = "admin";
+      if (user.toLowerCase() !== localPrefix) {
+        const domainAdminDir = path.join(maildirBase, domain, localPrefix);
         const adminNewDir = path.join(domainAdminDir, "new");
         const adminCurDir = path.join(domainAdminDir, "cur");
         const adminTmpDir = path.join(domainAdminDir, "tmp");
