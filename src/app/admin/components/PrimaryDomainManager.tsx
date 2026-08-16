@@ -2062,51 +2062,54 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
                   </div>
                 </div>
 
-                {/* iOS Informational Note Card */}
-                <div className="bg-[#1C1C1E] border border-white/[0.08] rounded-xl p-3 text-[11px] text-gray-400 flex items-start gap-2.5">
-                  <span className="text-[#0A84FF] font-bold text-sm shrink-0">💡</span>
-                  <span className="leading-relaxed">
-                    <strong className="text-white font-medium">Transfer All Emails From Multi Domains to Single Primary Domain/Email:</strong> You can automatically route and transfer all incoming emails from these selected domains into your primary domain mailbox, and access them seamlessly via IMAP using a single master account.
-                  </span>
-                </div>
-
               </div>
 
-              {/* iOS Bottom Action Bar with Stats, Bulk Actions & Done Button */}
-              <div className="px-3.5 py-2.5 bg-[#1C1C1E]/90 backdrop-blur-md border-t border-white/[0.08] flex items-center justify-between gap-2 shrink-0">
-                {/* Left: Counter & Status */}
-                <div className="text-[11px] font-medium text-gray-400 flex items-center gap-1.5 min-w-0">
-                  <span className="w-2 h-2 rounded-full bg-[#30D158] shrink-0"></span>
-                  <span className="truncate">
-                    <strong className="text-white font-semibold">
-                      {domains.filter(d => d.route_to_primary === 1 || d.route_to_primary === true || d.route_to_primary === undefined || d.is_primary === 1 || d.is_primary === true).length}
-                    </strong> of {domains.length} linked
+              {/* iOS Bottom Action Bar with Centered Note Text, Stats, Bulk Actions & Done Button */}
+              <div className="px-3.5 py-2.5 bg-[#1C1C1E]/95 backdrop-blur-md border-t border-white/[0.08] flex flex-col gap-2 shrink-0">
+                {/* Clean Centered Text (Without card) */}
+                <div className="text-center text-[10.5px] font-medium text-gray-400 flex items-center justify-center gap-1.5 px-2">
+                  <span className="text-[#0A84FF] text-xs shrink-0">💡</span>
+                  <span className="leading-tight text-gray-300">
+                    Transfer All Emails From Multi Domains to Single Primary Domain/Email
                   </span>
                 </div>
 
-                {/* Right: Quick Bulk Actions + Done Button */}
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => handleBulkToggleRouting(true)}
-                    className="px-2.5 py-1 rounded-lg bg-[#30D158]/15 hover:bg-[#30D158]/25 text-[#30D158] border border-[#30D158]/30 text-[11px] font-semibold transition-all cursor-pointer active:scale-95"
-                  >
-                    Link All
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleBulkToggleRouting(false)}
-                    className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 text-[11px] font-semibold transition-all cursor-pointer active:scale-95"
-                  >
-                    Unlink All
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsRoutingSheetOpen(false)}
-                    className="px-3.5 py-1 bg-[#0A84FF] hover:bg-[#0071E3] text-white text-xs font-semibold rounded-lg transition-all cursor-pointer shadow-sm active:scale-95 ml-1"
-                  >
-                    Done
-                  </button>
+                {/* Bottom Row Controls */}
+                <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/[0.04]">
+                  {/* Left: Counter & Status */}
+                  <div className="text-[11px] font-medium text-gray-400 flex items-center gap-1.5 min-w-0">
+                    <span className="w-2 h-2 rounded-full bg-[#30D158] shrink-0"></span>
+                    <span className="truncate">
+                      <strong className="text-white font-semibold">
+                        {domains.filter(d => d.route_to_primary === 1 || d.route_to_primary === true || d.route_to_primary === undefined || d.is_primary === 1 || d.is_primary === true).length}
+                      </strong> of {domains.length} linked
+                    </span>
+                  </div>
+
+                  {/* Right: Quick Bulk Actions + Done Button */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleBulkToggleRouting(true)}
+                      className="px-2.5 py-1 rounded-lg bg-[#30D158]/15 hover:bg-[#30D158]/25 text-[#30D158] border border-[#30D158]/30 text-[11px] font-semibold transition-all cursor-pointer active:scale-95"
+                    >
+                      Link All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleBulkToggleRouting(false)}
+                      className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 text-[11px] font-semibold transition-all cursor-pointer active:scale-95"
+                    >
+                      Unlink All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsRoutingSheetOpen(false)}
+                      className="px-3.5 py-1 bg-[#0A84FF] hover:bg-[#0071E3] text-white text-xs font-semibold rounded-lg transition-all cursor-pointer shadow-sm active:scale-95 ml-1"
+                    >
+                      Done
+                    </button>
+                  </div>
                 </div>
               </div>
 
