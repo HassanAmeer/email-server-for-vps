@@ -1170,30 +1170,128 @@ export class AdminController {
 
       // CLEAR ACTIONS
       const clearEmails = () => {
+        let deletedFiles = 0;
         [localMailDir, liveMailDir].forEach(dir => {
           if (fs.existsSync(dir)) {
-            const files = fs.readdirSync(dir).filter(f => f.endsWith(".json"));
+            const files = fs.readdirSync(dir);
             files.forEach(f => {
-              try { fs.unlinkSync(path.join(dir, f)); } catch(e) {}
+              const fullPath = path.join(dir, f);
+              try {
+                if (fs.statSync(fullPath).isDirectory()) {
+                  fs.rmSync(fullPath, { recursive: true, force: true });
+                } else {
+                  fs.unlinkSync(fullPath);
+                }
+                deletedFiles++;
+              } catch(e) {}
             });
           }
         });
         db.prepare("DELETE FROM received_emails").run();
         db.prepare("DELETE FROM generated_emails").run();
-        results.message = "All demo emails and mailbox storage wiped successfully.";
+        try { db.prepare("DELETE FROM sqlite_sequence WHERE name IN ('received_emails', 'generated_emails')").run(); } catch(e) {}
+        try { db.exec("VACUUM;"); } catch(e) {}
+        results.message = `All mailbox emails and disk storage wiped successfully (${deletedFiles} files removed).`;
       };
 
       const clearLogs = () => {
         db.prepare("DELETE FROM system_logs").run();
         db.prepare("DELETE FROM project_api_logs").run();
-        results.message = "All system logs and project API logs cleared.";
+        try { db.prepare("DELETE FROM sqlite_sequence WHERE name IN ('system_logs', 'project_api_logs')").run(); } catch(e) {}
+        try { db.exec("VACUUM;"); } catch(e) {}
+        results.message = "All system audit logs and project API logs cleared.";
+      };
+
+      const clearProjects = () => {
+        db.prepare("DELETE FROM projects").run();
+        try { db.prepare("DELETE FROM sqlite_sequence WHERE name = 'projects'").run(); } catch(e) {}
+        results.message = "All API projects and webhooks cleared.";
+      };
+
+      const clearHits = () => {
+        try { db.prepare("UPDATE api_settings SET hits = 0").run(); } catch(e) {}
+        try { db.prepare("DELETE FROM project_api_logs").run(); } catch(e) {}
+        results.message = "All API route hits and project counters reset to 0.";
+      };
+
+      const clearDomains = () => {
+        db.prepare("DELETE FROM attached_domains WHERE is_primary = 0").run();
+        try { db.prepare("DELETE FROM sqlite_sequence WHERE name = 'attached_domains'").run(); } catch(e) {}
+        results.message = "All secondary attached domains cleared.";
+      };
+
+      const clearPrimaryDomain = () => {
+        db.prepare("DELETE FROM attached_domains WHERE is_primary = 1").run();
+        results.message = "Primary domain configuration cleared.";
+      };
+
+      const clearAllDomains = () => {
+        db.prepare("DELETE FROM attached_domains").run();
+        try { db.prepare("DELETE FROM sqlite_sequence WHERE name = 'attached_domains'").run(); } catch(e) {}
+        results.message = "All attached and primary domains cleared.";
+      };
+
+      const clearMailboxes = () => {
+        db.prepare("DELETE FROM mailbox_users").run();
+        try { db.prepare("DELETE FROM sqlite_sequence WHERE name = 'mailbox_users'").run(); } catch(e) {}
+        results.message = "All permanent mailbox accounts cleared.";
+      };
+
+      const clearSelective = (targets = []) => {
+        const executed = [];
+        if (targets.includes("emails")) { clearEmails(); executed.push("Emails"); }
+        if (targets.includes("logs")) { clearLogs(); executed.push("System Logs"); }
+        if (targets.includes("domains")) { clearDomains(); executed.push("Attached Domains"); }
+        if (targets.includes("primary_domain")) { clearPrimaryDomain(); executed.push("Primary Domain"); }
+        if (targets.includes("all_domains")) { clearAllDomains(); executed.push("All Domains"); }
+        if (targets.includes("mailboxes")) { clearMailboxes(); executed.push("Mailbox Users"); }
+        if (targets.includes("projects")) { clearProjects(); executed.push("API Projects"); }
+        if (targets.includes("hits")) { clearHits(); executed.push("Route Hits & Stats"); }
+        
+        try {
+          db.exec("PRAGMA wal_checkpoint(TRUNCATE);");
+          db.exec("VACUUM;");
+        } catch(e) {}
+
+        results.message = `Successfully deleted selected categories: ${executed.join(", ")}.`;
       };
 
       const clearAll = () => {
-        clearEmails();
-        clearLogs();
+        // 1. Wipe all files in storage/live and storage/local
+        let totalFilesDeleted = 0;
+        [localMailDir, liveMailDir].forEach(dir => {
+          if (fs.existsSync(dir)) {
+            const files = fs.readdirSync(dir);
+            files.forEach(f => {
+              const fullPath = path.join(dir, f);
+              try {
+                if (fs.statSync(fullPath).isDirectory()) {
+                  fs.rmSync(fullPath, { recursive: true, force: true });
+                } else {
+                  fs.unlinkSync(fullPath);
+                }
+                totalFilesDeleted++;
+              } catch(e) {}
+            });
+          }
+        });
+
+        // 2. Wipe SQLite tables
+        try { db.prepare("DELETE FROM received_emails").run(); } catch(e) {}
+        try { db.prepare("DELETE FROM generated_emails").run(); } catch(e) {}
+        try { db.prepare("DELETE FROM system_logs").run(); } catch(e) {}
+        try { db.prepare("DELETE FROM project_api_logs").run(); } catch(e) {}
+        try { db.prepare("DELETE FROM projects").run(); } catch(e) {}
         try { db.prepare("UPDATE api_settings SET hits = 0").run(); } catch(e) {}
-        results.message = "Complete demo environment reset successfully.";
+        try { db.prepare("DELETE FROM sqlite_sequence WHERE name IN ('received_emails', 'generated_emails', 'system_logs', 'project_api_logs', 'projects')").run(); } catch(e) {}
+        
+        // 3. Reclaim disk space
+        try {
+          db.exec("PRAGMA wal_checkpoint(TRUNCATE);");
+          db.exec("VACUUM;");
+        } catch(e) {}
+
+        results.message = `Complete environment wiped successfully! All emails (${totalFilesDeleted} files), system logs, projects, and traffic stats reset.`;
       };
 
       // Execute requested action
@@ -1223,6 +1321,20 @@ export class AdminController {
         clearEmails();
       } else if (action === "clear_logs") {
         clearLogs();
+      } else if (action === "clear_projects") {
+        clearProjects();
+      } else if (action === "clear_hits") {
+        clearHits();
+      } else if (action === "clear_domains") {
+        clearDomains();
+      } else if (action === "clear_primary_domain") {
+        clearPrimaryDomain();
+      } else if (action === "clear_all_domains") {
+        clearAllDomains();
+      } else if (action === "clear_mailboxes") {
+        clearMailboxes();
+      } else if (action === "clear_selective") {
+        clearSelective(parsed?.targets || []);
       } else if (action === "clear_all") {
         clearAll();
       } else {

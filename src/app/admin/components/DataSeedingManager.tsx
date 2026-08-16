@@ -27,6 +27,16 @@ interface ActivityLogItem {
   message: string;
 }
 
+interface DataCategory {
+  id: string;
+  name: string;
+  icon: string;
+  desc: string;
+  countKey: string;
+  badge: string;
+  color: string;
+}
+
 export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) {
   const [status, setStatus] = useState<SeedStatus>({
     totalEmails: 0,
@@ -50,8 +60,23 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
   const [emailCount, setEmailCount] = useState<number>(10);
   const [logCount, setLogCount] = useState<number>(100);
 
-  // Confirm Modal state for Reset
-  const [confirmResetModal, setConfirmResetModal] = useState<"emails" | "logs" | "all" | null>(null);
+  // Multi-select targets for selective deletion
+  const [selectedTargets, setSelectedTargets] = useState<string[]>([
+    "emails",
+    "logs",
+    "domains",
+    "primary_domain",
+    "mailboxes",
+    "projects",
+    "hits",
+  ]);
+
+  // Confirm Modal state for Reset Actions
+  const [confirmModal, setConfirmModal] = useState<{
+    type: "selective" | "all" | "single";
+    target?: string;
+    targetName?: string;
+  } | null>(null);
 
   // Activity Logs
   const [activityLogs, setActivityLogs] = useState<ActivityLogItem[]>([
@@ -59,7 +84,7 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
       id: "init",
       time: new Date().toLocaleTimeString(),
       type: "info",
-      message: "Data Seeding Manager ready. Select any module or use Quick Seed All.",
+      message: "Data Seeding & Cleanup Manager ready. Select items to seed or selectively delete any category.",
     },
   ]);
 
@@ -134,7 +159,7 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
       addLog(`Network Error: ${errMsg}`, "error");
     } finally {
       setActionLoading(null);
-      setConfirmResetModal(null);
+      setConfirmModal(null);
     }
   };
 
@@ -144,6 +169,87 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
     const sizes = ["B", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+  };
+
+  // Available Data Categories for Selective Deletion
+  const dataCategories: DataCategory[] = [
+    {
+      id: "emails",
+      name: "Inbox & Temp Emails",
+      icon: "✉️",
+      desc: "All incoming & temporary mailbox JSON files on disk + received_emails & generated_emails in database.",
+      countKey: `${status.totalEmails} emails (${formatBytes(status.diskUsageBytes)})`,
+      badge: status.totalEmails > 0 ? "Active" : "Empty",
+      color: "emerald",
+    },
+    {
+      id: "logs",
+      name: "System & Audit Logs",
+      icon: "📋",
+      desc: "All SQLite system audit events (SMTP receive, DKIM verification, Auth events, system cron).",
+      countKey: `${status.logsCount} log events`,
+      badge: status.logsCount > 0 ? "Active" : "Empty",
+      color: "cyan",
+    },
+    {
+      id: "primary_domain",
+      name: "Primary Domain Configuration",
+      icon: "⭐",
+      desc: "Primary active email domain configuration (micorna.biz with admin prefix).",
+      countKey: status.primaryDomain || "None configured",
+      badge: status.primaryDomain ? "Configured" : "None",
+      color: "amber",
+    },
+    {
+      id: "domains",
+      name: "Secondary Attached Domains",
+      icon: "🌐",
+      desc: "All secondary custom attached domains (e.g. visakara.org with prefix routing).",
+      countKey: `${status.domainsCount} total domains`,
+      badge: status.domainsCount > 0 ? "Active" : "Empty",
+      color: "blue",
+    },
+    {
+      id: "mailboxes",
+      name: "Permanent Mailbox Users",
+      icon: "📬",
+      desc: "Permanent registered IMAP / Dovecot user accounts stored in SQLite mailbox_users.",
+      countKey: `${status.mailboxUsersCount} mailbox users`,
+      badge: status.mailboxUsersCount > 0 ? "Active" : "Empty",
+      color: "indigo",
+    },
+    {
+      id: "projects",
+      name: "API Projects & Webhooks",
+      icon: "💼",
+      desc: "Client API integration projects with scoped API keys (pk_live_...) and webhook listeners.",
+      countKey: `${status.projectsCount} active projects`,
+      badge: status.projectsCount > 0 ? "Active" : "Empty",
+      color: "purple",
+    },
+    {
+      id: "hits",
+      name: "API Traffic & Hit Counters",
+      icon: "📊",
+      desc: "Aggregate API endpoint hit counters in api_settings and 7-day traffic activity logs.",
+      countKey: `${status.apiHitsCount} recorded hits`,
+      badge: status.apiHitsCount > 0 ? "Active" : "0 Hits",
+      color: "teal",
+    },
+  ];
+
+  const toggleTarget = (id: string) => {
+    setSelectedTargets((prev) =>
+      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
+    );
+  };
+
+  const selectAllTargets = () => {
+    setSelectedTargets(dataCategories.map((c) => c.id));
+  };
+
+  const deselectAllTargets = () => {
+    setSelectedTargets([]);
   };
 
   return (
@@ -171,7 +277,7 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
           )}
           {toast.type === "info" && (
             <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           )}
           <span className="text-xs font-semibold">{toast.message}</span>
@@ -195,10 +301,10 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
             </span>
           </div>
           <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white">
-            Data Seeding & Demo Generator
+            Data Seeding & Data Cleaner
           </h1>
           <p className="text-xs md:text-sm text-gray-400 max-w-2xl leading-relaxed">
-            Quickly populate or reset your system with realistic mock emails, server audit logs, domains, projects, and 7-day traffic analytics for testing and demonstration.
+            Seed realistic demo data (emails, logs, projects, traffic stats) or selectively choose which data categories to delete (emails, domains, logs, primary domains, mailbox accounts).
           </p>
         </div>
 
@@ -228,7 +334,7 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
         {/* Metric 1 */}
         <div className="bg-[#0D121F]/90 border border-white/[0.06] p-4.5 rounded-2xl flex flex-col justify-between hover:border-emerald-500/30 transition-all group">
           <div className="flex items-center justify-between text-gray-400 text-xs font-medium">
-            <span>Seeded Emails</span>
+            <span>Total Emails</span>
             <span className="text-emerald-400/80 group-hover:text-emerald-400 transition-colors">✉</span>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
@@ -290,17 +396,141 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
         </div>
       </div>
 
+      {/* ========================================================================= */}
+      {/* SELECTIVE DATA DELETION MATRIX (USER REQUEST: SELECT WHAT TO DELETE)       */}
+      {/* ========================================================================= */}
+      <div className="bg-gradient-to-b from-[#0F1424] to-[#0A0D18] border border-red-500/20 rounded-3xl p-6 md:p-8 backdrop-blur-xl relative overflow-hidden shadow-2xl space-y-6">
+        <div className="absolute -top-24 -right-24 w-80 h-80 bg-red-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        {/* Section Header & Bulk Controls */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/[0.06] relative z-10">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold font-mono uppercase tracking-wider">
+              <span>🧹 Selective Data Cleaner</span>
+            </div>
+            <h2 className="text-xl md:text-2xl font-extrabold text-white">
+              Select Data to Delete
+            </h2>
+            <p className="text-xs text-gray-400 max-w-2xl leading-relaxed">
+              Check the boxes below for whichever data items you want to delete (emails, domains, logs, primary domain, mailbox users, projects, or API stats), or select all to perform a full wipe.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <button
+              onClick={selectAllTargets}
+              className="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800/80 hover:bg-slate-700/80 border border-white/[0.08] text-gray-300 hover:text-white transition-all cursor-pointer"
+            >
+              Select All (7)
+            </button>
+            <button
+              onClick={deselectAllTargets}
+              className="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800/80 hover:bg-slate-700/80 border border-white/[0.08] text-gray-400 hover:text-white transition-all cursor-pointer"
+            >
+              Deselect All
+            </button>
+            <button
+              onClick={() => setConfirmModal({ type: "selective" })}
+              disabled={selectedTargets.length === 0 || actionLoading !== null}
+              className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 active:scale-95 transition-all shadow-lg shadow-red-600/25 border border-red-400/30 flex items-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+              </svg>
+              <span>Delete Selected ({selectedTargets.length})</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Data Categories Checkbox List */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 relative z-10">
+          {dataCategories.map((cat) => {
+            const isSelected = selectedTargets.includes(cat.id);
+            return (
+              <div
+                key={cat.id}
+                onClick={() => toggleTarget(cat.id)}
+                className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-start justify-between gap-4 group ${
+                  isSelected
+                    ? "bg-red-950/20 border-red-500/40 shadow-[0_0_15px_rgba(239,68,68,0.1)]"
+                    : "bg-[#090C16]/70 border-white/[0.05] hover:border-white/[0.15] hover:bg-white/[0.02]"
+                }`}
+              >
+                <div className="flex items-start gap-3.5">
+                  <div className="pt-0.5">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => {}} // handled by parent div onClick
+                      className="w-4.5 h-4.5 rounded text-red-600 bg-slate-800 border-white/[0.1] focus:ring-red-500 cursor-pointer accent-red-500"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">{cat.icon}</span>
+                      <h4 className="text-sm font-bold text-white group-hover:text-red-300 transition-colors">
+                        {cat.name}
+                      </h4>
+                    </div>
+                    <p className="text-xs text-gray-400 leading-relaxed pr-2">
+                      {cat.desc}
+                    </p>
+                    <div className="pt-1 flex items-center gap-2">
+                      <span className="text-[11px] font-mono font-bold text-gray-300 bg-slate-800/80 px-2 py-0.5 rounded border border-white/[0.06]">
+                        {cat.countKey}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfirmModal({
+                      type: "single",
+                      target: `clear_${cat.id}`,
+                      targetName: cat.name,
+                    });
+                  }}
+                  disabled={actionLoading !== null}
+                  title={`Delete only ${cat.name}`}
+                  className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-red-400 hover:text-white bg-red-500/10 hover:bg-red-500/30 border border-red-500/20 transition-all cursor-pointer shadow"
+                >
+                  Clear
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Master Action Footer inside Data Cleaner */}
+        <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-white/[0.06] relative z-10">
+          <div className="text-xs text-gray-400">
+            <span>Selected categories to purge: </span>
+            <strong className="text-red-400 font-bold">{selectedTargets.length} of {dataCategories.length}</strong>
+          </div>
+          <button
+            onClick={() => setConfirmModal({ type: "all" })}
+            disabled={actionLoading !== null}
+            className="w-full sm:w-auto px-6 py-3 rounded-2xl text-xs font-black text-white bg-red-600/30 hover:bg-red-600 border border-red-500/40 hover:border-red-500 transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <span>💥</span>
+            <span>Master Reset: Wipe All 7 Categories</span>
+          </button>
+        </div>
+      </div>
+
       {/* Quick Master Seed (One-Click Banner) */}
       <div className="bg-gradient-to-r from-emerald-950/40 via-slate-900/60 to-cyan-950/40 border border-emerald-500/30 p-6 md:p-8 rounded-3xl backdrop-blur-xl relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-2xl">
         <div className="space-y-1.5 max-w-2xl relative z-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold font-mono tracking-wider uppercase border border-emerald-500/30">
-            <span>⚡ Recommended Instant Setup</span>
+            <span>⚡ Instant Demo Generator</span>
           </div>
           <h2 className="text-xl md:text-2xl font-extrabold text-white">
             Seed Complete Demo Environment
           </h2>
           <p className="text-xs md:text-sm text-gray-300 leading-relaxed">
-            One-click population: seeds <strong className="text-emerald-400">10 rich inbox emails</strong> (Stripe, GitHub, AWS OTPs), <strong className="text-emerald-400">100 system audit logs</strong>, primary domain (<code className="text-amber-300">micorna.biz</code>), secondary domain (<code className="text-amber-300">visakara.org</code>), <strong className="text-emerald-400">3 demo projects</strong> with API keys, and <strong className="text-emerald-400">7-day traffic analytics</strong> for the overview chart.
+            One-click population: seeds <strong className="text-emerald-400">10 rich inbox emails</strong>, <strong className="text-emerald-400">100 system audit logs</strong>, primary domain (<code className="text-amber-300">micorna.biz</code>), secondary domain (<code className="text-amber-300">visakara.org</code>), <strong className="text-emerald-400">3 demo projects</strong> with API keys, and <strong className="text-emerald-400">7-day traffic analytics</strong> for the charts.
           </p>
         </div>
 
@@ -341,7 +571,7 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">Demo Inbox Emails</h3>
+                  <h3 className="text-base font-bold text-white">Inbox Emails</h3>
                   <span className="text-[11px] text-gray-400">Max 10 realistic emails</span>
                 </div>
               </div>
@@ -373,23 +603,26 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
             <div className="flex flex-wrap gap-1.5 pt-1">
               <span className="text-[10px] bg-slate-800/80 text-gray-300 px-2 py-0.5 rounded border border-white/[0.04]">Stripe Invoice</span>
               <span className="text-[10px] bg-slate-800/80 text-gray-300 px-2 py-0.5 rounded border border-white/[0.04]">AWS OTP Code</span>
-              <span className="text-[10px] bg-slate-800/80 text-gray-300 px-2 py-0.5 rounded border border-white/[0.04]">GitHub Alert</span>
-              <span className="text-[10px] bg-slate-800/80 text-gray-300 px-2 py-0.5 rounded border border-white/[0.04]">PDF Attachments</span>
+              <span className="text-[10px] bg-slate-800/80 text-gray-300 px-2 py-0.5 rounded border border-white/[0.04]">PDF Files</span>
             </div>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-white/[0.06]">
+          <div className="mt-6 pt-4 border-t border-white/[0.06] flex items-center gap-2">
             <button
               onClick={() => runSeedAction("emails", { count: emailCount })}
               disabled={actionLoading !== null}
-              className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="flex-grow py-2.5 px-3 rounded-xl text-xs font-bold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
-              {actionLoading === "emails" ? (
-                <span className="animate-spin text-emerald-400">⏳</span>
-              ) : (
-                <span>📧</span>
-              )}
-              <span>Seed {emailCount} Demo Emails</span>
+              {actionLoading === "emails" ? <span className="animate-spin">⏳</span> : <span>📧</span>}
+              <span>Seed {emailCount} Emails</span>
+            </button>
+            <button
+              onClick={() => setConfirmModal({ type: "single", target: "clear_emails", targetName: "Inbox Emails" })}
+              disabled={actionLoading !== null}
+              title="Clear all stored emails"
+              className="py-2.5 px-3 rounded-xl text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <span>🗑️ Clear</span>
             </button>
           </div>
         </div>
@@ -415,7 +648,7 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
             </div>
 
             <p className="text-xs text-gray-400 leading-relaxed">
-              Generates historical system events spanning the last 48 hours across SMTP Inbound, DKIM verify, SPF checks, API requests, and Auth logins.
+              Generates historical system events spanning SMTP Inbound, DKIM verify, SPF checks, API requests, and Auth logins.
             </p>
 
             <div className="space-y-2 pt-2">
@@ -439,22 +672,25 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
               <span className="text-[10px] bg-slate-800/80 text-gray-300 px-2 py-0.5 rounded border border-white/[0.04]">SMTP_RECEIVE</span>
               <span className="text-[10px] bg-slate-800/80 text-gray-300 px-2 py-0.5 rounded border border-white/[0.04]">DKIM_VERIFY</span>
               <span className="text-[10px] bg-slate-800/80 text-gray-300 px-2 py-0.5 rounded border border-white/[0.04]">API_AUTH</span>
-              <span className="text-[10px] bg-slate-800/80 text-gray-300 px-2 py-0.5 rounded border border-white/[0.04]">SUCCESS/WARN</span>
             </div>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-white/[0.06]">
+          <div className="mt-6 pt-4 border-t border-white/[0.06] flex items-center gap-2">
             <button
               onClick={() => runSeedAction("logs", { count: logCount })}
               disabled={actionLoading !== null}
-              className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="flex-grow py-2.5 px-3 rounded-xl text-xs font-bold text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
-              {actionLoading === "logs" ? (
-                <span className="animate-spin text-cyan-400">⏳</span>
-              ) : (
-                <span>📝</span>
-              )}
-              <span>Seed {logCount} System Logs</span>
+              {actionLoading === "logs" ? <span className="animate-spin">⏳</span> : <span>📝</span>}
+              <span>Seed {logCount} Logs</span>
+            </button>
+            <button
+              onClick={() => setConfirmModal({ type: "single", target: "clear_logs", targetName: "System Logs" })}
+              disabled={actionLoading !== null}
+              title="Clear all system logs"
+              className="py-2.5 px-3 rounded-xl text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <span>🗑️ Clear</span>
             </button>
           </div>
         </div>
@@ -470,8 +706,8 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">Primary & Attached Domains</h3>
-                  <span className="text-[11px] text-gray-400">micorna.biz & visakara.org</span>
+                  <h3 className="text-base font-bold text-white">Primary & Domains</h3>
+                  <span className="text-[11px] text-gray-400">{status.domainsCount} Active Domains</span>
                 </div>
               </div>
               <span className="text-xs font-mono font-bold text-amber-400 bg-amber-500/10 px-2 py-1 rounded-lg border border-amber-500/20">
@@ -495,18 +731,22 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
             </div>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-white/[0.06]">
+          <div className="mt-6 pt-4 border-t border-white/[0.06] flex items-center gap-2">
             <button
               onClick={() => runSeedAction("domains")}
               disabled={actionLoading !== null}
-              className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="flex-grow py-2.5 px-3 rounded-xl text-xs font-bold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
-              {actionLoading === "domains" ? (
-                <span className="animate-spin text-amber-400">⏳</span>
-              ) : (
-                <span>🌐</span>
-              )}
-              <span>Seed & Sync Domains</span>
+              {actionLoading === "domains" ? <span className="animate-spin text-amber-400">⏳</span> : <span>🌐</span>}
+              <span>Seed Domains</span>
+            </button>
+            <button
+              onClick={() => setConfirmModal({ type: "single", target: "clear_domains", targetName: "Attached Domains" })}
+              disabled={actionLoading !== null}
+              title="Clear attached domains"
+              className="py-2.5 px-3 rounded-xl text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <span>🗑️ Clear</span>
             </button>
           </div>
         </div>
@@ -523,7 +763,7 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-white">Projects & API Keys</h3>
-                  <span className="text-[11px] text-gray-400">Scoped API integration</span>
+                  <span className="text-[11px] text-gray-400">{status.projectsCount} Active Projects</span>
                 </div>
               </div>
               <span className="text-xs font-mono font-bold text-purple-400 bg-purple-500/10 px-2 py-1 rounded-lg border border-purple-500/20">
@@ -542,18 +782,22 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
             </div>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-white/[0.06]">
+          <div className="mt-6 pt-4 border-t border-white/[0.06] flex items-center gap-2">
             <button
               onClick={() => runSeedAction("projects")}
               disabled={actionLoading !== null}
-              className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="flex-grow py-2.5 px-3 rounded-xl text-xs font-bold text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
-              {actionLoading === "projects" ? (
-                <span className="animate-spin text-purple-400">⏳</span>
-              ) : (
-                <span>💼</span>
-              )}
-              <span>Seed 3 Demo Projects</span>
+              {actionLoading === "projects" ? <span className="animate-spin">⏳</span> : <span>💼</span>}
+              <span>Seed Projects</span>
+            </button>
+            <button
+              onClick={() => setConfirmModal({ type: "single", target: "clear_projects", targetName: "API Projects" })}
+              disabled={actionLoading !== null}
+              title="Clear all API projects"
+              className="py-2.5 px-3 rounded-xl text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <span>🗑️ Clear</span>
             </button>
           </div>
         </div>
@@ -569,8 +813,8 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">7-Day Traffic Analytics</h3>
-                  <span className="text-[11px] text-gray-400">Overview Dashboard Curve</span>
+                  <h3 className="text-base font-bold text-white">7-Day Traffic Stats</h3>
+                  <span className="text-[11px] text-gray-400">{status.apiHitsCount} API Hits</span>
                 </div>
               </div>
               <span className="text-xs font-mono font-bold text-blue-400 bg-blue-500/10 px-2 py-1 rounded-lg border border-blue-500/20">
@@ -579,7 +823,7 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
             </div>
 
             <p className="text-xs text-gray-400 leading-relaxed">
-              Populates 7 days of generated & received mail traffic data and API route hit counters so the Admin Overview SVG charts and route manager tables look active and dynamic.
+              Populates 7 days of generated & received mail traffic data and API route hit counters so the Admin Overview SVG charts look active and dynamic.
             </p>
 
             <div className="bg-slate-900/60 p-3 rounded-xl border border-white/[0.04] space-y-1 text-xs text-gray-400">
@@ -594,72 +838,70 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
             </div>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-white/[0.06]">
+          <div className="mt-6 pt-4 border-t border-white/[0.06] flex items-center gap-2">
             <button
               onClick={() => runSeedAction("analytics")}
               disabled={actionLoading !== null}
-              className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="flex-grow py-2.5 px-3 rounded-xl text-xs font-bold text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
-              {actionLoading === "analytics" ? (
-                <span className="animate-spin text-blue-400">⏳</span>
-              ) : (
-                <span>📈</span>
-              )}
-              <span>Seed Traffic & Hit Counts</span>
+              {actionLoading === "analytics" ? <span className="animate-spin">⏳</span> : <span>📈</span>}
+              <span>Seed Traffic Stats</span>
+            </button>
+            <button
+              onClick={() => setConfirmModal({ type: "single", target: "clear_hits", targetName: "Traffic & Hits" })}
+              disabled={actionLoading !== null}
+              title="Reset all API route hit counts"
+              className="py-2.5 px-3 rounded-xl text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <span>🔄 Reset Hits</span>
             </button>
           </div>
         </div>
 
-        {/* Card 6: Danger Zone / Reset Controls */}
-        <div className="bg-[#0D121F]/90 border border-red-500/20 hover:border-red-500/40 p-6 rounded-3xl backdrop-blur-xl flex flex-col justify-between transition-all group relative overflow-hidden">
+        {/* Card 6: Mailboxes & Accounts */}
+        <div className="bg-[#0D121F]/90 border border-white/[0.06] hover:border-indigo-500/30 p-6 rounded-3xl backdrop-blur-xl flex flex-col justify-between transition-all group relative overflow-hidden">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+                <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-red-300">Purge / Reset Data</h3>
-                  <span className="text-[11px] text-gray-400">Clean up seeded records</span>
+                  <h3 className="text-base font-bold text-white">Mailbox Users</h3>
+                  <span className="text-[11px] text-gray-400">{status.mailboxUsersCount} Permanent Users</span>
                 </div>
               </div>
-              <span className="text-xs font-mono font-bold text-red-400 bg-red-500/10 px-2 py-1 rounded-lg border border-red-500/20">
-                Danger
+              <span className="text-xs font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded-lg border border-indigo-500/20">
+                Accounts
               </span>
             </div>
 
             <p className="text-xs text-gray-400 leading-relaxed">
-              Safely clear test emails, wipe SQLite system logs, or perform a full clean reset to bring the database back to clean state.
+              Permanent mailbox accounts used for IMAP / Dovecot mail storage and third-party email client integrations.
             </p>
 
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              <button
-                onClick={() => setConfirmResetModal("emails")}
-                disabled={actionLoading !== null}
-                className="py-2 px-3 rounded-xl text-[11px] font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-all cursor-pointer"
-              >
-                Clear Emails
-              </button>
-              <button
-                onClick={() => setConfirmResetModal("logs")}
-                disabled={actionLoading !== null}
-                className="py-2 px-3 rounded-xl text-[11px] font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-all cursor-pointer"
-              >
-                Clear Logs
-              </button>
+            <div className="bg-slate-900/60 p-3 rounded-xl border border-white/[0.04] space-y-1 text-xs text-gray-400 font-mono">
+              <div className="flex justify-between">
+                <span>IMAP Accounts:</span>
+                <span className="text-indigo-400 font-bold">{status.mailboxUsersCount} users</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Auth Protocol:</span>
+                <span className="text-gray-300">Dovecot SQL / Passwd</span>
+              </div>
             </div>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-white/[0.06]">
+          <div className="mt-6 pt-4 border-t border-white/[0.06] flex items-center gap-2">
             <button
-              onClick={() => setConfirmResetModal("all")}
+              onClick={() => setConfirmModal({ type: "single", target: "clear_mailboxes", targetName: "Permanent Mailboxes" })}
               disabled={actionLoading !== null}
-              className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-red-300 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-red-950/40"
+              className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               <span>🗑️</span>
-              <span>Full Environment Reset</span>
+              <span>Clear Permanent Mailbox Users</span>
             </button>
           </div>
         </div>
@@ -670,7 +912,7 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
         <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/[0.06]">
           <div className="flex items-center gap-2.5">
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
-            <h3 className="text-sm font-bold text-white tracking-wide">Seeding Activity Console</h3>
+            <h3 className="text-sm font-bold text-white tracking-wide">Seeding & Cleanup Activity Console</h3>
             <span className="text-[10px] font-mono text-gray-500">Live Terminal Stream</span>
           </div>
           <button
@@ -714,30 +956,72 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
       </div>
 
       {/* Confirmation Modal for Reset Actions */}
-      {confirmResetModal && (
+      {confirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-          <div className="bg-[#0F1422] border border-red-500/30 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl space-y-6 animate-scale-up">
-            <div className="flex items-center gap-3 text-red-400">
+          <div className="bg-[#0F1422] border border-red-500/30 rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl space-y-6 animate-scale-up">
+            <div className="flex items-center gap-3.5 text-red-400">
               <div className="p-3 bg-red-500/10 rounded-2xl border border-red-500/20">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
               <div>
-                <h3 className="text-lg font-bold text-white">Confirm Data Reset</h3>
-                <span className="text-xs text-gray-400">Irreversible operation</span>
+                <h3 className="text-lg font-bold text-white">
+                  {confirmModal.type === "all"
+                    ? "Confirm Complete Server Reset"
+                    : confirmModal.type === "selective"
+                    ? `Confirm Deletion of ${selectedTargets.length} Categories`
+                    : `Confirm Deletion: ${confirmModal.targetName}`}
+                </h3>
+                <span className="text-xs text-gray-400">Permanent and irreversible action</span>
               </div>
             </div>
 
-            <p className="text-xs text-gray-300 leading-relaxed">
-              {confirmResetModal === "emails" && "Are you sure you want to delete all demo emails and wipe temporary mailbox JSON files from disk?"}
-              {confirmResetModal === "logs" && "Are you sure you want to clear all SQLite system audit logs and project API logs?"}
-              {confirmResetModal === "all" && "Are you sure you want to completely purge all demo emails, system logs, and reset API hit counters?"}
-            </p>
+            <div className="text-xs text-gray-300 leading-relaxed space-y-3">
+              {confirmModal.type === "selective" && (
+                <div className="space-y-2">
+                  <p>You have selected the following <strong className="text-red-400">{selectedTargets.length} data categories</strong> to permanently delete:</p>
+                  <div className="bg-slate-900/80 p-3 rounded-xl border border-white/[0.06] space-y-1.5 font-mono text-[11px]">
+                    {selectedTargets.map((t) => {
+                      const matched = dataCategories.find((c) => c.id === t);
+                      return (
+                        <div key={t} className="flex items-center justify-between text-gray-300">
+                          <span className="flex items-center gap-1.5">
+                            <span>{matched?.icon}</span>
+                            <span>{matched?.name || t}</span>
+                          </span>
+                          <span className="text-red-400 font-bold">{matched?.countKey}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {confirmModal.type === "single" && (
+                <p>
+                  Are you sure you want to permanently delete all data records for <strong className="text-red-400">{confirmModal.targetName}</strong>?
+                </p>
+              )}
+
+              {confirmModal.type === "all" && (
+                <div className="space-y-2">
+                  <p className="font-bold text-red-300">This will completely wipe all 7 data layers on the server:</p>
+                  <ul className="list-disc pl-4 space-y-1 text-gray-400">
+                    <li>All email JSON files, attachments, and disk folders</li>
+                    <li>All SQLite audit logs and project API logs</li>
+                    <li>All secondary attached domains</li>
+                    <li>All client API projects and scoped keys</li>
+                    <li>All API route hit counts and 7-day traffic points</li>
+                    <li>Run database VACUUM to reclaim storage space</li>
+                  </ul>
+                </div>
+              )}
+            </div>
 
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
-                onClick={() => setConfirmResetModal(null)}
+                onClick={() => setConfirmModal(null)}
                 disabled={actionLoading !== null}
                 className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition-all cursor-pointer"
               >
@@ -745,14 +1029,22 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
               </button>
               <button
                 onClick={() => {
-                  if (confirmResetModal === "emails") runSeedAction("clear_emails");
-                  else if (confirmResetModal === "logs") runSeedAction("clear_logs");
-                  else if (confirmResetModal === "all") runSeedAction("clear_all");
+                  if (confirmModal.type === "selective") {
+                    runSeedAction("clear_selective", { targets: selectedTargets });
+                  } else if (confirmModal.type === "single" && confirmModal.target) {
+                    runSeedAction(confirmModal.target);
+                  } else if (confirmModal.type === "all") {
+                    runSeedAction("clear_all");
+                  }
                 }}
                 disabled={actionLoading !== null}
-                className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-500 active:scale-95 transition-all shadow-lg shadow-red-600/30 cursor-pointer flex items-center gap-2"
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-500 active:scale-95 transition-all shadow-lg shadow-red-600/30 cursor-pointer flex items-center gap-2"
               >
-                {actionLoading ? <span className="animate-spin">⏳</span> : <span>Proceed & Purge</span>}
+                {actionLoading ? (
+                  <span className="animate-spin">⏳</span>
+                ) : (
+                  <span>Proceed & Delete</span>
+                )}
               </button>
             </div>
           </div>
