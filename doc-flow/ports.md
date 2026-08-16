@@ -45,8 +45,6 @@ Email server aur web applications ko sahi tarah se chalane ke liye mukhtalif **P
 
 
 
-
-
 EMAIL PORTS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Port 25    = SMTP  → Server se Server (email delivery)
