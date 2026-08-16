@@ -25,13 +25,14 @@ export default function LiveLogs({ apiUrl, systemMode }: LiveLogsProps) {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  const fetchLogs = async (page: number, limit: number = pagination.limit, type: string = activeType) => {
+  const fetchLogs = async (page: number, limit: number = pagination.limit, type: string = activeType, search: string = searchQuery) => {
     if (!apiUrl) return;
     setLoading(true);
     try {
       const token = localStorage.getItem("admin_token");
       const endpointType = type === "all" ? "all" : type.toLowerCase();
-      const res = await fetch(`${apiUrl}/api/admin/dblogs/${endpointType}?page=${page}&limit=${limit}`, {
+      const searchParam = search ? `&search=${encodeURIComponent(search.trim())}` : "";
+      const res = await fetch(`${apiUrl}/api/admin/dblogs/${endpointType}?page=${page}&limit=${limit}${searchParam}`, {
         headers: {
           "Authorization": `Bearer ${token}`
         }
@@ -52,9 +53,12 @@ export default function LiveLogs({ apiUrl, systemMode }: LiveLogsProps) {
   };
 
   useEffect(() => {
-    setSelectedIds([]);
-    fetchLogs(pagination.page, pagination.limit, activeType);
-  }, [apiUrl, pagination.page, pagination.limit, activeType]);
+    const timer = setTimeout(() => {
+      setSelectedIds([]);
+      fetchLogs(pagination.page, pagination.limit, activeType, searchQuery);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [apiUrl, pagination.page, pagination.limit, activeType, searchQuery]);
 
   // Fetch current RCPT TO logging flag state
   const fetchRcptFlag = async () => {
@@ -445,12 +449,15 @@ export default function LiveLogs({ apiUrl, systemMode }: LiveLogsProps) {
         </div>
 
         {/* Live Search Box */}
-        <div className="relative flex-1 sm:max-w-xs">
+        <div className="relative flex-1 sm:max-w-md">
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search logs in view..."
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPagination(prev => ({ ...prev, page: 1 }));
+            }}
+            placeholder="Search logs by email, subject, IP, step..."
             className="w-full bg-[#080C14] border border-white/[0.08] focus:border-emerald-500/50 rounded-xl px-3.5 py-1.5 text-xs text-white placeholder:text-gray-500 focus:outline-none transition-all pl-9"
           />
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-gray-500 absolute left-3 top-2 pointer-events-none">
@@ -458,7 +465,10 @@ export default function LiveLogs({ apiUrl, systemMode }: LiveLogsProps) {
           </svg>
           {searchQuery && (
             <button
-              onClick={() => setSearchQuery("")}
+              onClick={() => {
+                setSearchQuery("");
+                setPagination(prev => ({ ...prev, page: 1 }));
+              }}
               className="absolute right-2.5 top-1.5 text-gray-400 hover:text-white text-xs cursor-pointer"
             >
               ✕

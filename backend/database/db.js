@@ -625,30 +625,41 @@ export function cleanupOldSystemLogs(days = 15) {
   }
 }
 
-export function getSystemLogs(log_type, page = 1, limit = 50) {
+export function getSystemLogs(log_type, page = 1, limit = 50, search = "") {
   try {
     const offset = (page - 1) * limit;
-    let stmt, countStmt, count, logs;
-    
-    if (log_type === "ALL") {
-      stmt = db.prepare(`SELECT * FROM system_logs ORDER BY id DESC LIMIT ? OFFSET ?`);
-      countStmt = db.prepare(`SELECT COUNT(*) as count FROM system_logs`);
-      count = countStmt.get().count;
-      logs = stmt.all(limit, offset).map(log => ({
-        ...log,
-        details: log.details ? JSON.parse(log.details) : null
-      }));
-    } else {
-      stmt = db.prepare(`SELECT * FROM system_logs WHERE log_type = ? ORDER BY id DESC LIMIT ? OFFSET ?`);
-      countStmt = db.prepare(`SELECT COUNT(*) as count FROM system_logs WHERE log_type = ?`);
-      count = countStmt.get(log_type).count;
-      logs = stmt.all(log_type, limit, offset).map(log => ({
-        ...log,
-        details: log.details ? JSON.parse(log.details) : null
-      }));
+    let whereClauses = [];
+    let params = [];
+    let countParams = [];
+
+    if (log_type && log_type !== "ALL") {
+      whereClauses.push("log_type = ?");
+      params.push(log_type);
+      countParams.push(log_type);
     }
+
+    if (search && typeof search === "string" && search.trim()) {
+      const s = `%${search.trim()}%`;
+      whereClauses.push("(message LIKE ? OR details LIKE ? OR status LIKE ? OR log_type LIKE ?)");
+      params.push(s, s, s, s);
+      countParams.push(s, s, s, s);
+    }
+
+    const whereStr = whereClauses.length > 0 ? " WHERE " + whereClauses.join(" AND ") : "";
+    const query = `SELECT * FROM system_logs${whereStr} ORDER BY id DESC LIMIT ? OFFSET ?`;
+    const countQuery = `SELECT COUNT(*) as count FROM system_logs${whereStr}`;
+
+    const countStmt = db.prepare(countQuery);
+    const count = countStmt.get(...countParams).count;
+
+    const stmt = db.prepare(query);
+    params.push(limit, offset);
+    const logs = stmt.all(...params).map(log => ({
+      ...log,
+      details: log.details ? JSON.parse(log.details) : null
+    }));
     
-    return { data: logs, pagination: { total: count, page, limit, totalPages: Math.ceil(count / limit) } };
+    return { data: logs, pagination: { total: count, page, limit, totalPages: Math.ceil(count / limit) || 1 } };
   } catch (err) {
     console.error("DB Error fetching system logs:", err);
     return { data: [], pagination: { total: 0, page, limit, totalPages: 1 } };

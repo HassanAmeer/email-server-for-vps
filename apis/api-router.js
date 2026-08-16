@@ -597,10 +597,11 @@ export class ApiRouter {
       return;
     }
 
-    // Parse URL for pagination (e.g. ?page=1&limit=20)
+    // Parse URL for pagination and search (e.g. ?page=1&limit=20&search=email@domain.com)
     const url = new URL(req.url, `http://${req.headers.host}`);
     const page = parseInt(url.searchParams.get('page') || '1', 10);
     const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+    const search = url.searchParams.get('search') || '';
 
     try {
       // Dynamic import to avoid top-level issues if not initialized
@@ -651,7 +652,7 @@ export class ApiRouter {
         if (logType === "receive") actualType = "RECEIVE";
         else if (logType === "send") actualType = "SEND";
         
-        const logsData = getSystemLogs(actualType, page, limit);
+        const logsData = getSystemLogs(actualType, page, limit, search);
 
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(logsData));
