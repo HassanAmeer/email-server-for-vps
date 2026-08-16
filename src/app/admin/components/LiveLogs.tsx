@@ -507,7 +507,7 @@ export default function LiveLogs({ apiUrl, systemMode }: LiveLogsProps) {
             </div>
           ) : (
             <div className="overflow-x-auto w-full">
-              <table className="w-full text-left border-collapse min-w-[850px]">
+              <table className="w-full text-left border-collapse min-w-[1150px]">
                 <thead>
                   <tr className="border-b border-white/[0.06] bg-slate-900/60 text-gray-400">
                     {/* Checkbox Header for Select All on Page */}
@@ -520,11 +520,11 @@ export default function LiveLogs({ apiUrl, systemMode }: LiveLogsProps) {
                         title={isAllCurrentPageSelected ? "Deselect all on this page" : "Select all on this page"}
                       />
                     </th>
-                    <th className="px-3 py-3.5 text-xs font-bold text-gray-300 w-16">ID</th>
-                    <th className="px-4 py-3.5 text-xs font-bold text-gray-300 w-24">Type</th>
-                    <th className="px-4 py-3.5 text-xs font-bold text-gray-300 w-24">Status</th>
-                    <th className="px-4 py-3.5 text-xs font-bold text-gray-300 w-72">Message / Step</th>
-                    <th className="px-4 py-3.5 text-xs font-bold text-gray-300">Details Payload</th>
+                    <th className="px-3 py-3.5 text-xs font-bold text-gray-300 w-14">ID</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-300 w-28">Type</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-300 w-28">Status</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-300 min-w-[240px] max-w-[360px]">Message / Step</th>
+                    <th className="px-4 py-3.5 text-xs font-bold text-gray-300 min-w-[320px]">Details Payload</th>
                     <th className="px-4 py-3.5 text-xs font-bold text-gray-300 text-right w-44">Timestamp</th>
                   </tr>
                 </thead>
