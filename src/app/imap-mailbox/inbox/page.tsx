@@ -454,7 +454,7 @@ export default function ImapMailboxInbox() {
                 <path d="M22.5 6.908V6.75a3 3 0 00-3-3h-15a3 3 0 00-3 3v.158l9.714 5.978a1.5 1.5 0 001.572 0L22.5 6.908z" />
               </svg>
             </div>
-            <div className="flex items-center gap-1 sm:gap-2.5 flex-wrap min-w-0">
+            <div className="flex flex-col items-start justify-center gap-1 min-w-0">
               <h1 className="text-base sm:text-xl font-extrabold text-white tracking-tight leading-none">IMAP <span className="text-blue-400">Mailbox</span></h1>
               <span className="text-[8px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 sm:px-2.5 py-0.5 sm:py-0.5 rounded-full bg-white/[0.06] text-gray-400 border border-white/[0.1] flex items-center gap-1 sm:gap-1.5">
                 <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-gray-400 animate-pulse"></span>
@@ -508,16 +508,16 @@ export default function ImapMailboxInbox() {
           
           {/* Action Header, Search & Filter Controls */}
           <div className="p-3 sm:p-4 border-b border-white/[0.06] bg-[#0b0f19]/95 backdrop-blur-md flex flex-col gap-2 sm:gap-3 z-10 sticky top-0 shadow-sm relative">
-            <div className="flex justify-between items-center gap-2">
+            <div className="flex justify-between items-center gap-1.5 sm:gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                <h2 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2 whitespace-nowrap">
+                <h2 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2 truncate min-w-0">
                   Captured Mail
                 </h2>
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 font-mono font-bold border border-blue-500/30">
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 font-mono font-bold border border-blue-500/30 flex-shrink-0">
                   {totalRecords}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+              <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                 <button
                   onClick={() => {
                     const token = localStorage.getItem("imap_mailbox_token") || "";
@@ -592,7 +592,7 @@ export default function ImapMailboxInbox() {
             </div>
 
             {/* Filter pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar px-0.5 py-0.5 flex-nowrap whitespace-nowrap">
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar px-0.5 py-0.5 flex-nowrap whitespace-nowrap">
               <button
                 onClick={() => { setFilterType("all"); setPage(1); }}
                 className={`text-[11px] font-bold px-2.5 py-1 rounded-lg transition-all ${filterType === "all" ? "bg-blue-500/20 text-blue-300 border border-blue-500/40" : "bg-black/30 text-gray-400 hover:text-gray-200 border border-white/[0.05]"}`}
@@ -692,19 +692,22 @@ export default function ImapMailboxInbox() {
                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-r shadow-[0_0_10px_rgba(59,130,246,0.8)]"></div>
                       )}
 
-                      <div className="flex justify-between items-baseline mb-1 gap-2">
+                      <div className="flex justify-between items-baseline mb-1.5 gap-2">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
                           {!isRead && (
                             <span className="w-2 h-2 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)] flex-shrink-0 animate-pulse"></span>
                           )}
+                          <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-gradient-to-br from-blue-500/20 to-indigo-500/10 border border-blue-500/25 flex items-center justify-center text-[10px] font-extrabold text-blue-300 font-mono flex-shrink-0">
+                            {(senderName || senderEmail || "?").charAt(0).toUpperCase()}
+                          </span>
                           <span className={`font-bold truncate text-sm ${isSelected ? 'text-blue-300' : (isRead ? 'text-gray-400' : 'text-gray-100')}`}>
                             {senderName}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                           <button
                             onClick={(e) => togglePin(email.id, e)}
-                            className={`p-1 opacity-0 group-hover:opacity-100 transition-opacity ${isPinned ? "text-amber-400 opacity-100" : "text-gray-500 hover:text-amber-400"}`}
+                            className={`p-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity ${isPinned ? "text-amber-400 opacity-100" : "text-gray-500 hover:text-amber-400"}`}
                             title={isPinned ? "Unpin Email" : "Pin Email"}
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
@@ -713,7 +716,7 @@ export default function ImapMailboxInbox() {
                           </button>
                           <button
                             onClick={(e) => handleDeleteEmail(email.id, e)}
-                            className="text-gray-500 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                            className="text-gray-500 hover:text-rose-400 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity p-1"
                             title="Delete Email"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3.5 h-3.5">
@@ -750,49 +753,60 @@ export default function ImapMailboxInbox() {
           </div>
 
           {/* SIDEBAR PAGINATION FOOTER (Max 200 emails per page) */}
-          <div className="p-2 sm:p-3 border-t border-white/[0.06] bg-[#0b0f19]/95 backdrop-blur-md flex items-center gap-2 z-10 flex-shrink-0">
-            <span className="text-[10px] sm:text-[11px] font-mono text-gray-400 whitespace-nowrap flex-shrink-0">
-              {isPinnedFilter
-                ? `${pinnedCount} pinned`
-                : totalRecords > 0 ? `${startRecord}-${endRecord} of ${totalRecords}` : "0 emails"}
-            </span>
+          <div className="relative z-10 flex-shrink-0 px-2 sm:px-3 pt-1 pb-2 sm:pb-3 bg-[#0b0f19]/95 backdrop-blur-md">
+            <div className="h-px w-full mb-2 sm:mb-2.5 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent"></div>
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-mono text-gray-400 whitespace-nowrap flex-shrink-0">
+                <span className={`w-1.5 h-1.5 rounded-full ${totalRecords > 0 ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]' : 'bg-gray-600'}`}></span>
+                {isPinnedFilter
+                  ? `${pinnedCount} pinned`
+                  : totalRecords > 0 ? `${startRecord}-${endRecord} of ${totalRecords}` : "0 emails"}
+              </span>
 
-            {/* Scrollable page tabs row */}
-            <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar px-0.5 py-0.5 max-w-full">
-              <button
-                onClick={() => setPage(prev => Math.max(1, prev - 1))}
-                disabled={page <= 1 || loading}
-                className="flex-shrink-0 px-2 sm:px-2.5 py-1 text-[11px] font-bold font-mono rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 disabled:opacity-40 disabled:pointer-events-none border border-white/[0.06] transition-all"
-                title="Previous Page"
-              >
-                ←
-              </button>
-
-              {Array.from({ length: Math.max(1, totalPages) }, (_, i) => i + 1).map(p => (
+              {/* Scrollable page tabs row */}
+              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar px-0.5 py-0.5 flex-1 min-w-0">
                 <button
-                  key={p}
-                  id={`page-tab-${p}`}
-                  onClick={() => setPage(p)}
-                  disabled={loading}
-                  className={`flex-shrink-0 min-w-[28px] h-7 px-1.5 text-[11px] font-bold font-mono rounded-lg border transition-all ${
-                    p === page
-                      ? "bg-blue-500/20 text-blue-300 border-blue-500/40"
-                      : "bg-white/[0.03] hover:bg-white/[0.08] text-gray-400 hover:text-gray-200 border-white/[0.06]"
-                  }`}
-                  title={`Page ${p}`}
+                  onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                  disabled={page <= 1 || loading}
+                  className="flex-shrink-0 w-7 h-7 flex items-center justify-center text-[11px] font-bold font-mono rounded-lg bg-white/[0.03] hover:bg-white/[0.08] text-gray-300 disabled:opacity-30 disabled:pointer-events-none border border-white/[0.06] transition-all hover:border-white/[0.14]"
+                  title="Previous Page"
                 >
-                  {p}
+                  ←
                 </button>
-              ))}
 
-              <button
-                onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
-                disabled={page >= totalPages || loading}
-                className="flex-shrink-0 px-2 sm:px-2.5 py-1 text-[11px] font-bold font-mono rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 disabled:opacity-40 disabled:pointer-events-none border border-white/[0.06] transition-all"
-                title="Next Page"
-              >
-                →
-              </button>
+                {Array.from({ length: Math.max(1, totalPages) }, (_, i) => i + 1).map(p => (
+                  <button
+                    key={p}
+                    id={`page-tab-${p}`}
+                    onClick={() => setPage(p)}
+                    disabled={loading}
+                    className={`flex-shrink-0 min-w-[28px] h-7 px-1.5 text-[11px] font-bold font-mono rounded-lg border transition-all ${
+                      p === page
+                        ? "bg-blue-500/20 text-blue-300 border-blue-500/40 shadow-[0_0_8px_rgba(59,130,246,0.2)]"
+                        : "bg-white/[0.03] hover:bg-white/[0.08] text-gray-500 hover:text-gray-200 border-white/[0.06] hover:border-white/[0.14]"
+                    }`}
+                    title={`Page ${p}`}
+                  >
+                    {p}
+                  </button>
+                ))}
+
+                <button
+                  onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={page >= totalPages || loading}
+                  className="flex-shrink-0 w-7 h-7 flex items-center justify-center text-[11px] font-bold font-mono rounded-lg bg-white/[0.03] hover:bg-white/[0.08] text-gray-300 disabled:opacity-30 disabled:pointer-events-none border border-white/[0.06] transition-all hover:border-white/[0.14]"
+                  title="Next Page"
+                >
+                  →
+                </button>
+              </div>
+
+              <span className="flex items-center gap-1.5 ml-auto whitespace-nowrap flex-shrink-0 text-[9px] sm:text-[10px] font-mono uppercase tracking-wider text-gray-500 bg-white/[0.03] border border-white/[0.06] px-2 py-1 rounded-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 text-blue-400">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5.5c0 .199.079.39.22.53l3 3a.75.75 0 101.06-1.06L10.75 9.94V5z" clipRule="evenodd" />
+                </svg>
+                {isPinnedFilter ? "Pinned only" : "Max 200/page"}
+              </span>
             </div>
           </div>
         </div>
@@ -924,8 +938,8 @@ export default function ImapMailboxInbox() {
                 </button>
               </div>
               <form onSubmit={handleSendEmail} className="flex flex-col flex-1 bg-transparent relative z-10 min-h-0">
-                <div className="px-4 sm:px-8 py-4 border-b border-white/[0.04] flex items-center bg-black/20 flex-shrink-0">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider w-20 font-mono">To:</label>
+                <div className="px-3 sm:px-8 py-3 sm:py-4 border-b border-white/[0.04] flex items-center gap-2 bg-black/20 focus-within:bg-black/30 focus-within:border-blue-500/20 transition-colors flex-shrink-0">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider w-16 sm:w-20 font-mono flex-shrink-0">To:</label>
                   <input
                     type="email"
                     value={composeTo}
@@ -935,8 +949,8 @@ export default function ImapMailboxInbox() {
                     className="flex-1 text-white bg-transparent text-sm focus:outline-none placeholder:text-gray-600 font-medium font-mono min-w-0"
                   />
                 </div>
-                <div className="px-4 sm:px-8 py-4 border-b border-white/[0.04] flex items-center bg-black/20 flex-shrink-0">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider w-20 font-mono">Subject:</label>
+                <div className="px-3 sm:px-8 py-3 sm:py-4 border-b border-white/[0.04] flex items-center gap-2 bg-black/20 focus-within:bg-black/30 focus-within:border-blue-500/20 transition-colors flex-shrink-0">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider w-16 sm:w-20 font-mono flex-shrink-0">Subject:</label>
                   <input
                     type="text"
                     value={composeSubject}
@@ -945,7 +959,7 @@ export default function ImapMailboxInbox() {
                     className="flex-1 text-white bg-transparent text-sm focus:outline-none placeholder:text-gray-600 font-medium min-w-0"
                   />
                 </div>
-                <div className="flex flex-col flex-1 px-4 sm:px-8 py-4 sm:py-6 bg-black/40 min-h-0">
+                <div className="flex flex-col flex-1 px-3 sm:px-8 py-4 sm:py-6 bg-black/40 min-h-0">
                   <textarea
                     value={composeMessage}
                     onChange={e => setComposeMessage(e.target.value)}
@@ -954,14 +968,15 @@ export default function ImapMailboxInbox() {
                     className="w-full flex-1 text-gray-300 bg-transparent text-sm focus:outline-none resize-none font-sans leading-relaxed placeholder:text-gray-600"
                   ></textarea>
                 </div>
-                <div className="p-4 sm:p-6 bg-[#030712] border-t border-white/[0.06] flex justify-between items-center flex-shrink-0 gap-2">
-                  <button type="button" onClick={() => setShowCompose(false)} className="text-gray-500 hover:text-rose-400 font-semibold px-4 py-2 transition-colors text-sm">
-                    Discard
+                <div className="p-3 sm:p-6 bg-[#030712] border-t border-white/[0.06] flex justify-between items-center flex-shrink-0 gap-2">
+                  <button type="button" onClick={() => setShowCompose(false)} className="flex items-center gap-1.5 text-gray-500 hover:text-rose-400 font-semibold px-3 py-2 transition-colors text-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    <span className="hidden sm:inline">Discard</span>
                   </button>
                   <button
                     type="submit"
                     disabled={sending}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold px-5 sm:px-8 py-3 rounded-xl transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)] disabled:opacity-50 flex items-center gap-2 active:scale-[0.98]"
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold px-5 sm:px-8 py-2.5 sm:py-3 rounded-xl transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)] disabled:opacity-50 flex items-center gap-2 active:scale-[0.98] whitespace-nowrap"
                   >
                     {sending ? (
                       <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full"></span>
@@ -970,7 +985,8 @@ export default function ImapMailboxInbox() {
                         <path d="M3.478 2.404a.75.75 0 00-.926.941l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.404z" />
                       </svg>
                     )}
-                    Dispatch Email
+                    <span className="hidden sm:inline">Dispatch Email</span>
+                    <span className="sm:hidden">Send</span>
                   </button>
                 </div>
               </form>
@@ -982,16 +998,16 @@ export default function ImapMailboxInbox() {
               
               {/* Header Info */}
               <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-white/[0.06] bg-[#030712]/50 relative z-10 flex-shrink-0">
-                <div className="flex items-start gap-3 sm:gap-4 mb-6">
+                <div className="flex flex-wrap items-start gap-3 sm:gap-4 mb-6">
                   <button onClick={() => { setSelectedEmail(null); setSidebarOpen(true); }} className="md:hidden mt-1 flex-shrink-0 flex items-center justify-center text-gray-400 hover:text-white transition-colors bg-white/[0.04] hover:bg-white/[0.08] rounded-full w-9 h-9 border border-white/[0.05]">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
                   </button>
-                  <div className="flex-1 min-w-0">
-                    <h2 className="text-lg sm:text-2xl font-extrabold text-white leading-tight tracking-tight">
+                  <div className="flex-1 min-w-0 self-center">
+                    <h2 className="text-base sm:text-2xl font-extrabold text-white leading-tight tracking-tight break-words">
                       {selectedEmail.subject || "(No Subject)"}
                     </h2>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 ml-auto md:ml-0 flex-shrink-0">
                     <button
                       onClick={() => setViewMode(viewMode === "html" ? "text" : "html")}
                       className="px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold font-mono bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 border border-white/[0.08] transition-colors whitespace-nowrap"

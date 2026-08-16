@@ -523,32 +523,46 @@ const httpServer = http.createServer((req, res) => {
     return ApiRouter.generateDkimKey(req, res);
   }
 
+  // Helper to safely read recent JSON email files
+  const readRecentEmails = (dir, limit = 50, emailFilter = "") => {
+    if (!fs.existsSync(dir)) return [];
+    const allFiles = fs.readdirSync(dir).filter(f => f.endsWith(".json"));
+    allFiles.sort((a, b) => b.localeCompare(a));
+    const sliceCount = limit > 0 ? limit : 50;
+    const selectedFiles = allFiles.slice(0, Math.min(allFiles.length, 200));
+    const emails = [];
+    for (const file of selectedFiles) {
+      try {
+        const fileContent = fs.readFileSync(path.join(dir, file), "utf-8");
+        const parsed = JSON.parse(fileContent);
+        parsed.fileName = file;
+        if (emailFilter) {
+          const toStr = typeof parsed.to === "string" ? parsed.to.toLowerCase() : JSON.stringify(parsed.to || "").toLowerCase();
+          if (toStr.includes(emailFilter)) {
+            emails.push(parsed);
+          }
+        } else {
+          emails.push(parsed);
+        }
+        if (emails.length >= sliceCount) break;
+      } catch (e) {}
+    }
+    return emails;
+  };
+
   // API: Get all emails (combined local and live)
-  if (req.url === "/api/mails" && req.method === "GET") {
+  if (cleanUrl === "/api/mails" && req.method === "GET") {
     try {
-      const localFiles = fs.readdirSync(localMailDir)
-        .filter(file => file.endsWith(".json"));
-      const liveFiles = fs.readdirSync(liveMailDir)
-        .filter(file => file.endsWith(".json"));
+      const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+      const limit = parseInt(url.searchParams.get("limit") || "50", 10);
+      const email = (url.searchParams.get("email") || "").toLowerCase().trim();
 
-      const localEmails = localFiles.map(file => {
-        const fileContent = fs.readFileSync(path.join(localMailDir, file), "utf-8");
-        const parsed = JSON.parse(fileContent);
-        parsed.fileName = file;
-        parsed.type = "local";
-        return parsed;
-      });
-
-      const liveEmails = liveFiles.map(file => {
-        const fileContent = fs.readFileSync(path.join(liveMailDir, file), "utf-8");
-        const parsed = JSON.parse(fileContent);
-        parsed.fileName = file;
-        parsed.type = "live";
-        return parsed;
-      });
+      const localEmails = readRecentEmails(localMailDir, limit, email).map(m => ({ ...m, type: "local" }));
+      const liveEmails = readRecentEmails(liveMailDir, limit, email).map(m => ({ ...m, type: "live" }));
 
       const allEmails = [...localEmails, ...liveEmails]
-        .sort((a, b) => new Date(b.date) - new Date(a.date));
+        .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
+        .slice(0, limit);
 
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(allEmails));
@@ -560,18 +574,12 @@ const httpServer = http.createServer((req, res) => {
   }
 
   // API 1: Get local emails
-  if (req.url === "/api/emails/local" && req.method === "GET") {
+  if (cleanUrl === "/api/emails/local" && req.method === "GET") {
     try {
-      const files = fs.readdirSync(localMailDir)
-        .filter(file => file.endsWith(".json"))
-        .sort((a, b) => b.localeCompare(a));
-
-      const emails = files.map(file => {
-        const fileContent = fs.readFileSync(path.join(localMailDir, file), "utf-8");
-        const parsed = JSON.parse(fileContent);
-        parsed.fileName = file;
-        return parsed;
-      });
+      const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+      const limit = parseInt(url.searchParams.get("limit") || "50", 10);
+      const email = (url.searchParams.get("email") || "").toLowerCase().trim();
+      const emails = readRecentEmails(localMailDir, limit, email);
 
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(emails));
@@ -583,18 +591,12 @@ const httpServer = http.createServer((req, res) => {
   }
 
   // API 2: Get live emails
-  if (req.url === "/api/emails/live" && req.method === "GET") {
+  if (cleanUrl === "/api/emails/live" && req.method === "GET") {
     try {
-      const files = fs.readdirSync(liveMailDir)
-        .filter(file => file.endsWith(".json"))
-        .sort((a, b) => b.localeCompare(a));
-
-      const emails = files.map(file => {
-        const fileContent = fs.readFileSync(path.join(liveMailDir, file), "utf-8");
-        const parsed = JSON.parse(fileContent);
-        parsed.fileName = file;
-        return parsed;
-      });
+      const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+      const limit = parseInt(url.searchParams.get("limit") || "50", 10);
+      const email = (url.searchParams.get("email") || "").toLowerCase().trim();
+      const emails = readRecentEmails(liveMailDir, limit, email);
 
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(emails));
