@@ -314,34 +314,38 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
           </button>
 
           {/* DEV Section Divider with Horizontal Line and Centered Badge */}
-          <div className="relative my-4 px-2 flex items-center justify-center">
-            <div className="absolute inset-0 flex items-center" aria-hidden="true">
-              <div className="w-full border-t border-white/[0.08]"></div>
-            </div>
-            <div className="relative flex items-center justify-center">
-              <span className="bg-[#090C16] px-2.5 text-[9px] font-mono font-bold tracking-widest uppercase text-emerald-400/90 border border-emerald-500/20 rounded-full py-0.5 shadow-sm">
-                DEV
-              </span>
-            </div>
-          </div>
+          {isStaticSuperAdmin && (
+            <>
+              <div className="relative my-4 px-2 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                  <div className="w-full border-t border-white/[0.08]"></div>
+                </div>
+                <div className="relative flex items-center justify-center">
+                  <span className="bg-[#090C16] px-2.5 text-[9px] font-mono font-bold tracking-widest uppercase text-emerald-400/90 border border-emerald-500/20 rounded-full py-0.5 shadow-sm">
+                    DEV
+                  </span>
+                </div>
+              </div>
 
-          {/* DEV Section Navigation Buttons */}
-          <button
-            onClick={() => handleTabClick("projects-tab")}
-            className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
-              activeTab === "projects-tab" 
-                ? "rounded-none text-emerald-400 bg-emerald-500/10 shadow-[0_2px_12px_rgba(16,185,129,0.03)]" 
-                : "rounded-none text-gray-400 hover:text-white hover:bg-white/[0.02]"
-            }`}
-          >
-            {activeTab === "projects-tab" && (
-              <span className="absolute left-0 inset-y-0 w-[3px] bg-emerald-400"></span>
-            )}
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
-            </svg>
-            <span>Projects & Webhooks</span>
-          </button>
+              {/* DEV Section Navigation Buttons */}
+              <button
+                onClick={() => handleTabClick("projects-tab")}
+                className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
+                  activeTab === "projects-tab"
+                    ? "rounded-none text-emerald-400 bg-emerald-500/10 shadow-[0_2px_12px_rgba(16,185,129,0.03)]"
+                    : "rounded-none text-gray-400 hover:text-white hover:bg-white/[0.02]"
+                }`}
+              >
+                {activeTab === "projects-tab" && (
+                  <span className="absolute left-0 inset-y-0 w-[3px] bg-emerald-400"></span>
+                )}
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+                </svg>
+                <span>Projects & Webhooks</span>
+              </button>
+            </>
+          )}
 
           <button
             onClick={() => handleTabClick("mailbox-tab")}
@@ -394,22 +398,24 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
             <span>API Route Manager</span>
           </button>
 
-          <button
-            onClick={() => handleTabClick("seeding-tab")}
-            className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
-              activeTab === "seeding-tab" 
-                ? "rounded-none text-emerald-400 bg-emerald-500/10 shadow-[0_2px_12px_rgba(16,185,129,0.03)]" 
-                : "rounded-none text-gray-400 hover:text-white hover:bg-white/[0.02]"
-            }`}
-          >
-            {activeTab === "seeding-tab" && (
-              <span className="absolute left-0 inset-y-0 w-[3px] bg-emerald-400"></span>
-            )}
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 5.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125m16.5 5.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
-            </svg>
-            <span>Data Seeding</span>
-          </button>
+          {isStaticSuperAdmin && (
+            <button
+              onClick={() => handleTabClick("seeding-tab")}
+              className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
+                activeTab === "seeding-tab"
+                  ? "rounded-none text-emerald-400 bg-emerald-500/10 shadow-[0_2px_12px_rgba(16,185,129,0.03)]"
+                  : "rounded-none text-gray-400 hover:text-white hover:bg-white/[0.02]"
+              }`}
+            >
+              {activeTab === "seeding-tab" && (
+                <span className="absolute left-0 inset-y-0 w-[3px] bg-emerald-400"></span>
+              )}
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 5.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125m16.5 5.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
+              </svg>
+              <span>Data Seeding</span>
+            </button>
+          )}
         </nav>
 
         {/* Logout section */}
