@@ -288,7 +288,7 @@ export default function ImapMailboxLogin() {
                     name="imap_email_address"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@yourdomain.com"
+                    placeholder="admin@primarydomain.com"
                     autoComplete="off"
                     className="w-full bg-[#121826] border border-white/[0.08] focus:border-emerald-500/60 focus:ring-2 focus:ring-emerald-500/20 rounded-xl px-4 py-3 text-xs sm:text-sm text-white focus:outline-none transition-all placeholder:text-gray-500 font-mono"
                   />
