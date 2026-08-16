@@ -590,7 +590,7 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
             {/* Submit Button */}
             <button
               type="submit"
-              className="bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 font-extrabold px-6 py-3.5 rounded-2xl text-sm transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 shrink-0 cursor-pointer whitespace-nowrap"
+              className="bg-transparent hover:bg-emerald-500/10 active:scale-98 text-emerald-400 font-extrabold px-6 py-3.5 rounded-2xl text-sm transition-all border border-emerald-500/40 hover:border-emerald-500/60 shadow-sm hover:shadow-lg hover:shadow-emerald-500/10 flex items-center justify-center gap-2 shrink-0 cursor-pointer whitespace-nowrap"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4.5 h-4.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />

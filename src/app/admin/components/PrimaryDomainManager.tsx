@@ -351,7 +351,7 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
 
   // Toggle individual domain routing to primary
   const handleToggleDomainRouting = async (domainId: number, currentRouting: number | boolean | undefined) => {
-    const isCurrentlyOn = currentRouting === 1 || currentRouting === true || currentRouting === undefined;
+    const isCurrentlyOn = currentRouting === 1 || currentRouting === true;
     const newRouting = isCurrentlyOn ? 0 : 1;
     const targetDomain = domains.find((d) => d.id === domainId);
 
