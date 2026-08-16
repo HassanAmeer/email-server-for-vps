@@ -276,9 +276,16 @@ const smtpServer = new SMTPServer({
         }
 
         const subject = parsed.subject || "(No Subject)";
+        const parsedFrom = parsed.from?.text || "Unknown Sender";
+        const parsedTo = parsed.to?.text || "Unknown Recipient";
+        const parsedDate = parsed.date ? new Date(parsed.date).toISOString() : new Date().toISOString();
+        const senderIp = session.remoteAddress || "Unknown IP";
         const parsedMsg = `⏳ Email Parsed. Subject: "${subject}"`;
         if (isLocal) addLocalLog(parsedMsg); else addLiveLog(parsedMsg);
-        logSystemEvent({ log_type: 'RECEIVE', status: 'INFO', message: 'Email Parsed Successfully', details: { subject } });
+        logSystemEvent({
+          log_type: 'RECEIVE', status: 'INFO', message: 'Email Parsed Successfully',
+          details: { subject, from: parsedFrom, to: parsedTo, senderIp, date: parsedDate }
+        });
 
       const safeSubject = subject
         .replace(/[^a-z0-9]/gi, "_")
@@ -401,7 +408,20 @@ const smtpServer = new SMTPServer({
         addLiveLog(finishMsg);
         addLiveLog("__________________________________________________");
       }
-      logSystemEvent({ log_type: 'RECEIVE', status: 'SUCCESS', message: 'Transaction Complete', details: { subject }, project_id: projectId });
+      logSystemEvent({
+        log_type: 'RECEIVE', status: 'SUCCESS', message: 'Email Received & Saved',
+        details: {
+          subject,
+          from: mailData.from,
+          to: mailData.to,
+          senderIp: mailData.senderIp,
+          date: mailData.date,
+          hasAttachments: mailData.attachments.length > 0,
+          attachmentCount: mailData.attachments.length,
+          file: fileName
+        },
+        project_id: projectId
+      });
 
       return callback();
     });
