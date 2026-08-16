@@ -1,12 +1,12 @@
 # ==============================================================================
-# Dovecot PostgreSQL Authentication Configuration
+# Dovecot SQLite Authentication Configuration
 # ==============================================================================
 
-# PostgreSQL Driver
-driver = pgsql
+# SQLite Driver
+driver = sqlite
 
-# PostgreSQL Connection String (Update host, dbname, user, and password)
-connect = host=127.0.0.1 dbname=email_server user=postgres password=YOUR_PG_PASSWORD
+# SQLite Database Connection File
+connect = /root/tempmail/backend/storage/email_logs.sqlite
 
 # Default Password Scheme (PLAIN, BCRYPT, SHA512-CRYPT)
 default_pass_scheme = PLAIN
@@ -22,8 +22,8 @@ password_query = \
 user_query = \
   SELECT 5000 AS uid, \
          5000 AS gid, \
-         '/var/www/email-server-for-vps/backend/storage/maildir/%d/%n' AS home, \
-         'maildir:/var/www/email-server-for-vps/backend/storage/maildir/%d/%n:LAYOUT=fs:DIRNAME=.' AS mail \
+         '/root/tempmail/backend/storage/maildir/%d/%n' AS home, \
+         'maildir:/root/tempmail/backend/storage/maildir/%d/%n:LAYOUT=fs:DIRNAME=.' AS mail \
   FROM mailbox_users \
   WHERE LOWER(email) = LOWER('%u')
 

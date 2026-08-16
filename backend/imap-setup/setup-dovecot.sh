@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Dovecot IMAP Automated Setup & Installer Script (PostgreSQL Edition)
+# Dovecot IMAP Automated Setup & Installer Script (SQLite Edition)
 # For Ubuntu / Debian Linux VPS
 # ==============================================================================
 
 set -e
 
 echo "=========================================================="
-echo "🚀 Starting Dovecot IMAP Server Setup (PostgreSQL)"
+echo "🚀 Starting Dovecot IMAP Server Setup (SQLite)"
 echo "=========================================================="
 
 # Check root privilege
@@ -20,17 +20,12 @@ fi
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 echo "📂 Project Root: ${PROJECT_ROOT}"
 
-# PostgreSQL Database Configuration
-PG_HOST="${PGHOST:-127.0.0.1}"
-PG_PORT="${PGPORT:-5432}"
-PG_DB="${PGDATABASE:-email_server}"
-PG_USER="${PGUSER:-postgres}"
-PG_PASS="${PGPASSWORD:-postgres}"
+SQLITE_DB_PATH="${PROJECT_ROOT}/backend/storage/email_logs.sqlite"
 
-# 1. Install Dovecot packages with PostgreSQL driver
-echo "📦 Installing Dovecot IMAP and PostgreSQL driver..."
+# 1. Install Dovecot packages with SQLite driver
+echo "📦 Installing Dovecot IMAP and SQLite driver..."
 apt update -y
-apt install -y dovecot-imapd dovecot-pgsql
+apt install -y dovecot-imapd dovecot-sqlite
 
 # 2. Create vmail user and group if not exist
 if ! id "vmail" &>/dev/null; then
@@ -39,11 +34,17 @@ if ! id "vmail" &>/dev/null; then
     useradd -u 5000 -g vmail -s /usr/sbin/nologin -d /var/mail vmail || true
 fi
 
-# 3. Ensure Maildir storage directory exists and has proper permissions
+# 3. Ensure Maildir and Storage directories exist and have proper permissions
 MAILDIR_PATH="${PROJECT_ROOT}/backend/storage/maildir"
+STORAGE_PATH="${PROJECT_ROOT}/backend/storage"
 echo "📁 Ensuring Maildir directory exists: ${MAILDIR_PATH}"
 mkdir -p "${MAILDIR_PATH}"
+mkdir -p "${STORAGE_PATH}"
 chmod -R 777 "${MAILDIR_PATH}"
+chmod 777 "${STORAGE_PATH}"
+if [ -f "${SQLITE_DB_PATH}" ]; then
+  chmod 666 "${SQLITE_DB_PATH}"
+fi
 
 # 4. Generate dynamic dovecot.conf with absolute paths
 echo "⚙️ Configuring /etc/dovecot/dovecot.conf..."
@@ -85,11 +86,11 @@ userdb {
 }
 EOF
 
-# 5. Generate dynamic dovecot-sql.conf.ext for PostgreSQL
-echo "⚙️ Configuring /etc/dovecot/dovecot-sql.conf.ext for PostgreSQL (DB: ${PG_DB})..."
+# 5. Generate dynamic dovecot-sql.conf.ext for SQLite
+echo "⚙️ Configuring /etc/dovecot/dovecot-sql.conf.ext for SQLite..."
 cat << EOF > /etc/dovecot/dovecot-sql.conf.ext
-driver = pgsql
-connect = host=${PG_HOST} port=${PG_PORT} dbname=${PG_DB} user=${PG_USER} password=${PG_PASS}
+driver = sqlite
+connect = ${SQLITE_DB_PATH}
 default_pass_scheme = PLAIN
 
 password_query = SELECT email AS user, COALESCE(plain_password, password_hash) AS password FROM mailbox_users WHERE LOWER(email) = LOWER('%u')
@@ -113,8 +114,8 @@ systemctl enable dovecot || true
 
 echo ""
 echo "=========================================================="
-echo "✅ Dovecot IMAP Setup Complete with PostgreSQL!"
-echo "   - Database: PostgreSQL (${PG_DB} @ ${PG_HOST})"
+echo "✅ Dovecot IMAP Setup Complete with SQLite!"
+echo "   - Database: SQLite (${SQLITE_DB_PATH})"
 echo "   - IMAP Port: 143 (Plain/STARTTLS)"
 echo "   - IMAPS Port: 993 (SSL)"
 echo "   - Maildir: ${MAILDIR_PATH}"

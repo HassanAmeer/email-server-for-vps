@@ -1,44 +1,41 @@
-# 📬 IMAP Setup Guide (Dovecot + PostgreSQL + Maildir)
+# 📬 IMAP Setup Guide (Dovecot + SQLite + Maildir)
 
-This directory contains the automated configuration and testing tools for running **IMAP / IMAPS (Ports 143 & 993)** on your Linux VPS using **PostgreSQL** database authentication.
+This directory contains the automated configuration and testing tools for running **IMAP / IMAPS (Ports 143 & 993)** on your Linux VPS using **SQLite** database authentication.
 
 ---
 
-## ⚡ Quick 1-Command Setup on VPS
+## ⚡ Quick 1-Command Automated Setup
 
-Run the automated installer script as root on your VPS:
+Run on your VPS as root:
 
 ```bash
 sudo bash backend/imap-setup/setup-dovecot.sh
 ```
 
-Or with custom PostgreSQL credentials:
+This will automatically:
+1. Install `dovecot-imapd` and `dovecot-sqlite`
+2. Create `vmail` system user (`uid/gid 5000`)
+3. Create Maildir storage directory (`backend/storage/maildir`)
+4. Configure `/etc/dovecot/dovecot.conf` and `/etc/dovecot/dovecot-sql.conf.ext` to point to `backend/storage/email_logs.sqlite`
+5. Open Firewall ports `143` and `993`
+6. Start and enable `dovecot` service
+
+---
+
+## 🧪 Test IMAP Connection
 
 ```bash
-sudo PGDATABASE=email_server PGUSER=postgres PGPASSWORD=your_password bash backend/imap-setup/setup-dovecot.sh
+bun backend/imap-setup/test-imap.js
 ```
 
 ---
 
-## 🔑 Client Connection Details
+## ⚙️ Client Connection Details
 
 | Setting | Value |
-| :--- | :--- |
-| **Incoming Mail Server (IMAP)** | `mail.yourdomain.com` *(or Server IP)* |
-| **IMAP Port (SSL/TLS)** | `993` *(Recommended)* |
-| **IMAP Port (STARTTLS/Plain)** | `143` |
-| **Username** | `user@yourdomain.com` |
-| **Password** | Account password in PostgreSQL `mailbox_users` table |
-| **Security** | SSL / TLS |
-
----
-
-## 🧪 Testing IMAP Connection
-
-```bash
-# Test plain IMAP on port 143
-bun backend/imap-setup/test-imap.js 127.0.0.1 143 user@domain.com password
-
-# Test SSL IMAP on port 993
-bun backend/imap-setup/test-imap.js mail.yourdomain.com 993 user@domain.com password
-```
+|---|---|
+| **Incoming Server (IMAP)** | Your VPS IP or Domain (e.g. `mailserver10.com`) |
+| **Port** | `143` (STARTTLS/Plain) or `993` (SSL/TLS) |
+| **Username** | Full Email (e.g. `support@yourdomain.com`) |
+| **Password** | Account password in SQLite `mailbox_users` table |
+| **Mail Storage** | Maildir format (`backend/storage/maildir/<domain>/<user>`) |
