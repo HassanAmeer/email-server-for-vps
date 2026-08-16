@@ -15,6 +15,53 @@ function getTargetStorageDir() {
   return IS_LIVE ? liveMailDir : localMailDir;
 }
 
+// Robust helper to read email JSON file with multi-directory fallback + database metadata recovery
+function readEmailJsonFile(fileName, emailRecord = null) {
+  if (fileName) {
+    // 1. Try live storage directory
+    const livePath = path.join(liveMailDir, fileName);
+    if (fs.existsSync(livePath)) {
+      try { return fs.readFileSync(livePath, "utf-8"); } catch (e) {}
+    }
+    // 2. Try local storage directory
+    const localPath = path.join(localMailDir, fileName);
+    if (fs.existsSync(localPath)) {
+      try { return fs.readFileSync(localPath, "utf-8"); } catch (e) {}
+    }
+    // 3. Try direct path
+    if (fs.existsSync(fileName)) {
+      try { return fs.readFileSync(fileName, "utf-8"); } catch (e) {}
+    }
+  }
+
+  // 4. Fallback: Reconstruct valid email JSON from database record if disk file is missing
+  if (emailRecord) {
+    const synthetic = {
+      id: String(emailRecord.id || Date.now()),
+      from: emailRecord.sender || "Unknown Sender",
+      to: emailRecord.recipient || "Unknown Recipient",
+      subject: emailRecord.subject || "(No Subject)",
+      text: `Subject: ${emailRecord.subject || '(No Subject)'}\nFrom: ${emailRecord.sender}\nTo: ${emailRecord.recipient}\nDate: ${emailRecord.created_at || new Date().toISOString()}`,
+      html: `<div style="font-family:system-ui,-apple-system,sans-serif;padding:24px;color:#1e293b;line-height:1.6;max-width:680px;margin:0 auto;">
+        <h2 style="margin-top:0;color:#0f172a;border-bottom:1px solid #e2e8f0;padding-bottom:12px;">${emailRecord.subject || '(No Subject)'}</h2>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;padding:14px;border-radius:10px;margin-bottom:20px;font-size:13px;">
+          <p style="margin:4px 0;"><strong>From:</strong> ${emailRecord.sender}</p>
+          <p style="margin:4px 0;"><strong>To:</strong> ${emailRecord.recipient}</p>
+          <p style="margin:4px 0;"><strong>Date:</strong> ${emailRecord.created_at}</p>
+        </div>
+        <div style="background:#fff;border:1px dashed #cbd5e1;padding:16px;border-radius:8px;color:#64748b;font-size:13px;">
+          <p style="margin:0;">ℹ️ <em>This email record was retrieved from the database logs.</em></p>
+        </div>
+      </div>`,
+      date: emailRecord.created_at || new Date().toISOString(),
+      attachments: []
+    };
+    return JSON.stringify(synthetic, null, 2);
+  }
+
+  return null;
+}
+
 // Extract clean email address (e.g. from '"User" <user@domain.com>' to 'user@domain.com')
 function extractEmail(str) {
   if (!str) return "";
@@ -1385,7 +1432,7 @@ export class ApiRouter {
         
         // Fetch the specific email directly
         const db = dbModule.default;
-        const emailRecord = db.prepare("SELECT file_name, recipient FROM received_emails WHERE id = ?").get(id);
+        const emailRecord = db.prepare("SELECT id, file_name, recipient, sender, subject, created_at, has_attachment, attachment_size FROM received_emails WHERE id = ?").get(id);
         
         if (!emailRecord || (!isPrimary && emailRecord.recipient !== userEmail)) {
           res.writeHead(404, { "Content-Type": "application/json" });
@@ -1393,11 +1440,8 @@ export class ApiRouter {
           return;
         }
 
-        const targetDir = getTargetStorageDir();
-        const filePath = path.join(targetDir, emailRecord.file_name);
-        
-        if (fs.existsSync(filePath)) {
-          const content = fs.readFileSync(filePath, "utf-8");
+        const content = readEmailJsonFile(emailRecord.file_name, emailRecord);
+        if (content) {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(content);
         } else {
@@ -1421,10 +1465,11 @@ export class ApiRouter {
 
         db.prepare("DELETE FROM received_emails WHERE id = ?").run(id);
 
-        const targetDir = getTargetStorageDir();
-        const filePath = path.join(targetDir, emailRecord.file_name);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
+        if (emailRecord.file_name) {
+          const livePath = path.join(liveMailDir, emailRecord.file_name);
+          if (fs.existsSync(livePath)) { try { fs.unlinkSync(livePath); } catch(e){} }
+          const localPath = path.join(localMailDir, emailRecord.file_name);
+          if (fs.existsSync(localPath)) { try { fs.unlinkSync(localPath); } catch(e){} }
         }
 
         res.writeHead(200, { "Content-Type": "application/json" });
@@ -1444,10 +1489,9 @@ export class ApiRouter {
         const allMedia = [];
 
         for (const email of emails) {
-          const filePath = path.join(targetDir, email.file_name);
-          if (fs.existsSync(filePath)) {
+          const content = readEmailJsonFile(email.file_name);
+          if (content) {
             try {
-              const content = fs.readFileSync(filePath, "utf-8");
               const parsed = JSON.parse(content);
               if (parsed.attachments && Array.isArray(parsed.attachments)) {
                 parsed.attachments.forEach((att, index) => {
@@ -1684,7 +1728,7 @@ export class ApiRouter {
       if (cleanUrl.match(/\/api\/imap-mailbox\/inbox\/\d+/) && req.method === "GET") {
         const id = cleanUrl.split("/").pop();
         const db = dbModule.default;
-        const emailRecord = db.prepare("SELECT file_name, recipient FROM received_emails WHERE id = ?").get(id);
+        const emailRecord = db.prepare("SELECT id, file_name, recipient, sender, subject, created_at, has_attachment, attachment_size FROM received_emails WHERE id = ?").get(id);
         
         if (!emailRecord) {
           res.writeHead(404, { "Content-Type": "application/json" });
@@ -1692,11 +1736,8 @@ export class ApiRouter {
           return;
         }
 
-        const targetDir = getTargetStorageDir();
-        const filePath = path.join(targetDir, emailRecord.file_name);
-        
-        if (fs.existsSync(filePath)) {
-          const content = fs.readFileSync(filePath, "utf-8");
+        const content = readEmailJsonFile(emailRecord.file_name, emailRecord);
+        if (content) {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(content);
         } else {
@@ -1719,10 +1760,11 @@ export class ApiRouter {
 
         db.prepare("DELETE FROM received_emails WHERE id = ?").run(id);
 
-        const targetDir = getTargetStorageDir();
-        const filePath = path.join(targetDir, emailRecord.file_name);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
+        if (emailRecord.file_name) {
+          const livePath = path.join(liveMailDir, emailRecord.file_name);
+          if (fs.existsSync(livePath)) { try { fs.unlinkSync(livePath); } catch(e){} }
+          const localPath = path.join(localMailDir, emailRecord.file_name);
+          if (fs.existsSync(localPath)) { try { fs.unlinkSync(localPath); } catch(e){} }
         }
 
         res.writeHead(200, { "Content-Type": "application/json" });
@@ -1738,10 +1780,9 @@ export class ApiRouter {
         const allMedia = [];
 
         for (const email of emails) {
-          const filePath = path.join(targetDir, email.file_name);
-          if (fs.existsSync(filePath)) {
+          const fileContent = readEmailJsonFile(email.file_name);
+          if (fileContent) {
             try {
-              const fileContent = fs.readFileSync(filePath, "utf-8");
               const parsed = JSON.parse(fileContent);
               if (parsed.attachments && Array.isArray(parsed.attachments)) {
                 for (const att of parsed.attachments) {
