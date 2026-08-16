@@ -2100,7 +2100,7 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
               <div className="bg-black/50 border border-white/5 rounded-xl p-3 text-xs text-gray-400 flex items-start gap-2.5">
                 <span className="text-amber-400 font-mono font-bold text-sm">💡</span>
                 <span className="text-[11px] leading-relaxed">
-                  <strong>Multi-Domain Catch-All Routing:</strong> You can automatically route and transfer all incoming emails from these selected domains into your primary domain mailbox, and access them seamlessly via IMAP using a single master account.
+                  <strong>Transfer All Emails From Multi Domains to Single Primary Domain/Email:</strong> You can automatically route and transfer all incoming emails from these selected domains into your primary domain mailbox, and access them seamlessly via IMAP using a single master account.
                 </span>
               </div>
 

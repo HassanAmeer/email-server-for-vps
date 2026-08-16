@@ -32,7 +32,7 @@ function isTodaysDate(input) {
   const yyyy = String(now.getFullYear());
   const yy = yyyy.slice(-2);
   const candidates = [
-    `${dd}-${mm}-${yyyy}`, `${dd}/${mm}/${yyyy}`, `${dd}.${mm}.${yyyy}`,
+    `${dd}`, `${dd}-${mm}-${yyyy}`, `${dd}/${mm}/${yyyy}`, `${dd}.${mm}.${yyyy}`,
     `${yyyy}-${mm}-${dd}`, `${yyyy}/${mm}/${dd}`, `${yyyy}.${mm}.${dd}`,
     `${mm}-${dd}-${yyyy}`, `${mm}/${dd}/${yyyy}`,
     `${dd}${mm}${yyyy}`, `${yyyy}${mm}${dd}`, `${dd}-${mm}-${yy}`, `${dd}/${mm}/${yy}`
