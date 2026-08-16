@@ -57,8 +57,6 @@ export default function MailExplorer({ apiUrl }: MailExplorerProps) {
 
   useEffect(() => {
     fetchMails();
-    const interval = setInterval(fetchMails, 4000);
-    return () => clearInterval(interval);
   }, [apiUrl, selectedMail?.id]);
 
   const handleDelete = async (filename: string, type: "live" | "local") => {

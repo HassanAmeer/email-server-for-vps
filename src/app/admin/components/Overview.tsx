@@ -63,10 +63,8 @@ export default function Overview({ apiUrl, stats }: OverviewProps) {
     };
 
     fetchApiStats();
-    const interval = setInterval(fetchApiStats, 5000);
     return () => {
       isMounted = false;
-      clearInterval(interval);
     };
   }, [apiUrl]);
 

@@ -125,8 +125,6 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
 
   useEffect(() => {
     fetchStatus();
-    const interval = setInterval(fetchStatus, 6000);
-    return () => clearInterval(interval);
   }, [apiUrl]);
 
   const runSeedAction = async (action: string, payload: Record<string, any> = {}) => {

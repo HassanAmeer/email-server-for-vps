@@ -275,7 +275,7 @@ export default function LiveConsolePage() {
   useEffect(() => {
     if (!apiUrl) return;
     fetchData();
-    const interval = setInterval(fetchData, 3000);
+    const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, [apiUrl, generatedEmail]);
 

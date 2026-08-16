@@ -44,8 +44,6 @@ export default function ApiSettingsManager({ apiUrl }: ApiSettingsProps) {
 
   useEffect(() => {
     fetchSettings();
-    const interval = setInterval(fetchSettings, 5000); // Auto-refresh metrics every 5s
-    return () => clearInterval(interval);
   }, [apiUrl]);
 
   const handleToggle = async (id: string, currentStatus: boolean) => {

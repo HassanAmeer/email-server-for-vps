@@ -117,11 +117,9 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
     };
 
     fetchStats();
-    const interval = setInterval(fetchStats, 5000);
     return () => {
       isMounted = false;
       controller.abort();
-      clearInterval(interval);
     };
   }, [isAuthenticated, apiUrl]);
 
