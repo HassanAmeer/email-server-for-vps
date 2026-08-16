@@ -396,130 +396,6 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* SELECTIVE DATA DELETION MATRIX (USER REQUEST: SELECT WHAT TO DELETE)       */}
-      {/* ========================================================================= */}
-      <div className="bg-gradient-to-b from-[#0F1424] to-[#0A0D18] border border-red-500/20 rounded-3xl p-6 md:p-8 backdrop-blur-xl relative overflow-hidden shadow-2xl space-y-6">
-        <div className="absolute -top-24 -right-24 w-80 h-80 bg-red-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
-        {/* Section Header & Bulk Controls */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/[0.06] relative z-10">
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold font-mono uppercase tracking-wider">
-              <span>🧹 Selective Data Cleaner</span>
-            </div>
-            <h2 className="text-xl md:text-2xl font-extrabold text-white">
-              Select Data to Delete
-            </h2>
-            <p className="text-xs text-gray-400 max-w-2xl leading-relaxed">
-              Check the boxes below for whichever data items you want to delete (emails, domains, logs, primary domain, mailbox users, projects, or API stats), or select all to perform a full wipe.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            <button
-              onClick={selectAllTargets}
-              className="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800/80 hover:bg-slate-700/80 border border-white/[0.08] text-gray-300 hover:text-white transition-all cursor-pointer"
-            >
-              Select All (7)
-            </button>
-            <button
-              onClick={deselectAllTargets}
-              className="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800/80 hover:bg-slate-700/80 border border-white/[0.08] text-gray-400 hover:text-white transition-all cursor-pointer"
-            >
-              Deselect All
-            </button>
-            <button
-              onClick={() => setConfirmModal({ type: "selective" })}
-              disabled={selectedTargets.length === 0 || actionLoading !== null}
-              className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 active:scale-95 transition-all shadow-lg shadow-red-600/25 border border-red-400/30 flex items-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-              </svg>
-              <span>Delete Selected ({selectedTargets.length})</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Data Categories Checkbox List */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 relative z-10">
-          {dataCategories.map((cat) => {
-            const isSelected = selectedTargets.includes(cat.id);
-            return (
-              <div
-                key={cat.id}
-                onClick={() => toggleTarget(cat.id)}
-                className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-start justify-between gap-4 group ${
-                  isSelected
-                    ? "bg-red-950/20 border-red-500/40 shadow-[0_0_15px_rgba(239,68,68,0.1)]"
-                    : "bg-[#090C16]/70 border-white/[0.05] hover:border-white/[0.15] hover:bg-white/[0.02]"
-                }`}
-              >
-                <div className="flex items-start gap-3.5">
-                  <div className="pt-0.5">
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => {}} // handled by parent div onClick
-                      className="w-4.5 h-4.5 rounded text-red-600 bg-slate-800 border-white/[0.1] focus:ring-red-500 cursor-pointer accent-red-500"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">{cat.icon}</span>
-                      <h4 className="text-sm font-bold text-white group-hover:text-red-300 transition-colors">
-                        {cat.name}
-                      </h4>
-                    </div>
-                    <p className="text-xs text-gray-400 leading-relaxed pr-2">
-                      {cat.desc}
-                    </p>
-                    <div className="pt-1 flex items-center gap-2">
-                      <span className="text-[11px] font-mono font-bold text-gray-300 bg-slate-800/80 px-2 py-0.5 rounded border border-white/[0.06]">
-                        {cat.countKey}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setConfirmModal({
-                      type: "single",
-                      target: `clear_${cat.id}`,
-                      targetName: cat.name,
-                    });
-                  }}
-                  disabled={actionLoading !== null}
-                  title={`Delete only ${cat.name}`}
-                  className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-red-400 hover:text-white bg-red-500/10 hover:bg-red-500/30 border border-red-500/20 transition-all cursor-pointer shadow"
-                >
-                  Clear
-                </button>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Master Action Footer inside Data Cleaner */}
-        <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-white/[0.06] relative z-10">
-          <div className="text-xs text-gray-400">
-            <span>Selected categories to purge: </span>
-            <strong className="text-red-400 font-bold">{selectedTargets.length} of {dataCategories.length}</strong>
-          </div>
-          <button
-            onClick={() => setConfirmModal({ type: "all" })}
-            disabled={actionLoading !== null}
-            className="w-full sm:w-auto px-6 py-3 rounded-2xl text-xs font-black text-white bg-red-600/30 hover:bg-red-600 border border-red-500/40 hover:border-red-500 transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <span>💥</span>
-            <span>Master Reset: Wipe All 7 Categories</span>
-          </button>
-        </div>
-      </div>
-
       {/* Quick Master Seed (One-Click Banner) */}
       <div className="bg-gradient-to-r from-emerald-950/40 via-slate-900/60 to-cyan-950/40 border border-emerald-500/30 p-6 md:p-8 rounded-3xl backdrop-blur-xl relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-2xl">
         <div className="space-y-1.5 max-w-2xl relative z-10">
@@ -537,7 +413,7 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
         <button
           onClick={() => runSeedAction("all")}
           disabled={actionLoading !== null}
-          className="w-full md:w-auto shrink-0 px-8 py-4 rounded-2xl font-extrabold text-sm text-white bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 hover:from-emerald-500 hover:to-teal-400 active:scale-95 transition-all shadow-[0_0_30px_rgba(16,185,129,0.35)] hover:shadow-[0_0_40px_rgba(16,185,129,0.5)] border border-emerald-400/40 flex items-center justify-center gap-3 cursor-pointer relative z-10 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full md:w-auto shrink-0 px-8 py-4 rounded-2xl font-extrabold text-sm text-emerald-400 hover:text-white bg-transparent hover:bg-emerald-500/15 active:scale-95 transition-all border border-emerald-500/60 hover:border-emerald-400 flex items-center justify-center gap-3 cursor-pointer relative z-10 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {actionLoading === "all" ? (
             <>
@@ -952,6 +828,95 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
               <span className="break-all">{log.message}</span>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* SELECTIVE DATA DELETION MATRIX — compact, bottom of page                  */}
+      {/* ========================================================================= */}
+      <div className="bg-[#0F1220]/80 border border-red-500/15 rounded-2xl p-4 md:p-6 backdrop-blur-xl relative overflow-hidden shadow-xl space-y-4">
+        <div className="absolute -top-16 -right-16 w-56 h-56 bg-red-500/8 rounded-full blur-3xl pointer-events-none"></div>
+
+        {/* Compact Header & Bulk Controls */}
+        <div className="flex flex-wrap items-center justify-between gap-3 relative z-10">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold font-mono uppercase tracking-wider text-red-400 bg-red-500/10 border border-red-500/20 px-2.5 py-1 rounded-full">🧹 Data Cleaner</span>
+            <p className="text-xs text-gray-500 hidden md:block">Select categories to permanently delete</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={selectAllTargets}
+              className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-800/80 hover:bg-slate-700/80 border border-white/[0.08] text-gray-400 hover:text-white transition-all cursor-pointer"
+            >
+              All
+            </button>
+            <button
+              onClick={deselectAllTargets}
+              className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-800/80 hover:bg-slate-700/80 border border-white/[0.08] text-gray-500 hover:text-white transition-all cursor-pointer"
+            >
+              None
+            </button>
+            <button
+              onClick={() => setConfirmModal({ type: "selective" })}
+              disabled={selectedTargets.length === 0 || actionLoading !== null}
+              className="px-4 py-1.5 rounded-lg text-[11px] font-bold text-white bg-red-600 hover:bg-red-500 active:scale-95 transition-all shadow shadow-red-600/25 flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-3.5 h-3.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+              </svg>
+              Delete ({selectedTargets.length})
+            </button>
+            <button
+              onClick={() => setConfirmModal({ type: "all" })}
+              disabled={actionLoading !== null}
+              className="px-4 py-1.5 rounded-lg text-[11px] font-bold text-red-300 bg-red-600/15 hover:bg-red-600/40 border border-red-500/30 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
+            >
+              💥 Wipe All
+            </button>
+          </div>
+        </div>
+
+        {/* Compact Category Rows */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 relative z-10">
+          {dataCategories.map((cat) => {
+            const isSelected = selectedTargets.includes(cat.id);
+            return (
+              <div
+                key={cat.id}
+                onClick={() => toggleTarget(cat.id)}
+                className={`px-3 py-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2 group ${
+                  isSelected
+                    ? "bg-red-950/25 border-red-500/40"
+                    : "bg-[#090C16]/60 border-white/[0.05] hover:border-white/[0.12] hover:bg-white/[0.02]"
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => {}}
+                    className="w-3.5 h-3.5 shrink-0 rounded text-red-600 bg-slate-800 border-white/[0.1] cursor-pointer accent-red-500"
+                  />
+                  <span className="text-sm shrink-0">{cat.icon}</span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-bold text-white truncate group-hover:text-red-300 transition-colors">{cat.name}</p>
+                    <p className="text-[10px] font-mono text-gray-500 truncate">{cat.countKey}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfirmModal({ type: "single", target: `clear_${cat.id}`, targetName: cat.name });
+                  }}
+                  disabled={actionLoading !== null}
+                  title={`Delete ${cat.name}`}
+                  className="shrink-0 px-2 py-1 rounded-md text-[10px] font-bold text-red-400 hover:text-white bg-red-500/10 hover:bg-red-500/30 border border-red-500/15 transition-all cursor-pointer"
+                >
+                  Del
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
 
