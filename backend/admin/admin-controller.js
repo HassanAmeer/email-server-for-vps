@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { initApiSettings, getApiSettingsList, toggleApiSettingDB, incrementApiHits } from "../database/db.js";
+import { initApiSettings, getApiSettingsList, toggleApiSettingDB, incrementApiHits, resetApiSettingsHits } from "../database/db.js";
 
 // Paths config
 const localMailDir = path.join(process.cwd(), "backend", "storage", "local");
@@ -174,7 +174,6 @@ export class AdminController {
 
   static resetApiSettingsHits(req, res) {
     try {
-      const { resetApiSettingsHits } = require('../database/db.js');
       resetApiSettingsHits();
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: true }));
