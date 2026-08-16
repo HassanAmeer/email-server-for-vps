@@ -30,9 +30,9 @@ export default function LocalConsolePage() {
   const [activeTab, setActiveTab] = useState<string>("inbox-tab");
   const [viewMode, setViewMode] = useState<"html" | "text">("html");
 
-  const [apiKey, setApiKey] = useState("");
   const [domains, setDomains] = useState<string[]>([]);
   const [selectedDomain, setSelectedDomain] = useState("");
+  const [customPrefix, setCustomPrefix] = useState("");
   const [generatedEmail, setGeneratedEmail] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [copiedGen, setCopiedGen] = useState(false);
@@ -98,30 +98,49 @@ export default function LocalConsolePage() {
       .then(res => res.json())
       .then(data => {
         if (data && Array.isArray(data.domains) && data.domains.length > 0) {
-          setDomains(data.domains);
-          setSelectedDomain(data.domains[0]);
+          const domainNames: string[] = data.domains
+            .map((d: any) => typeof d === "string" ? d : (d?.domain || ""))
+            .filter((d: string) => d.length > 0);
+
+          if (domainNames.length > 0) {
+            setDomains(domainNames);
+            setSelectedDomain(prev => prev && domainNames.includes(prev) ? prev : domainNames[0]);
+          }
         }
       })
       .catch(err => console.error("Error fetching domains:", err));
   }, [apiUrl]);
 
+  // Set Custom Email Address
+  const handleSetCustomEmail = () => {
+    if (!customPrefix.trim() || !selectedDomain) return;
+    const cleanUser = customPrefix.trim().toLowerCase().replace(/@.*$/, '').replace(/[^a-zA-Z0-9._-]/g, '');
+    if (!cleanUser) return;
+    const customEmail = `${cleanUser}@${selectedDomain}`;
+    setGeneratedEmail(customEmail);
+    setEmails([]);
+  };
+
+  // Generate Random Email Address
   const handleGenerate = async () => {
     if (!apiUrl || !selectedDomain) return;
     setIsGenerating(true);
     try {
-      const headers: any = {};
-      if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
-      const res = await fetch(`${apiUrl}/api/mailbox/generate?domain=${selectedDomain}`, { headers });
+      const res = await fetch(`${apiUrl}/api/mailbox/generate?domain=${selectedDomain}`);
       const data = await res.json();
       if (res.ok && data.email) {
         setGeneratedEmail(data.email);
         setEmails([]);
       } else {
-        alert("Failed to generate: " + (data.error || "Unknown error"));
+        const randomStr = Math.random().toString(36).substring(2, 9);
+        setGeneratedEmail(`${randomStr}@${selectedDomain}`);
+        setEmails([]);
       }
     } catch (err) {
       console.error(err);
-      alert("Error generating email");
+      const randomStr = Math.random().toString(36).substring(2, 9);
+      setGeneratedEmail(`${randomStr}@${selectedDomain}`);
+      setEmails([]);
     } finally {
       setIsGenerating(false);
     }
@@ -404,49 +423,80 @@ export default function LocalConsolePage() {
         </header>
 
         {/* Generate Email Header Component */}
-        <div className="bg-[#0B0F19] border border-white/[0.06] p-5 rounded-2xl flex flex-col md:flex-row gap-5 items-center justify-between shadow-xl">
-          <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto flex-wrap">
-            <div className="flex flex-col gap-1 w-full md:w-auto">
-              <label className="text-[10px] uppercase text-gray-500 font-bold tracking-widest pl-1">API Key (Optional)</label>
-              <input
-                type="text"
-                value={apiKey}
-                onChange={e => setApiKey(e.target.value)}
-                placeholder="Enter API Key"
-                className="bg-slate-900/50 border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50 min-w-[200px]"
-              />
-            </div>
-            <div className="flex flex-col gap-1 w-full md:w-auto">
-              <label className="text-[10px] uppercase text-gray-500 font-bold tracking-widest pl-1">Select Domain</label>
+        <div className="bg-[#0B0F19] border border-white/[0.06] p-5 rounded-2xl flex flex-col xl:flex-row gap-5 items-start xl:items-center justify-between shadow-xl">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3.5 w-full xl:w-auto flex-wrap">
+            
+            {/* Domain Selector */}
+            <div className="flex flex-col gap-1.5 min-w-[170px]">
+              <label className="text-[10px] uppercase text-gray-400 font-bold tracking-widest pl-1">Select Domain</label>
               <select
                 value={selectedDomain}
                 onChange={e => setSelectedDomain(e.target.value)}
-                className="bg-slate-900/50 border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50 min-w-[200px]"
+                className="bg-slate-900/60 border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50 cursor-pointer"
               >
-                {domains.map(d => <option key={d} value={d}>{d}</option>)}
+                {domains.map((d, idx) => {
+                  const domainStr = typeof d === "string" ? d : ((d as any)?.domain || `domain-${idx}`);
+                  return <option key={domainStr} value={domainStr}>{domainStr}</option>;
+                })}
               </select>
             </div>
-            <div className="flex flex-col gap-1 w-full md:w-auto justify-end h-full mt-1 md:mt-4">
+
+            {/* Custom Email Input */}
+            <div className="flex flex-col gap-1.5 flex-1 min-w-[240px]">
+              <label className="text-[10px] uppercase text-gray-400 font-bold tracking-widest pl-1">Custom Username (Optional)</label>
+              <div className="flex items-center bg-slate-900/60 border border-white/[0.08] rounded-xl px-3 focus-within:border-purple-500/50 transition-colors">
+                <input
+                  type="text"
+                  value={customPrefix}
+                  onChange={e => setCustomPrefix(e.target.value.replace(/[^a-zA-Z0-9._-]/g, ''))}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSetCustomEmail(); }}
+                  placeholder="e.g. abc2 or loveu"
+                  className="bg-transparent py-2.5 text-sm text-white focus:outline-none w-full placeholder:text-gray-600 font-mono"
+                />
+                <span className="text-xs text-purple-400/80 font-mono select-none whitespace-nowrap pl-1">
+                  @{selectedDomain || "domain"}
+                </span>
+              </div>
+            </div>
+
+            {/* Actions: Set Custom & Random Generate */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSetCustomEmail}
+                disabled={!customPrefix.trim() || !selectedDomain}
+                className="bg-slate-800 hover:bg-slate-700 text-purple-400 border border-purple-500/30 font-bold px-4 py-2.5 rounded-xl text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1.5 shadow-sm whitespace-nowrap"
+                title="Create custom email address"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3.5 h-3.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                <span>Set Custom</span>
+              </button>
+
               <button
                 onClick={handleGenerate}
                 disabled={isGenerating || !selectedDomain}
-                className="bg-purple-500 hover:bg-purple-400 text-slate-900 font-bold px-6 py-2.5 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-purple-500 hover:bg-purple-400 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1.5 shadow-lg shadow-purple-500/10 whitespace-nowrap"
+                title="Generate random email"
               >
-                {isGenerating ? "Generating..." : "Generate"}
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3.5 h-3.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
+                </svg>
+                <span>{isGenerating ? "Generating..." : "Random"}</span>
               </button>
             </div>
           </div>
 
-          <div className="flex-grow flex justify-end w-full md:w-auto mt-4 md:mt-0">
+          <div className="flex-grow flex justify-end w-full xl:w-auto mt-4 xl:mt-0">
             {generatedEmail ? (
               <div className="bg-purple-500/10 border border-purple-500/20 px-5 py-3 rounded-xl flex items-center justify-between gap-4 min-w-[280px]">
                 <div className="flex flex-col">
-                  <span className="text-[10px] uppercase text-purple-500 font-bold tracking-widest">Generated mail</span>
-                  <span className="text-white font-mono font-medium text-sm">{generatedEmail}</span>
+                  <span className="text-[10px] uppercase text-purple-500 font-bold tracking-widest">Active Mailbox</span>
+                  <span className="text-white font-mono font-bold text-sm select-all">{generatedEmail}</span>
                 </div>
                 <button
                   onClick={handleCopyGen}
-                  className="bg-white/5 hover:bg-white/10 p-2 rounded-lg transition-colors text-gray-300"
+                  className="bg-white/5 hover:bg-white/10 p-2 rounded-lg transition-colors text-gray-300 cursor-pointer"
                   title="Copy Email"
                 >
                   {copiedGen ? (
@@ -462,7 +512,7 @@ export default function LocalConsolePage() {
               </div>
             ) : (
               <div className="bg-slate-900/50 border border-white/[0.06] px-5 py-3 rounded-xl flex items-center justify-center min-w-[280px]">
-                <span className="text-gray-500 text-xs text-center">Click Generate to get a temporary email</span>
+                <span className="text-gray-500 text-xs text-center">Enter custom username or click Random to start</span>
               </div>
             )}
           </div>

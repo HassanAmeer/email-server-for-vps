@@ -64,6 +64,7 @@ export default function ImapMailboxInbox() {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"html" | "text">("html");
   const [pinnedEmails, setPinnedEmails] = useState<Set<number>>(new Set());
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Pagination State
   const [page, setPage] = useState(1);
@@ -207,6 +208,7 @@ export default function ImapMailboxInbox() {
     setShowMedia(true);
     setSelectedEmail(null);
     setShowCompose(false);
+    setSidebarOpen(false);
     setLoadingMedia(true);
     try {
       const apiBase = getApiBaseUrl();
@@ -281,6 +283,7 @@ export default function ImapMailboxInbox() {
   const handleViewEmail = async (emailRecord: EmailItem) => {
     setShowCompose(false);
     setShowMedia(false);
+    setSidebarOpen(false);
 
     // Mark as read immediately in UI and localStorage
     setReadEmails(prev => {
@@ -443,7 +446,18 @@ export default function ImapMailboxInbox() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <button
+              onClick={() => setSidebarOpen(o => !o)}
+              className="lg:hidden flex items-center justify-center w-9 h-9 rounded-xl border border-white/[0.12] bg-transparent text-gray-300 hover:text-blue-400 hover:border-blue-500/40 hover:bg-blue-500/5 transition-colors"
+              title="Toggle Email List"
+            >
+              {sidebarOpen ? (
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.2" stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.2" stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+              )}
+            </button>
             <div className="hidden md:flex flex-col items-end">
               <span className="text-[10px] text-gray-500 font-bold font-mono uppercase tracking-widest">
                 PRIMARY DOMAIN
@@ -464,8 +478,13 @@ export default function ImapMailboxInbox() {
       {/* Main Container */}
       <main className="flex-1 max-w-[1700px] mx-auto w-full flex overflow-hidden shadow-2xl shadow-black/80 my-0 bg-[#0b0f19] border-x border-white/[0.04] relative z-10">
 
-        {/* Email Stream Sidebar (Left Pane) */}
-        <div className={`w-full md:w-[420px] lg:w-[470px] flex flex-col bg-[#030712]/60 border-r border-white/[0.06] overflow-hidden h-full flex-shrink-0 ${(selectedEmail || showCompose || showMedia) ? 'hidden md:flex' : 'flex'}`}>
+        {/* Drawer Backdrop */}
+        {sidebarOpen && (
+          <div className="lg:hidden fixed inset-0 top-16 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setSidebarOpen(false)}></div>
+        )}
+
+        {/* Email Stream Sidebar (Left Pane) - Drawer on mobile/tablet */}
+        <div className={`fixed top-16 bottom-0 left-0 z-50 lg:top-auto lg:bottom-auto lg:left-auto lg:static lg:z-auto w-[85vw] max-w-[400px] lg:w-[420px] xl:w-[470px] lg:max-w-none flex flex-col bg-[#030712]/95 lg:bg-[#030712]/60 border-r border-white/[0.06] overflow-hidden flex-shrink-0 shadow-2xl shadow-black/60 transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
           
           {/* Action Header, Search & Filter Controls */}
           <div className="p-4 border-b border-white/[0.06] bg-[#0b0f19]/95 backdrop-blur-md flex flex-col gap-3 z-10 sticky top-0 shadow-sm relative">
@@ -515,7 +534,7 @@ export default function ImapMailboxInbox() {
                   </svg>
                 </button>
                 <button
-                  onClick={() => { setSelectedEmail(null); setShowMedia(false); setShowCompose(true); }}
+                  onClick={() => { setSelectedEmail(null); setShowMedia(false); setShowCompose(true); setSidebarOpen(false); }}
                   className="w-9 h-9 flex items-center justify-center rounded-xl border border-white/[0.12] bg-transparent text-gray-300 hover:text-white hover:border-blue-500/40 hover:bg-blue-500/10 transition-colors"
                   title="Compose New Message"
                 >
@@ -750,7 +769,7 @@ export default function ImapMailboxInbox() {
         </div>
 
         {/* Email Viewer / Compose Pane (Right Pane) */}
-        <div className={`flex-1 flex-col bg-[#0b0f19] overflow-hidden h-full relative ${(selectedEmail || showCompose || showMedia) ? 'flex' : 'hidden md:flex'}`}>
+        <div className={`flex-1 flex-col bg-[#0b0f19] overflow-hidden h-full relative ${(selectedEmail || showCompose || showMedia) ? 'flex' : 'flex'}`}>
 
           {/* MEDIA LIBRARY VIEW */}
           {showMedia ? (
@@ -759,7 +778,7 @@ export default function ImapMailboxInbox() {
               
               <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-white/[0.06] bg-transparent flex flex-wrap items-center justify-between gap-3 relative z-10 flex-shrink-0">
                 <div className="flex items-center gap-3">
-                  <button onClick={() => setShowMedia(false)} className="md:hidden flex items-center justify-center text-gray-500 hover:text-white transition-colors bg-white/[0.04] hover:bg-white/[0.08] rounded-full w-8 h-8">
+                  <button onClick={() => { setShowMedia(false); setSidebarOpen(true); }} className="md:hidden flex items-center justify-center text-gray-500 hover:text-white transition-colors bg-white/[0.04] hover:bg-white/[0.08] rounded-full w-8 h-8">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
                   </button>
                   <h2 className="text-lg sm:text-2xl font-bold text-white flex items-center gap-2 sm:gap-3">
@@ -864,7 +883,7 @@ export default function ImapMailboxInbox() {
               <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 blur-[80px] pointer-events-none rounded-full"></div>
               <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-white/[0.06] bg-transparent flex justify-between items-center gap-3 relative z-10 flex-shrink-0">
                 <h2 className="text-lg sm:text-2xl font-bold text-white flex items-center gap-2 sm:gap-3">
-                  <button onClick={() => setShowCompose(false)} className="md:hidden flex items-center justify-center text-gray-500 hover:text-white transition-colors bg-white/[0.04] hover:bg-white/[0.08] rounded-full w-8 h-8 mr-1 sm:mr-2">
+                  <button onClick={() => { setShowCompose(false); setSidebarOpen(true); }} className="md:hidden flex items-center justify-center text-gray-500 hover:text-white transition-colors bg-white/[0.04] hover:bg-white/[0.08] rounded-full w-8 h-8 mr-1 sm:mr-2">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
                   </button>
                   New Message (Outbound SMTP)
@@ -935,7 +954,7 @@ export default function ImapMailboxInbox() {
               {/* Header Info */}
               <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-white/[0.06] bg-[#030712]/50 relative z-10 flex-shrink-0">
                 <div className="flex items-start gap-3 sm:gap-4 mb-6">
-                  <button onClick={() => setSelectedEmail(null)} className="md:hidden mt-1 flex-shrink-0 flex items-center justify-center text-gray-400 hover:text-white transition-colors bg-white/[0.04] hover:bg-white/[0.08] rounded-full w-9 h-9 border border-white/[0.05]">
+                  <button onClick={() => { setSelectedEmail(null); setSidebarOpen(true); }} className="md:hidden mt-1 flex-shrink-0 flex items-center justify-center text-gray-400 hover:text-white transition-colors bg-white/[0.04] hover:bg-white/[0.08] rounded-full w-9 h-9 border border-white/[0.05]">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
                   </button>
                   <div className="flex-1 min-w-0">
