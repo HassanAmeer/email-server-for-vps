@@ -559,6 +559,10 @@ export class ApiRouter {
     return AdminController.toggleApiSetting(req, res);
   }
 
+  static resetApiSettingsHits(req, res) {
+    return AdminController.resetApiSettingsHits(req, res);
+  }
+
   static isApiEnabled(url, method) {
     return AdminController.isApiEnabled(url, method);
   }
