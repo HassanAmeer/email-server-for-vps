@@ -23,7 +23,7 @@ interface ImapInfo {
 const features = [
   {
     title: "Catch-all inbound",
-    desc: "Every address on your domain",
+    desc: "Applied to primary domain",
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
@@ -31,8 +31,8 @@ const features = [
     )
   },
   {
-    title: "IMAPS 993 (SSL)",
-    desc: "Encrypted Dovecot access",
+    title: "IMAPS Inbox",
+    desc: "Access via Gmail & 3rd party apps",
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
         <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
@@ -40,8 +40,8 @@ const features = [
     )
   },
   {
-    title: "Instant OTP extraction",
-    desc: "Codes surfaced the moment they land",
+    title: "All users emails",
+    desc: "View and managed",
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
@@ -50,7 +50,7 @@ const features = [
   },
   {
     title: "Live mail stream",
-    desc: "Real-time feed on your own VPS",
+    desc: "Real-time feed on your VPS",
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
         <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
@@ -178,7 +178,7 @@ export default function ImapMailboxLogin() {
                   <span>IMAP Mailbox</span>
                   <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">993 SSL</span>
                 </span>
-                <span className="text-[9px] font-semibold text-gray-400 tracking-wider font-mono mt-1">MASTER WEBMAIL INTERFACE</span>
+                <span className="text-[9px] font-semibold text-gray-400 tracking-wider font-mono mt-1">ALL MAIL INTERFACE</span>
               </div>
             </div>
 
@@ -191,9 +191,11 @@ export default function ImapMailboxLogin() {
           {/* Middle Hero Typography & Features */}
           <div className="relative z-10 my-auto py-4 max-w-lg">
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-[1.06] mb-2.5">
-              Every address.<br />
-              <span className="bg-gradient-to-r from-emerald-300 via-emerald-400 to-teal-400 bg-clip-text text-transparent">One inbox.</span>
+              <span className="bg-gradient-to-r from-emerald-300 via-emerald-400 to-teal-400 bg-clip-text text-transparent">IMAP Mailbox</span>
             </h1>
+            <p className="text-sm text-white font-mono font-extrabold tracking-widest mb-5">
+              ALL EMAILS VIEWER
+            </p>
 
             <p className="text-xs sm:text-sm text-gray-400 leading-relaxed mb-5 max-w-md">
               The central master inbox for your custom domain. Inbound messages are captured, encrypted, and streamed live to this single mailbox.
@@ -209,7 +211,7 @@ export default function ImapMailboxLogin() {
                     </div>
                     <span className="text-xs sm:text-[13px] font-semibold text-gray-200">{f.title}</span>
                   </div>
-                  <span className="text-xs text-gray-400 font-mono hidden sm:inline">{f.desc}</span>
+                  <span className="text-xs text-right text-gray-400 font-mono hidden sm:inline w-[200px] whitespace-nowrap overflow-hidden text-ellipsis">{f.desc}</span>
                 </div>
               ))}
             </div>
