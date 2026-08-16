@@ -1951,8 +1951,8 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
                 </button>
               </div>
 
-              {/* iOS Search Bar & Quick Segment Controls */}
-              <div className="px-3.5 pt-2.5 pb-1 flex flex-col gap-2 shrink-0 bg-[#121214]">
+              {/* iOS Search Bar */}
+              <div className="px-3.5 pt-2.5 pb-1 shrink-0 bg-[#121214]">
                 <div className="relative">
                   <input
                     type="text"
@@ -1972,35 +1972,6 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
                       ✕
                     </button>
                   )}
-                </div>
-
-                {/* Apple Status Counter & Bulk Actions */}
-                <div className="flex items-center justify-between px-1">
-                  <div className="text-[11px] font-medium text-gray-400 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-[#30D158]"></span>
-                    <span>
-                      <strong className="text-white font-semibold">
-                        {domains.filter(d => d.route_to_primary === 1 || d.route_to_primary === true || d.route_to_primary === undefined || d.is_primary === 1 || d.is_primary === true).length}
-                      </strong> of {domains.length} linked
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleBulkToggleRouting(true)}
-                      className="px-2.5 py-0.5 rounded-md bg-[#30D158]/15 hover:bg-[#30D158]/25 text-[#30D158] border border-[#30D158]/30 text-[10px] font-semibold transition-all cursor-pointer active:scale-95"
-                    >
-                      Link All
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleBulkToggleRouting(false)}
-                      className="px-2.5 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 text-[10px] font-semibold transition-all cursor-pointer active:scale-95"
-                    >
-                      Unlink All
-                    </button>
-                  </div>
                 </div>
               </div>
 
@@ -2101,16 +2072,42 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
 
               </div>
 
-              {/* iOS Bottom Action Bar */}
-              <div className="px-4 py-2 bg-[#1C1C1E]/60 border-t border-white/[0.08] flex items-center justify-between shrink-0">
-                <span className="text-[10px] text-gray-400 font-mono">Catch-All Enabled</span>
-                <button
-                  type="button"
-                  onClick={() => setIsRoutingSheetOpen(false)}
-                  className="px-4 py-1 bg-[#0A84FF] hover:bg-[#0071E3] text-white text-xs font-semibold rounded-lg transition-all cursor-pointer shadow-sm active:scale-95"
-                >
-                  Done
-                </button>
+              {/* iOS Bottom Action Bar with Stats, Bulk Actions & Done Button */}
+              <div className="px-3.5 py-2.5 bg-[#1C1C1E]/90 backdrop-blur-md border-t border-white/[0.08] flex items-center justify-between gap-2 shrink-0">
+                {/* Left: Counter & Status */}
+                <div className="text-[11px] font-medium text-gray-400 flex items-center gap-1.5 min-w-0">
+                  <span className="w-2 h-2 rounded-full bg-[#30D158] shrink-0"></span>
+                  <span className="truncate">
+                    <strong className="text-white font-semibold">
+                      {domains.filter(d => d.route_to_primary === 1 || d.route_to_primary === true || d.route_to_primary === undefined || d.is_primary === 1 || d.is_primary === true).length}
+                    </strong> of {domains.length} linked
+                  </span>
+                </div>
+
+                {/* Right: Quick Bulk Actions + Done Button */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleBulkToggleRouting(true)}
+                    className="px-2.5 py-1 rounded-lg bg-[#30D158]/15 hover:bg-[#30D158]/25 text-[#30D158] border border-[#30D158]/30 text-[11px] font-semibold transition-all cursor-pointer active:scale-95"
+                  >
+                    Link All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleBulkToggleRouting(false)}
+                    className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 text-[11px] font-semibold transition-all cursor-pointer active:scale-95"
+                  >
+                    Unlink All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsRoutingSheetOpen(false)}
+                    className="px-3.5 py-1 bg-[#0A84FF] hover:bg-[#0071E3] text-white text-xs font-semibold rounded-lg transition-all cursor-pointer shadow-sm active:scale-95 ml-1"
+                  >
+                    Done
+                  </button>
+                </div>
               </div>
 
             </div>
