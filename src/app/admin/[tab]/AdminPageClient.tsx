@@ -13,6 +13,7 @@ import SetupManager from "../components/SetupManager";
 import DomainsManager from "../components/DomainsManager";
 import PrimaryDomainManager from "../components/PrimaryDomainManager";
 import MailboxManager from "../components/MailboxManager";
+import DataSeedingManager from "../components/DataSeedingManager";
 import { APP_VERSION } from "@/lib/version";
 
 const API_BASE = "http://localhost:8081";
@@ -46,7 +47,10 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
     domains: "domains-tab",
     "primary-domain": "primary-domain-tab",
     "primary-domains": "primary-domain-tab",
-    setup: "domains-tab"
+    setup: "domains-tab",
+    seeding: "seeding-tab",
+    "data-seeding": "seeding-tab",
+    "seeding-data": "seeding-tab"
   };
 
   // Map active tab string to default URL path segment
@@ -59,7 +63,8 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
     "mailbox-tab": "mailbox",
     "domains-tab": "domains",
     "primary-domain-tab": "primary-domain",
-    "setup-tab": "domains"
+    "setup-tab": "domains",
+    "seeding-tab": "seeding"
   };
 
   const activeTab = tabPathMap[currentSegment] || "overview-tab";
@@ -376,6 +381,23 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
             </svg>
             <span>API Route Manager</span>
           </button>
+
+          <button
+            onClick={() => handleTabClick("seeding-tab")}
+            className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
+              activeTab === "seeding-tab" 
+                ? "rounded-none text-emerald-400 bg-emerald-500/10 shadow-[0_2px_12px_rgba(16,185,129,0.03)]" 
+                : "rounded-none text-gray-400 hover:text-white hover:bg-white/[0.02]"
+            }`}
+          >
+            {activeTab === "seeding-tab" && (
+              <span className="absolute left-0 inset-y-0 w-[3px] bg-emerald-400"></span>
+            )}
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 5.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125m16.5 5.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
+            </svg>
+            <span>Data Seeding</span>
+          </button>
         </nav>
 
         {/* Logout section */}
@@ -444,6 +466,10 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
 
           {activeTab === "api-tab" && (
             <ApiSettingsManager apiUrl={apiUrl} />
+          )}
+
+          {activeTab === "seeding-tab" && (
+            <DataSeedingManager apiUrl={apiUrl} />
           )}
         </div>
       </div>

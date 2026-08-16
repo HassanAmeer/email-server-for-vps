@@ -484,6 +484,10 @@ const httpServer = http.createServer((req, res) => {
     return ApiRouter.handleTrafficStatsApi(req, res);
   }
 
+  if (cleanUrl.startsWith("/api/admin/seed")) {
+    return ApiRouter.handleSeedDataApi(req, res);
+  }
+
   if (cleanUrl.startsWith("/api/admin/dblogs")) {
     const parts = cleanUrl.replace(/\/+$/, "").split("/");
     const logType = parts.length > 0 ? parts[parts.length - 1] : "all";

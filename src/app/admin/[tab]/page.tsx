@@ -24,6 +24,8 @@ export function generateStaticParams() {
     { tab: "domains" },
     { tab: "primary-domain" },
     { tab: "primary-domains" },
-    { tab: "setup" }
+    { tab: "setup" },
+    { tab: "seeding" },
+    { tab: "data-seeding" }
   ];
 }

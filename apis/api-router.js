@@ -516,6 +516,27 @@ export class ApiRouter {
     return AdminController.isApiEnabled(url, method);
   }
 
+  static async handleSeedDataApi(req, res) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ") || authHeader.split(" ")[1] !== AdminController.adminToken) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    const cleanUrl = req.url.split("?")[0].replace(/\/+$/, "");
+    if (req.method === "GET" && (cleanUrl === "/api/admin/seed/status" || cleanUrl === "/api/admin/seed")) {
+      return AdminController.getSeedStatus(req, res);
+    }
+
+    if (req.method === "POST" && (cleanUrl === "/api/admin/seed" || cleanUrl === "/api/admin/seed/run")) {
+      return AdminController.handleSeedData(req, res);
+    }
+
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Seed endpoint not found" }));
+  }
+
   // ==========================================
   // NEW DATABASE LOGS APIS
   // ==========================================
