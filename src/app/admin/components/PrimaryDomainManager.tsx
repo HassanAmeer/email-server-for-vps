@@ -1915,212 +1915,287 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
       )}
 
       {/* ========================================================= */}
-      {/* RIGHT SHEET DRAWER: MULTI-DOMAIN ROUTING & CATCH-ALL      */}
+      {/* RIGHT SHEET DRAWER: MULTI-DOMAIN ROUTING (iOS Cupertino)  */}
       {/* ========================================================= */}
       {isRoutingSheetOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          {/* Backdrop */}
+        <div className="fixed inset-0 z-50 overflow-hidden">
+          {/* iOS Backdrop */}
           <div
+            className="absolute inset-0 bg-black/80 backdrop-blur-md transition-opacity"
             onClick={() => setIsRoutingSheetOpen(false)}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
-          />
+          ></div>
 
           {/* Slide-over Drawer Container */}
-          <div className="relative w-full max-w-xl bg-[#090C16] border-l border-white/10 shadow-2xl z-10 flex flex-col h-full overflow-hidden animate-slide-left">
-            
-            {/* Top Header */}
-            <div className="p-5 border-b border-white/10 bg-[#030611] flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.25)]">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                  </svg>
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-base font-extrabold text-white">Route Domains to Primary</h2>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/25">
-                      Catch-All
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    Master Mailbox: <span className="text-amber-300 font-mono font-bold">{activeFullEmail}</span>
-                  </p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setIsRoutingSheetOpen(false)}
-                className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Search & Bulk Actions Bar */}
-            <div className="p-4 bg-black/40 border-b border-white/[0.06] flex flex-col gap-3 shrink-0">
-              {/* Search Input */}
-              <div className="relative">
-                <input
-                  type="text"
-                  value={routingSearchQuery}
-                  onChange={(e) => setRoutingSearchQuery(e.target.value)}
-                  placeholder="Search attached domains..."
-                  className="w-full bg-[#030611] border border-white/10 rounded-xl px-9 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500/50 font-mono"
-                />
-                <svg className="w-4 h-4 text-gray-500 absolute left-3 top-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                {routingSearchQuery && (
-                  <button
-                    onClick={() => setRoutingSearchQuery("")}
-                    className="absolute right-3 top-3 text-gray-500 hover:text-white text-xs cursor-pointer"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-
-              {/* Bulk Action Controls + Stats */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-xs text-gray-400 flex items-center gap-1.5 font-mono">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                  <span>
-                    <strong className="text-white font-bold">
-                      {domains.filter(d => d.route_to_primary === 1 || d.route_to_primary === true || d.route_to_primary === undefined || d.is_primary === 1 || d.is_primary === true).length}
-                    </strong> of {domains.length} Domains Linked
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleBulkToggleRouting(true)}
-                    className="px-2.5 py-1 rounded-lg border border-emerald-500/40 hover:border-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-[11px] font-bold transition-all flex items-center gap-1 active:scale-95 cursor-pointer shadow-sm shadow-emerald-500/10"
-                  >
-                    <span>⚡ Link All</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleBulkToggleRouting(false)}
-                    className="px-2.5 py-1 rounded-lg border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-[11px] font-bold transition-all active:scale-95 cursor-pointer"
-                  >
-                    <span>Unlink All</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Domain List (Scrollable Area) */}
-            <div className="p-4 overflow-y-auto space-y-2.5 flex-grow">
-              {domains.length === 0 ? (
-                <div className="py-12 text-center text-gray-500 text-xs font-mono">
-                  No attached domains found. Add domains from the Domains tab.
-                </div>
-              ) : (
-                domains
-                  .filter(d => d.domain.toLowerCase().includes(routingSearchQuery.toLowerCase()))
-                  .map((domain) => {
-                    const isPrimary = domain.domain === primaryDomain?.domain || domain.is_primary === 1 || domain.is_primary === true;
-                    const isLinked = domain.route_to_primary === 1 || domain.route_to_primary === true || domain.route_to_primary === undefined || isPrimary;
-
-                    return (
-                      <div
-                        key={domain.id}
-                        onClick={() => !isPrimary && handleToggleDomainRouting(domain.id, domain.route_to_primary)}
-                        className={`p-3.5 rounded-xl border transition-all flex items-center justify-between gap-3 select-none ${
-                          isPrimary
-                            ? "bg-amber-950/20 border-amber-500/30"
-                            : isLinked
-                            ? "bg-emerald-950/20 border-emerald-500/30 hover:border-emerald-500/50 cursor-pointer"
-                            : "bg-slate-900/40 border-white/5 hover:border-white/10 hover:bg-slate-900/60 cursor-pointer"
-                        }`}
-                      >
-                        {/* Left: Checkbox + Domain Info */}
-                        <div className="flex items-center gap-3 min-w-0">
-                          <input
-                            type="checkbox"
-                            checked={isLinked}
-                            disabled={isPrimary}
-                            onChange={() => !isPrimary && handleToggleDomainRouting(domain.id, domain.route_to_primary)}
-                            className="w-4 h-4 rounded border-gray-600 text-amber-500 focus:ring-amber-400/20 bg-black/40 cursor-pointer disabled:opacity-60 shrink-0"
-                          />
-
-                          <div className="flex flex-col min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-mono font-bold text-white text-xs tracking-wide truncate">
-                                {domain.domain}
-                              </span>
-                              {isPrimary && (
-                                <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                                  Primary Master
-                                </span>
-                              )}
-                              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase bg-white/5 text-gray-400 border border-white/5">
-                                {domain.plan || "free"}
-                              </span>
-                            </div>
-                            <span className="text-[11px] text-gray-500 mt-0.5 truncate">
-                              {isPrimary
-                                ? "Default master receiver mailbox"
-                                : isLinked
-                                ? `Routed to ${activeFullEmail}`
-                                : "Isolated mailbox (Not routing)"}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Right: Badge & Toggle */}
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span
-                            className={`px-2 py-0.5 rounded-md font-mono text-[10px] font-bold flex items-center gap-1.5 ${
-                              isLinked
-                                ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                                : "bg-gray-800/60 text-gray-400 border border-white/10"
-                            }`}
-                          >
-                            <span
-                              className={`w-1.5 h-1.5 rounded-full ${
-                                isLinked ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" : "bg-gray-500"
-                              }`}
-                            ></span>
-                            {isLinked ? "⚡ Linked" : "🔒 Isolated"}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })
-              )}
-            </div>
-
-            {/* Bottom IMAP Connection & Quick Info */}
-            <div className="p-4 bg-[#030611] border-t border-white/10 flex flex-col gap-3 shrink-0">
-              <div className="bg-black/50 border border-white/5 rounded-xl p-3 text-xs text-gray-400 flex items-start gap-2.5">
-                <span className="text-amber-400 font-mono font-bold text-sm">💡</span>
-                <span className="text-[11px] leading-relaxed">
-                  <strong>Transfer All Emails From Multi Domains to Single Primary Domain/Email:</strong> You can automatically route and transfer all incoming emails from these selected domains into your primary domain mailbox, and access them seamlessly via IMAP using a single master account.
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between pt-1">
-                <div className="flex items-center gap-2 text-[11px] font-mono text-gray-400">
-                  <span>Host: <strong className="text-emerald-400">mail.{primaryDomain?.domain}</strong></span>
-                  <span>•</span>
-                  <span>Port: <strong className="text-purple-400">993/143</strong></span>
-                </div>
-
+          <div className="fixed inset-y-0 right-0 max-w-lg w-full flex pl-3 sm:pl-6 z-50">
+            <div className="w-full bg-[#000000] sm:bg-[#121214] border-l border-white/10 shadow-2xl flex flex-col justify-between animate-slide-left overflow-hidden">
+              
+              {/* iOS Navigation Bar Header */}
+              <div className="px-4 py-2.5 border-b border-white/[0.08] flex items-center justify-between bg-[#1C1C1E]/80 backdrop-blur-md shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsRoutingSheetOpen(false)}
-                  className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold rounded-xl transition-all cursor-pointer shadow-lg shadow-amber-500/20 active:scale-95"
+                  className="text-xs font-medium text-[#0A84FF] hover:text-[#409CFF] cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <div className="flex flex-col items-center">
+                  <h3 className="text-xs font-semibold text-white">Route Domains</h3>
+                  <span className="text-[10px] text-gray-400 font-mono truncate max-w-[180px]">{activeFullEmail}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsRoutingSheetOpen(false)}
+                  className="text-xs font-semibold text-[#0A84FF] hover:text-[#409CFF] cursor-pointer"
                 >
                   Done
                 </button>
               </div>
-            </div>
 
+              {/* iOS Search Bar & Quick Segment Controls */}
+              <div className="px-3.5 pt-2.5 pb-1 flex flex-col gap-2 shrink-0 bg-[#121214]">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={routingSearchQuery}
+                    onChange={(e) => setRoutingSearchQuery(e.target.value)}
+                    placeholder="Search domains"
+                    className="w-full bg-[#1C1C1E] border border-white/[0.06] rounded-xl pl-8 pr-7 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none focus:border-[#0A84FF]"
+                  />
+                  <svg className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  {routingSearchQuery && (
+                    <button
+                      onClick={() => setRoutingSearchQuery("")}
+                      className="absolute right-2.5 top-1.5 w-4 h-4 rounded-full bg-gray-600 text-gray-200 text-[10px] flex items-center justify-center cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {/* Apple Status Counter & Bulk Actions */}
+                <div className="flex items-center justify-between px-1">
+                  <div className="text-[11px] font-medium text-gray-400 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#30D158]"></span>
+                    <span>
+                      <strong className="text-white font-semibold">
+                        {domains.filter(d => d.route_to_primary === 1 || d.route_to_primary === true || d.route_to_primary === undefined || d.is_primary === 1 || d.is_primary === true).length}
+                      </strong> of {domains.length} linked
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleBulkToggleRouting(true)}
+                      className="px-2.5 py-0.5 rounded-md bg-[#30D158]/15 hover:bg-[#30D158]/25 text-[#30D158] border border-[#30D158]/30 text-[10px] font-semibold transition-all cursor-pointer active:scale-95"
+                    >
+                      Link All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleBulkToggleRouting(false)}
+                      className="px-2.5 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 text-[10px] font-semibold transition-all cursor-pointer active:scale-95"
+                    >
+                      Unlink All
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* iOS Grouped Inset Content List (Compact Gaps) */}
+              <div className="p-3.5 overflow-y-auto space-y-3 flex-grow">
+                
+                {/* Attached Domains List */}
+                <div>
+                  <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2 mb-1 block">
+                    Attached Domains ({domains.length})
+                  </span>
+                  <div className="bg-[#1C1C1E] rounded-xl border border-white/[0.08] divide-y divide-white/[0.06] overflow-hidden">
+                    {domains.length === 0 ? (
+                      <div className="py-6 text-center text-gray-400 text-xs">
+                        No attached domains found
+                      </div>
+                    ) : (
+                      domains
+                        .filter(d => d.domain.toLowerCase().includes(routingSearchQuery.toLowerCase()))
+                        .map((domain) => {
+                          const isPrimary = domain.domain === primaryDomain?.domain || domain.is_primary === 1 || domain.is_primary === true;
+                          const isLinked = domain.route_to_primary === 1 || domain.route_to_primary === true || domain.route_to_primary === undefined || isPrimary;
+
+                          return (
+                            <div
+                              key={domain.id}
+                              onClick={() => !isPrimary && handleToggleDomainRouting(domain.id, domain.route_to_primary)}
+                              className={`flex items-center justify-between px-3 py-2 transition-colors select-none ${
+                                isPrimary ? "bg-amber-500/[0.04]" : "hover:bg-white/[0.03] cursor-pointer"
+                              }`}
+                            >
+                              {/* Left: iOS Checkmark Circle + Domain info */}
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div
+                                  className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 border transition-all ${
+                                    isPrimary
+                                      ? "bg-amber-500 border-amber-500 text-black"
+                                      : isLinked
+                                      ? "bg-[#0A84FF] border-[#0A84FF] text-white shadow-sm"
+                                      : "border-gray-600 bg-transparent"
+                                  }`}
+                                >
+                                  {(isLinked || isPrimary) && (
+                                    <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  )}
+                                </div>
+
+                                <div className="flex flex-col min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-mono font-medium text-white text-xs truncate">
+                                      {domain.domain}
+                                    </span>
+                                    {isPrimary && (
+                                      <span className="px-1.5 py-0.2 rounded text-[9px] font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                        Primary
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-[10px] text-gray-400 truncate">
+                                    {isPrimary
+                                      ? "Master Mailbox"
+                                      : isLinked
+                                      ? `↳ Routed to ${activeFullEmail}`
+                                      : "Isolated mailbox"}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Right: iOS Status Badge */}
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-1 ${
+                                    isLinked
+                                      ? "bg-[#30D158]/15 text-[#30D158] border border-[#30D158]/25"
+                                      : "bg-white/5 text-gray-400 border border-white/[0.06]"
+                                  }`}
+                                >
+                                  <span className={`w-1 h-1 rounded-full ${isLinked ? "bg-[#30D158]" : "bg-gray-500"}`} />
+                                  {isLinked ? "Linked" : "Isolated"}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })
+                    )}
+                  </div>
+                </div>
+
+                {/* Connection Details Grouped Card */}
+                <div>
+                  <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2 mb-1 block">
+                    Connection &amp; Credentials
+                  </span>
+                  <div className="bg-[#1C1C1E] rounded-xl border border-white/[0.08] divide-y divide-white/[0.06] overflow-hidden text-xs">
+                    
+                    {/* IMAP Host */}
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <span className="text-[11px] font-medium text-gray-400 w-24 shrink-0">IMAP Host</span>
+                      <span className="font-mono text-white text-[11px] truncate flex-1 text-right pr-2">
+                        mail.{primaryDomain?.domain}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(`mail.${primaryDomain?.domain}`, "sheet_imap_host")}
+                        className="text-gray-400 hover:text-white p-0.5 cursor-pointer shrink-0"
+                        title="Copy Host"
+                      >
+                        {copiedKey === "sheet_imap_host" ? (
+                          <svg className="w-3.5 h-3.5 text-[#30D158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Port */}
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <span className="text-[11px] font-medium text-gray-400 w-24 shrink-0">Port (SSL / TLS)</span>
+                      <span className="font-mono text-[#0A84FF] text-[11px] text-right flex-1 pr-2">
+                        993 / 143
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard("993", "sheet_imap_port")}
+                        className="text-gray-400 hover:text-white p-0.5 cursor-pointer shrink-0"
+                        title="Copy Port"
+                      >
+                        {copiedKey === "sheet_imap_port" ? (
+                          <svg className="w-3.5 h-3.5 text-[#30D158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Master User */}
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <span className="text-[11px] font-medium text-gray-400 w-24 shrink-0">Master Account</span>
+                      <span className="font-mono text-amber-300 text-[11px] truncate text-right flex-1 pr-2">
+                        {activeFullEmail}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(activeFullEmail, "sheet_imap_user")}
+                        className="text-gray-400 hover:text-white p-0.5 cursor-pointer shrink-0"
+                        title="Copy User"
+                      >
+                        {copiedKey === "sheet_imap_user" ? (
+                          <svg className="w-3.5 h-3.5 text-[#30D158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* iOS Informational Note Card */}
+                <div className="bg-[#1C1C1E] border border-white/[0.08] rounded-xl p-3 text-[11px] text-gray-400 flex items-start gap-2.5">
+                  <span className="text-[#0A84FF] font-bold text-sm shrink-0">💡</span>
+                  <span className="leading-relaxed">
+                    <strong className="text-white font-medium">Transfer All Emails From Multi Domains to Single Primary Domain/Email:</strong> You can automatically route and transfer all incoming emails from these selected domains into your primary domain mailbox, and access them seamlessly via IMAP using a single master account.
+                  </span>
+                </div>
+
+              </div>
+
+              {/* iOS Bottom Action Bar */}
+              <div className="px-4 py-2 bg-[#1C1C1E]/60 border-t border-white/[0.08] flex items-center justify-between shrink-0">
+                <span className="text-[10px] text-gray-400 font-mono">Catch-All Enabled</span>
+                <button
+                  type="button"
+                  onClick={() => setIsRoutingSheetOpen(false)}
+                  className="px-4 py-1 bg-[#0A84FF] hover:bg-[#0071E3] text-white text-xs font-semibold rounded-lg transition-all cursor-pointer shadow-sm active:scale-95"
+                >
+                  Done
+                </button>
+              </div>
+
+            </div>
           </div>
         </div>
       )}
