@@ -418,7 +418,7 @@ export default function ImapMailboxInbox() {
   const pinnedCount = pinnedEmails.size;
 
   return (
-    <div className="h-screen bg-[#030712] text-gray-200 font-sans flex flex-col relative overflow-hidden selection:bg-blue-500 selection:text-white">
+    <div className="h-dvh bg-[#030712] text-gray-200 font-sans flex flex-col relative overflow-hidden selection:bg-blue-500 selection:text-white">
       {/* Background glowing ambient orbs */}
       <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-500/5 blur-[140px] pointer-events-none rounded-full" />
       <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-indigo-500/5 blur-[140px] pointer-events-none rounded-full" />
@@ -426,22 +426,19 @@ export default function ImapMailboxInbox() {
       {/* Top Main Header */}
       <header className="bg-[#0b0f19]/90 backdrop-blur-xl border-b border-white/[0.06] h-16 sticky top-0 z-40 flex-shrink-0 relative">
         <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-blue-500/30 to-transparent"></div>
-        <div className="max-w-[1700px] mx-auto px-4 h-full flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-indigo-500/10 border border-blue-500/30 flex items-center justify-center shadow-lg shadow-blue-500/15 relative overflow-hidden">
+        <div className="max-w-[1700px] mx-auto px-3 sm:px-4 h-full flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl bg-gradient-to-br from-blue-500/20 to-indigo-500/10 border border-blue-500/30 flex items-center justify-center shadow-lg shadow-blue-500/15 relative overflow-hidden">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-blue-400 relative z-10">
                 <path d="M1.5 8.67v8.58a3 3 0 003 3h15a3 3 0 003-3V8.67l-8.928 5.493a3 3 0 01-3.144 0L1.5 8.67z" />
                 <path d="M22.5 6.908V6.75a3 3 0 00-3-3h-15a3 3 0 00-3 3v.158l9.714 5.978a1.5 1.5 0 001.572 0L22.5 6.908z" />
               </svg>
             </div>
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-xl font-extrabold text-white tracking-tight">IMAP <span className="text-blue-400">Mailbox</span></h1>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 shadow-[0_0_10px_rgba(16,185,129,0.2)]">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                Ports 993 & 143 Active | All Inbound Stream
-              </span>
-              <span className="hidden sm:inline-block text-[10px] font-mono text-gray-400 bg-white/[0.04] px-2 py-0.5 rounded border border-white/[0.06]">
-                Domain: <strong className="text-white">{primaryDomain}</strong>
+            <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap min-w-0">
+              <h1 className="text-lg sm:text-xl font-extrabold text-white tracking-tight">IMAP <span className="text-blue-400">Mailbox</span></h1>
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-white/[0.06] text-gray-400 border border-white/[0.1] flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-gray-400 animate-pulse"></span>
+                Ports 993 & 143 Active
               </span>
             </div>
           </div>
@@ -449,7 +446,7 @@ export default function ImapMailboxInbox() {
           <div className="flex items-center gap-4">
             <div className="hidden md:flex flex-col items-end">
               <span className="text-[10px] text-gray-500 font-bold font-mono uppercase tracking-widest">
-                IMAP Master Session
+                PRIMARY DOMAIN
               </span>
               <span className="text-xs text-gray-200 font-mono font-bold">{user.email}</span>
             </div>
@@ -472,16 +469,16 @@ export default function ImapMailboxInbox() {
           
           {/* Action Header, Search & Filter Controls */}
           <div className="p-4 border-b border-white/[0.06] bg-[#0b0f19]/95 backdrop-blur-md flex flex-col gap-3 z-10 sticky top-0 shadow-sm relative">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+            <div className="flex justify-between items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <h2 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2 whitespace-nowrap">
                   Captured Mail
                 </h2>
                 <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 font-mono font-bold border border-blue-500/30">
                   {totalRecords}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                 <button
                   onClick={() => {
                     const token = localStorage.getItem("imap_mailbox_token") || "";
@@ -556,7 +553,7 @@ export default function ImapMailboxInbox() {
             </div>
 
             {/* Filter pills */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <button
                 onClick={() => { setFilterType("all"); setPage(1); }}
                 className={`text-[11px] font-bold px-2.5 py-1 rounded-lg transition-all ${filterType === "all" ? "bg-blue-500/20 text-blue-300 border border-blue-500/40" : "bg-black/30 text-gray-400 hover:text-gray-200 border border-white/[0.05]"}`}
@@ -564,16 +561,10 @@ export default function ImapMailboxInbox() {
                 All Mails
               </button>
               <button
-                onClick={() => { setFilterType("with_attachments"); setPage(1); }}
-                className={`text-[11px] font-bold px-2.5 py-1 rounded-lg transition-all ${filterType === "with_attachments" ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40" : "bg-black/30 text-gray-400 hover:text-gray-200 border border-white/[0.05]"}`}
-              >
-                Attachments
-              </button>
-              <button
                 onClick={() => { setFilterType("simple"); setPage(1); }}
                 className={`text-[11px] font-bold px-2.5 py-1 rounded-lg transition-all ${filterType === "simple" ? "bg-purple-500/20 text-purple-300 border border-purple-500/40" : "bg-black/30 text-gray-400 hover:text-gray-200 border border-white/[0.05]"}`}
               >
-                Simple Text
+                Simple
               </button>
               <button
                 onClick={() => { setFilterType("pinned"); setPage(1); }}
@@ -584,7 +575,13 @@ export default function ImapMailboxInbox() {
                 </svg>
                 Pinned ({pinnedCount})
               </button>
-              <span className="ml-auto text-[10px] font-mono text-gray-500">
+              <button
+                onClick={() => { setFilterType("with_attachments"); setPage(1); }}
+                className={`text-[11px] font-bold px-2.5 py-1 rounded-lg transition-all ${filterType === "with_attachments" ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40" : "bg-black/30 text-gray-400 hover:text-gray-200 border border-white/[0.05]"}`}
+              >
+                Attachments
+              </button>
+              <span className="text-[10px] font-mono text-gray-500 ml-auto">
                 {isPinnedFilter ? "Pinned only" : "Max 200/page"}
               </span>
             </div>
@@ -760,19 +757,19 @@ export default function ImapMailboxInbox() {
             <div className="flex flex-col flex-1 relative">
               <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 blur-[100px] pointer-events-none rounded-full"></div>
               
-              <div className="px-8 py-6 border-b border-white/[0.06] bg-transparent flex justify-between items-center relative z-10 flex-shrink-0">
-                <div className="flex items-center gap-4">
+              <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-white/[0.06] bg-transparent flex flex-wrap items-center justify-between gap-3 relative z-10 flex-shrink-0">
+                <div className="flex items-center gap-3">
                   <button onClick={() => setShowMedia(false)} className="md:hidden flex items-center justify-center text-gray-500 hover:text-white transition-colors bg-white/[0.04] hover:bg-white/[0.08] rounded-full w-8 h-8">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
                   </button>
-                  <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-6 h-6 text-indigo-400">
+                  <h2 className="text-lg sm:text-2xl font-bold text-white flex items-center gap-2 sm:gap-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-400">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
                     </svg>
                     Server Media Library
                   </h2>
                 </div>
-                <div className="flex items-center gap-4 bg-white/[0.02] px-4 py-2 rounded-xl border border-white/[0.05]">
+                <div className="flex items-center gap-4 bg-white/[0.02] px-3 sm:px-4 py-2 rounded-xl border border-white/[0.05]">
                   <span className="text-xs font-medium text-gray-400">Total Media Size:</span>
                   <span className="text-xs font-bold text-emerald-400 font-mono">
                     {formatBytes(mediaFiles.reduce((acc, curr) => acc + (curr.size || 0), 0))}
@@ -780,7 +777,7 @@ export default function ImapMailboxInbox() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-8 relative z-10 custom-scrollbar">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-8 relative z-10 custom-scrollbar">
                 {loadingMedia ? (
                   <div className="flex justify-center items-center h-64">
                     <div className="w-10 h-10 border-4 border-white/[0.05] border-t-blue-500 rounded-full animate-spin"></div>
@@ -865,9 +862,9 @@ export default function ImapMailboxInbox() {
             /* COMPOSE MESSAGE VIEW */
             <div className="flex flex-col flex-1 relative min-h-0">
               <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 blur-[80px] pointer-events-none rounded-full"></div>
-              <div className="px-8 py-6 border-b border-white/[0.06] bg-transparent flex justify-between items-center relative z-10 flex-shrink-0">
-                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                  <button onClick={() => setShowCompose(false)} className="md:hidden flex items-center justify-center text-gray-500 hover:text-white transition-colors bg-white/[0.04] hover:bg-white/[0.08] rounded-full w-8 h-8 mr-2">
+              <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-white/[0.06] bg-transparent flex justify-between items-center gap-3 relative z-10 flex-shrink-0">
+                <h2 className="text-lg sm:text-2xl font-bold text-white flex items-center gap-2 sm:gap-3">
+                  <button onClick={() => setShowCompose(false)} className="md:hidden flex items-center justify-center text-gray-500 hover:text-white transition-colors bg-white/[0.04] hover:bg-white/[0.08] rounded-full w-8 h-8 mr-1 sm:mr-2">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
                   </button>
                   New Message (Outbound SMTP)
@@ -879,7 +876,7 @@ export default function ImapMailboxInbox() {
                 </button>
               </div>
               <form onSubmit={handleSendEmail} className="flex flex-col flex-1 bg-transparent relative z-10 min-h-0">
-                <div className="px-8 py-4 border-b border-white/[0.04] flex items-center bg-black/20 flex-shrink-0">
+                <div className="px-4 sm:px-8 py-4 border-b border-white/[0.04] flex items-center bg-black/20 flex-shrink-0">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-wider w-20 font-mono">To:</label>
                   <input
                     type="email"
@@ -887,20 +884,20 @@ export default function ImapMailboxInbox() {
                     onChange={e => setComposeTo(e.target.value)}
                     required
                     placeholder="recipient@example.com"
-                    className="flex-1 text-white bg-transparent text-sm focus:outline-none placeholder:text-gray-600 font-medium font-mono"
+                    className="flex-1 text-white bg-transparent text-sm focus:outline-none placeholder:text-gray-600 font-medium font-mono min-w-0"
                   />
                 </div>
-                <div className="px-8 py-4 border-b border-white/[0.04] flex items-center bg-black/20 flex-shrink-0">
+                <div className="px-4 sm:px-8 py-4 border-b border-white/[0.04] flex items-center bg-black/20 flex-shrink-0">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-wider w-20 font-mono">Subject:</label>
                   <input
                     type="text"
                     value={composeSubject}
                     onChange={e => setComposeSubject(e.target.value)}
                     placeholder="Enter subject..."
-                    className="flex-1 text-white bg-transparent text-sm focus:outline-none placeholder:text-gray-600 font-medium"
+                    className="flex-1 text-white bg-transparent text-sm focus:outline-none placeholder:text-gray-600 font-medium min-w-0"
                   />
                 </div>
-                <div className="flex flex-col flex-1 px-8 py-6 bg-black/40 min-h-0">
+                <div className="flex flex-col flex-1 px-4 sm:px-8 py-4 sm:py-6 bg-black/40 min-h-0">
                   <textarea
                     value={composeMessage}
                     onChange={e => setComposeMessage(e.target.value)}
@@ -909,14 +906,14 @@ export default function ImapMailboxInbox() {
                     className="w-full flex-1 text-gray-300 bg-transparent text-sm focus:outline-none resize-none font-sans leading-relaxed placeholder:text-gray-600"
                   ></textarea>
                 </div>
-                <div className="p-6 bg-[#030712] border-t border-white/[0.06] flex justify-between items-center flex-shrink-0">
+                <div className="p-4 sm:p-6 bg-[#030712] border-t border-white/[0.06] flex justify-between items-center flex-shrink-0 gap-2">
                   <button type="button" onClick={() => setShowCompose(false)} className="text-gray-500 hover:text-rose-400 font-semibold px-4 py-2 transition-colors text-sm">
                     Discard
                   </button>
                   <button
                     type="submit"
                     disabled={sending}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold px-8 py-3 rounded-xl transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)] disabled:opacity-50 flex items-center gap-2 active:scale-[0.98]"
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold px-5 sm:px-8 py-3 rounded-xl transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)] disabled:opacity-50 flex items-center gap-2 active:scale-[0.98]"
                   >
                     {sending ? (
                       <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full"></span>
@@ -936,20 +933,20 @@ export default function ImapMailboxInbox() {
               <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 blur-[80px] pointer-events-none rounded-full"></div>
               
               {/* Header Info */}
-              <div className="px-8 py-6 border-b border-white/[0.06] bg-[#030712]/50 relative z-10 flex-shrink-0">
-                <div className="flex items-start gap-4 mb-6">
+              <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-white/[0.06] bg-[#030712]/50 relative z-10 flex-shrink-0">
+                <div className="flex items-start gap-3 sm:gap-4 mb-6">
                   <button onClick={() => setSelectedEmail(null)} className="md:hidden mt-1 flex-shrink-0 flex items-center justify-center text-gray-400 hover:text-white transition-colors bg-white/[0.04] hover:bg-white/[0.08] rounded-full w-9 h-9 border border-white/[0.05]">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
                   </button>
                   <div className="flex-1 min-w-0">
-                    <h2 className="text-2xl font-extrabold text-white leading-tight tracking-tight">
+                    <h2 className="text-lg sm:text-2xl font-extrabold text-white leading-tight tracking-tight">
                       {selectedEmail.subject || "(No Subject)"}
                     </h2>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setViewMode(viewMode === "html" ? "text" : "html")}
-                      className="px-3 py-1.5 rounded-lg text-xs font-bold font-mono bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 border border-white/[0.08] transition-colors"
+                      className="px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold font-mono bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 border border-white/[0.08] transition-colors whitespace-nowrap"
                     >
                       {viewMode === "html" ? "View Raw Text" : "View HTML Render"}
                     </button>
@@ -1001,7 +998,7 @@ export default function ImapMailboxInbox() {
               </div>
 
               {/* Email Content Body */}
-              <div className="flex-1 overflow-y-auto bg-[#0b0f19] p-8 relative z-10 custom-scrollbar min-h-0">
+              <div className="flex-1 overflow-y-auto bg-[#0b0f19] p-4 sm:p-8 relative z-10 custom-scrollbar min-h-0">
                 {selectedEmail.details ? (
                   <div className="max-w-5xl w-full mx-auto">
                     {/* HTML View */}

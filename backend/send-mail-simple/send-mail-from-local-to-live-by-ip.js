@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 
 // VPS SMTP configuration
-const VPS_IP = process.env.SERVER_IP || "163.223.93.3";
+const VPS_IP = process.env.SERVER_IP;
 const SMTP_PORT = process.env.SMTP_PORT || 2525; // Standard SMTP port for live servers. Change to 2525 if port 25 is blocked by your ISP or if VPS listens on 2525.
 
 const transporter = nodemailer.createTransport({

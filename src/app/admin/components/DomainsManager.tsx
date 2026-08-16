@@ -996,12 +996,7 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
                     {/* 5. DKIM (Digital Signature) Generator Box - Ultra Compact */}
                     <div className="bg-slate-900/50 border border-white/[0.06] rounded-xl p-3 space-y-2.5">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-xs font-bold text-white">5. DKIM (Digital Signature)</h4>
-                          <span className="text-[9px] bg-indigo-500/15 text-indigo-400 border border-indigo-500/20 px-1.5 py-0.2 rounded font-bold">
-                            TXT Record
-                          </span>
-                        </div>
+                        <h4 className="text-xs font-bold text-white">5. DKIM (Digital Signature)</h4>
                         <button
                           type="button"
                           onClick={() => setShowDkimConfirmModal(true)}
@@ -1027,10 +1022,18 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
                         </div>
                       ) : dkimKey ? (
                         <div className="bg-[#070A13] p-2.5 rounded-lg border border-white/[0.05] space-y-2">
-                          <div className="flex items-center justify-between bg-black/40 px-2.5 py-1 rounded border border-white/5 text-xs">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[9px] text-gray-500 uppercase font-bold">Host / Name:</span>
-                              <span className="text-emerald-400 font-mono text-[11px] font-bold">default._domainkey</span>
+                          <div className="flex items-center justify-between bg-black/40 px-2.5 py-1.5 rounded border border-white/5 text-xs">
+                            <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[9px] text-gray-500 uppercase font-bold">Type:</span>
+                                <span className="text-[9px] bg-indigo-500/15 text-indigo-400 border border-indigo-500/20 px-1.5 py-0.5 rounded font-mono font-bold">
+                                  TXT Record
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[9px] text-gray-500 uppercase font-bold">Host / Name:</span>
+                                <span className="text-emerald-400 font-mono text-[11px] font-bold">default._domainkey</span>
+                              </div>
                             </div>
                             <button
                               type="button"

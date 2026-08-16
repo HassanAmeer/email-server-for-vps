@@ -626,8 +626,23 @@ export function clearSystemLogs(log_type) {
       const stmt = db.prepare(`DELETE FROM system_logs WHERE log_type = ?`);
       stmt.run(log_type);
     }
+    return { success: true };
   } catch (err) {
     console.error("DB Error clearing system logs:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+export function deleteSystemLogsByIds(ids) {
+  try {
+    if (!Array.isArray(ids) || ids.length === 0) return { success: true, count: 0 };
+    const placeholders = ids.map(() => '?').join(',');
+    const stmt = db.prepare(`DELETE FROM system_logs WHERE id IN (${placeholders})`);
+    const info = stmt.run(...ids);
+    return { success: true, count: info.changes };
+  } catch (err) {
+    console.error("DB Error deleting system logs by IDs:", err);
+    return { success: false, error: err.message };
   }
 }
 

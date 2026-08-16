@@ -1464,10 +1464,9 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
 
                             {/* Server IP Node */}
                             <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-500/10 hover:bg-amber-500/15 transition-colors">
-                              <span className="text-amber-300 font-semibold text-xs font-mono">{serverIp || "187.52.117.2"}</span>
+                              <span className="text-amber-300 font-semibold text-xs font-mono">{serverIp}</span>
                               <button
-                                type="button"
-                                onClick={() => copyToClipboard(serverIp || "187.52.117.2", "pop_ip")}
+                                onClick={() => copyToClipboard(serverIp, "pop_ip")}
                                 className="text-gray-400 hover:text-amber-400 p-0.5 cursor-pointer"
                                 title="Copy Server IP"
                               >
@@ -1604,10 +1603,9 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
 
                             {/* Server IP Node */}
                             <div className="flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 hover:bg-blue-500/15 transition-colors">
-                              <span className="text-blue-300 font-semibold text-xs font-mono">{serverIp || "187.52.117.2"}</span>
+                              <span className="text-blue-300 font-semibold text-xs font-mono">{serverIp}</span>
                               <button
-                                type="button"
-                                onClick={() => copyToClipboard(serverIp || "187.52.117.2", "imap_ip")}
+                                onClick={() => copyToClipboard(serverIp, "imap_ip")}
                                 className="text-gray-400 hover:text-blue-400 p-0.5 cursor-pointer"
                                 title="Copy Server IP"
                               >
@@ -1744,10 +1742,9 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
 
                             {/* Server IP Node */}
                             <div className="flex items-center gap-1 px-2 py-0.5 bg-purple-500/10 hover:bg-purple-500/15 transition-colors">
-                              <span className="text-purple-300 font-semibold text-xs font-mono">{serverIp || "187.52.117.2"}</span>
+                              <span className="text-purple-300 font-semibold text-xs font-mono">{serverIp}</span>
                               <button
-                                type="button"
-                                onClick={() => copyToClipboard(serverIp || "187.52.117.2", "smtp_ip")}
+                                onClick={() => copyToClipboard(serverIp, "smtp_ip")}
                                 className="text-gray-400 hover:text-purple-400 p-0.5 cursor-pointer"
                                 title="Copy Server IP"
                               >

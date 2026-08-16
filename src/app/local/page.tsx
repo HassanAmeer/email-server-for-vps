@@ -56,6 +56,30 @@ export default function LocalConsolePage() {
 
   // Audio & Notification track
   const knownEmailIdsRef = useRef<Set<string> | null>(null);
+  const selectedMailRef = useRef<Email | null>(null);
+  selectedMailRef.current = selectedMail;
+  const generatedEmailRef = useRef<string>("");
+  generatedEmailRef.current = generatedEmail;
+
+  const formatEmailTime = (dateStr?: string) => {
+    if (!dateStr) return "";
+    try {
+      const d = new Date(dateStr);
+      return isNaN(d.getTime()) ? "" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    } catch {
+      return "";
+    }
+  };
+
+  const formatEmailDate = (dateStr?: string) => {
+    if (!dateStr) return "";
+    try {
+      const d = new Date(dateStr);
+      return isNaN(d.getTime()) ? String(dateStr) : d.toLocaleString();
+    } catch {
+      return String(dateStr);
+    }
+  };
 
   // Initialize API URL and settings
   useEffect(() => {
@@ -73,7 +97,7 @@ export default function LocalConsolePage() {
     fetch(`${apiUrl}/api/domains`)
       .then(res => res.json())
       .then(data => {
-        if (data.domains && data.domains.length > 0) {
+        if (data && Array.isArray(data.domains) && data.domains.length > 0) {
           setDomains(data.domains);
           setSelectedDomain(data.domains[0]);
         }
@@ -130,10 +154,12 @@ export default function LocalConsolePage() {
   };
 
   const playBellSound = () => {
-    const audio = new Audio("/bell.wav");
-    audio.play().catch((err) => {
-      console.warn("Audio playback failed (interaction required):", err);
-    });
+    try {
+      const audio = new Audio("/bell.wav");
+      audio.play().catch((err) => {
+        console.warn("Audio playback failed (interaction required):", err);
+      });
+    } catch (e) {}
   };
 
   // Poll local emails and logs
@@ -143,11 +169,13 @@ export default function LocalConsolePage() {
       // 1. Fetch Emails
       const resMails = await fetch(`${apiUrl}/api/emails/local`);
       if (resMails.ok) {
-        let mailsData: Email[] = await resMails.json();
+        let rawData = await resMails.json();
+        let mailsData: Email[] = Array.isArray(rawData) ? rawData : [];
 
         // Filter by generated email if set, otherwise show none
-        if (generatedEmail) {
-          mailsData = mailsData.filter(m => m.to.toLowerCase() === generatedEmail.toLowerCase());
+        const currentGen = generatedEmailRef.current;
+        if (currentGen) {
+          mailsData = mailsData.filter(m => m && typeof m.to === "string" && m.to.toLowerCase() === currentGen.toLowerCase());
         } else {
           mailsData = [];
         }
@@ -156,7 +184,7 @@ export default function LocalConsolePage() {
         if (knownEmailIdsRef.current !== null) {
           let hasNew = false;
           mailsData.forEach((m) => {
-            if (!knownEmailIdsRef.current!.has(m.id)) {
+            if (m && m.id && !knownEmailIdsRef.current!.has(m.id)) {
               hasNew = true;
             }
           });
@@ -164,13 +192,15 @@ export default function LocalConsolePage() {
             playBellSound();
           }
         }
-        knownEmailIdsRef.current = new Set(mailsData.map((m) => m.id));
+        knownEmailIdsRef.current = new Set(mailsData.filter(m => m && m.id).map((m) => m.id));
         setEmails(mailsData);
 
         // Update selected mail details if active
-        if (selectedMail) {
-          const updated = mailsData.find((m) => m.id === selectedMail.id);
-          if (updated) setSelectedMail(updated);
+        if (selectedMailRef.current) {
+          const updated = mailsData.find((m) => m && m.id === selectedMailRef.current?.id);
+          if (updated) {
+            setSelectedMail(updated);
+          }
         }
       }
 
@@ -178,13 +208,15 @@ export default function LocalConsolePage() {
       const resRecLogs = await fetch(`${apiUrl}/api/logs/local/receiving`);
       if (resRecLogs.ok) {
         const recData = await resRecLogs.json();
-        setReceivingLogs(recData.join("\n") || "No receiving logs recorded yet.");
+        const recStr = Array.isArray(recData) ? recData.join("\n") : (typeof recData === "string" ? recData : "");
+        setReceivingLogs(recStr || "No receiving logs recorded yet.");
       }
 
       const resSendLogs = await fetch(`${apiUrl}/api/logs/local/sending`);
       if (resSendLogs.ok) {
         const sendData = await resSendLogs.json();
-        setSendingLogs(sendData.join("\n") || "No sending logs recorded yet.");
+        const sendStr = Array.isArray(sendData) ? sendData.join("\n") : (typeof sendData === "string" ? sendData : "");
+        setSendingLogs(sendStr || "No sending logs recorded yet.");
       }
     } catch (err) {
       console.error("Error polling local data:", err);
@@ -196,7 +228,7 @@ export default function LocalConsolePage() {
     fetchData();
     const interval = setInterval(fetchData, 3000);
     return () => clearInterval(interval);
-  }, [apiUrl, selectedMail?.id, generatedEmail]);
+  }, [apiUrl, generatedEmail]);
 
   // Checkbox management
   const handleSelectMail = (id: string) => {
@@ -558,14 +590,14 @@ export default function LocalConsolePage() {
                                 {email.to}
                               </span>
                               <span className="text-[9px] text-gray-500 font-mono">
-                                {new Date(email.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                {formatEmailTime(email?.date)}
                               </span>
                             </div>
                             <div className="text-xs text-white font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
-                              {email.subject}
+                              {email?.subject || "(No Subject)"}
                             </div>
                             <div className="text-[10px] text-gray-500 overflow-hidden text-ellipsis whitespace-nowrap">
-                              From: {email.from}
+                              From: {email?.from || "-"}
                             </div>
                           </div>
                         </div>
@@ -593,8 +625,8 @@ export default function LocalConsolePage() {
                         <div><strong>To:</strong> {selectedMail.to}</div>
                         <div><strong>From:</strong> {selectedMail.from}</div>
                         <div className="flex gap-4 text-gray-500 text-[10px] mt-1.5 font-mono">
-                          <span>Time: {new Date(selectedMail.date).toLocaleString()}</span>
-                          <span>IP: {selectedMail.senderIp}</span>
+                          <span>Time: {formatEmailDate(selectedMail.date)}</span>
+                          <span>IP: {selectedMail.senderIp || "Unknown"}</span>
                         </div>
                       </div>
                     </div>

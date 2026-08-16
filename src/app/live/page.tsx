@@ -58,6 +58,30 @@ export default function LiveConsolePage() {
 
   // Audio track
   const knownEmailIdsRef = useRef<Set<string> | null>(null);
+  const selectedMailRef = useRef<Email | null>(null);
+  selectedMailRef.current = selectedMail;
+  const generatedEmailRef = useRef<string>("");
+  generatedEmailRef.current = generatedEmail;
+
+  const formatEmailTime = (dateStr?: string) => {
+    if (!dateStr) return "";
+    try {
+      const d = new Date(dateStr);
+      return isNaN(d.getTime()) ? "" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    } catch {
+      return "";
+    }
+  };
+
+  const formatEmailDate = (dateStr?: string) => {
+    if (!dateStr) return "";
+    try {
+      const d = new Date(dateStr);
+      return isNaN(d.getTime()) ? String(dateStr) : d.toLocaleString();
+    } catch {
+      return String(dateStr);
+    }
+  };
 
   // Initialize URL and Read Emails state
   useEffect(() => {
@@ -68,8 +92,15 @@ export default function LiveConsolePage() {
           : `${window.location.protocol}//${window.location.host}`;
       setApiUrl(url);
 
-      const read = JSON.parse(localStorage.getItem("liveReadEmails") || "[]");
-      setReadEmails(read);
+      try {
+        const item = localStorage.getItem("liveReadEmails");
+        if (item) {
+          const read = JSON.parse(item);
+          if (Array.isArray(read)) setReadEmails(read);
+        }
+      } catch (e) {
+        console.warn("Error reading liveReadEmails from localStorage:", e);
+      }
     }
   }, []);
 
@@ -78,7 +109,7 @@ export default function LiveConsolePage() {
     fetch(`${apiUrl}/api/domains`)
       .then(res => res.json())
       .then(data => {
-        if (data.domains && data.domains.length > 0) {
+        if (data && Array.isArray(data.domains) && data.domains.length > 0) {
           setDomains(data.domains);
           setSelectedDomain(data.domains[0]);
         }
@@ -135,10 +166,12 @@ export default function LiveConsolePage() {
   };
 
   const playBellSound = () => {
-    const audio = new Audio("/bell.wav");
-    audio.play().catch((err) => {
-      console.warn("Audio playback failed (interaction required):", err);
-    });
+    try {
+      const audio = new Audio("/bell.wav");
+      audio.play().catch((err) => {
+        console.warn("Audio playback failed (interaction required):", err);
+      });
+    } catch (e) {}
   };
 
   // Poll live emails and logs
@@ -148,11 +181,13 @@ export default function LiveConsolePage() {
       // 1. Fetch live emails
       const resMails = await fetch(`${apiUrl}/api/emails/live`);
       if (resMails.ok) {
-        let mailsData: Email[] = await resMails.json();
+        let rawData = await resMails.json();
+        let mailsData: Email[] = Array.isArray(rawData) ? rawData : [];
         
         // Filter by generated email if set, otherwise show none
-        if (generatedEmail) {
-          mailsData = mailsData.filter(m => m.to.toLowerCase() === generatedEmail.toLowerCase());
+        const currentGen = generatedEmailRef.current;
+        if (currentGen) {
+          mailsData = mailsData.filter(m => m && typeof m.to === "string" && m.to.toLowerCase() === currentGen.toLowerCase());
         } else {
           mailsData = [];
         }
@@ -161,7 +196,7 @@ export default function LiveConsolePage() {
         if (knownEmailIdsRef.current !== null) {
           let hasNew = false;
           mailsData.forEach((m) => {
-            if (!knownEmailIdsRef.current!.has(m.id)) {
+            if (m && m.id && !knownEmailIdsRef.current!.has(m.id)) {
               hasNew = true;
             }
           });
@@ -169,13 +204,15 @@ export default function LiveConsolePage() {
             playBellSound();
           }
         }
-        knownEmailIdsRef.current = new Set(mailsData.map((m) => m.id));
+        knownEmailIdsRef.current = new Set(mailsData.filter(m => m && m.id).map((m) => m.id));
         setEmails(mailsData);
 
         // Update active reader email details if active
-        if (selectedMail) {
-          const updated = mailsData.find((m) => m.id === selectedMail.id);
-          if (updated) setSelectedMail(updated);
+        if (selectedMailRef.current) {
+          const updated = mailsData.find((m) => m && m.id === selectedMailRef.current?.id);
+          if (updated) {
+            setSelectedMail(updated);
+          }
         }
       }
 
@@ -183,13 +220,15 @@ export default function LiveConsolePage() {
       const resRecLogs = await fetch(`${apiUrl}/api/logs/live/receiving`);
       if (resRecLogs.ok) {
         const recData = await resRecLogs.json();
-        setReceivingLogs(recData.join("\n") || "No logs recorded for live receiver yet.");
+        const recStr = Array.isArray(recData) ? recData.join("\n") : (typeof recData === "string" ? recData : "");
+        setReceivingLogs(recStr || "No logs recorded for live receiver yet.");
       }
 
       const resSendLogs = await fetch(`${apiUrl}/api/logs/live/sending`);
       if (resSendLogs.ok) {
         const sendData = await resSendLogs.json();
-        setSendingLogs(sendData.join("\n") || "No logs recorded for live dispatcher yet.");
+        const sendStr = Array.isArray(sendData) ? sendData.join("\n") : (typeof sendData === "string" ? sendData : "");
+        setSendingLogs(sendStr || "No logs recorded for live dispatcher yet.");
       }
     } catch (err) {
       console.error("Error polling live data:", err);
@@ -201,16 +240,18 @@ export default function LiveConsolePage() {
     fetchData();
     const interval = setInterval(fetchData, 3000);
     return () => clearInterval(interval);
-  }, [apiUrl, selectedMail?.id, generatedEmail]);
+  }, [apiUrl, generatedEmail]);
 
   // Read email marking
   const selectEmail = (email: Email) => {
     setSelectedMail(email);
     setViewMode("html");
-    if (!readEmails.includes(email.id)) {
+    if (email && email.id && !readEmails.includes(email.id)) {
       const updated = [...readEmails, email.id];
       setReadEmails(updated);
-      localStorage.setItem("liveReadEmails", JSON.stringify(updated));
+      try {
+        localStorage.setItem("liveReadEmails", JSON.stringify(updated));
+      } catch (e) {}
     }
   };
 
@@ -584,20 +625,20 @@ export default function LiveConsolePage() {
                                   </span>
                                 )}
                                 <span className="text-[9px] text-gray-500 font-mono">
-                                  {new Date(email.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                  {formatEmailTime(email?.date)}
                                 </span>
                               </div>
                             </div>
                             <div className="text-xs text-white font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
-                              {email.subject}
-                              {email.attachments && email.attachments.length > 0 && (
+                              {email?.subject || "(No Subject)"}
+                              {email?.attachments && email.attachments.length > 0 && (
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3.5 h-3.5 text-gray-500 inline-block align-middle ml-1">
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
                                 </svg>
                               )}
                             </div>
                             <div className="text-[10px] text-gray-500 overflow-hidden text-ellipsis whitespace-nowrap">
-                              From: {email.from}
+                              From: {email?.from || "-"}
                             </div>
                           </div>
                         </div>
@@ -625,8 +666,8 @@ export default function LiveConsolePage() {
                         <div><strong>To:</strong> {selectedMail.to}</div>
                         <div><strong>From:</strong> {selectedMail.from}</div>
                         <div className="flex gap-4 text-gray-500 text-[10px] mt-1.5 font-mono">
-                          <span>Time: {new Date(selectedMail.date).toLocaleString()}</span>
-                          <span>IP: {selectedMail.senderIp}</span>
+                          <span>Time: {formatEmailDate(selectedMail.date)}</span>
+                          <span>IP: {selectedMail.senderIp || "Unknown"}</span>
                         </div>
                       </div>
                     </div>
@@ -968,7 +1009,7 @@ export default function LiveConsolePage() {
                       <li>
                         <strong>Create an A Record:</strong>
                         <div className="bg-black/50 p-2 rounded text-emerald-400 mt-1 select-all">
-                          Type: A | Name: mail | Value: {process.env.NEXT_PUBLIC_SERVER_IP || "163.223.93.3"}
+                          Type: A | Name: mail | Value: {process.env.NEXT_PUBLIC_SERVER_IP}
                         </div>
                       </li>
                       <li>
@@ -980,7 +1021,7 @@ export default function LiveConsolePage() {
                       <li>
                         <strong>Add SPF Record (Outbound validation):</strong>
                         <div className="bg-black/50 p-2 rounded text-emerald-400 mt-1 select-all">
-                          Type: TXT | Name: @ | Value: &quot;v=spf1 ip4:{process.env.NEXT_PUBLIC_SERVER_IP || "163.223.93.3"} ~all&quot;
+                          Type: TXT | Name: @ | Value: &quot;v=spf1 ip4:{process.env.NEXT_PUBLIC_SERVER_IP} ~all&quot;
                         </div>
                       </li>
                     </ol>
