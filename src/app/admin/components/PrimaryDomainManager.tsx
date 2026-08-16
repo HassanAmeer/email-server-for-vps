@@ -1326,7 +1326,7 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
                   Cancel
                 </button>
                 <div className="flex flex-col items-center">
-                  <h3 className="text-xs font-semibold text-white">Mail Account Setup</h3>
+                  <h3 className="text-xs font-semibold text-white">Mailbox Login</h3>
                   <span className="text-[10px] text-gray-400 font-mono truncate max-w-[180px]">{mailboxUserEmail}</span>
                 </div>
                 <button
@@ -1350,7 +1350,7 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
                         : "text-gray-400 hover:text-gray-200"
                     }`}
                   >
-                    Account Credentials
+                    Mailbox Login
                   </button>
                   <button
                     type="button"
@@ -1376,10 +1376,10 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
                 ) : settingsTab === "credentials" ? (
                   <form onSubmit={handleSaveMailboxCredentials} className="flex flex-col gap-3">
                     
-                    {/* iOS Grouped Card: Account Info */}
+                    {/* iOS Grouped Card: Mailbox Login */}
                     <div>
                       <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2 mb-1 block">
-                        Account Info
+                        Mailbox Login
                       </span>
                       <div className="bg-[#1C1C1E] rounded-xl border border-white/[0.08] divide-y divide-white/[0.06] overflow-hidden">
                         
