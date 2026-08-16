@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { getApiBaseUrl } from "@/lib/api-config";
 
 export default function MailboxLogin() {
   const [email, setEmail] = useState("");
@@ -23,7 +24,8 @@ export default function MailboxLogin() {
     setError("");
 
     try {
-      const res = await fetch("/api/mailbox/login", {
+      const apiBase = getApiBaseUrl();
+      const res = await fetch(`${apiBase}/api/mailbox/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password })

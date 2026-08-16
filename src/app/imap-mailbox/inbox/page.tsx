@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { getApiBaseUrl } from "@/lib/api-config";
 
 interface Attachment {
   filename: string;
@@ -115,7 +116,8 @@ export default function ImapMailboxInbox() {
 
   const fetchEmailsSilent = async (token: string, curPage: number, curFilter: string, curSearch: string) => {
     try {
-      let url = `/api/imap-mailbox/inbox?page=${curPage}&limit=${limit}&filter=${curFilter}`;
+      const apiBase = getApiBaseUrl();
+      let url = `${apiBase}/api/imap-mailbox/inbox?page=${curPage}&limit=${limit}&filter=${curFilter}`;
       if (curSearch && curSearch.trim().length > 0) {
         url += `&search=${encodeURIComponent(curSearch.trim())}`;
       }
@@ -148,7 +150,8 @@ export default function ImapMailboxInbox() {
   const fetchEmails = async (token: string, curPage: number, curFilter: string, curSearch: string) => {
     try {
       setLoading(true);
-      let url = `/api/imap-mailbox/inbox?page=${curPage}&limit=${limit}&filter=${curFilter}`;
+      const apiBase = getApiBaseUrl();
+      let url = `${apiBase}/api/imap-mailbox/inbox?page=${curPage}&limit=${limit}&filter=${curFilter}`;
       if (curSearch && curSearch.trim().length > 0) {
         url += `&search=${encodeURIComponent(curSearch.trim())}`;
       }
@@ -195,8 +198,9 @@ export default function ImapMailboxInbox() {
     setShowCompose(false);
     setLoadingMedia(true);
     try {
+      const apiBase = getApiBaseUrl();
       const token = localStorage.getItem("imap_mailbox_token");
-      const res = await fetch("/api/imap-mailbox/media", {
+      const res = await fetch(`${apiBase}/api/imap-mailbox/media`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {
@@ -219,8 +223,9 @@ export default function ImapMailboxInbox() {
     if (e) e.stopPropagation();
     if (!confirm("Are you sure you want to delete this email permanently?")) return;
     try {
+      const apiBase = getApiBaseUrl();
       const token = localStorage.getItem("imap_mailbox_token");
-      const res = await fetch(`/api/imap-mailbox/inbox/${emailId}`, {
+      const res = await fetch(`${apiBase}/api/imap-mailbox/inbox/${emailId}`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` }
       });
@@ -255,8 +260,9 @@ export default function ImapMailboxInbox() {
     });
 
     try {
+      const apiBase = getApiBaseUrl();
       const token = localStorage.getItem("imap_mailbox_token");
-      const res = await fetch(`/api/imap-mailbox/inbox/${emailRecord.id}`, {
+      const res = await fetch(`${apiBase}/api/imap-mailbox/inbox/${emailRecord.id}`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
 
@@ -283,8 +289,9 @@ export default function ImapMailboxInbox() {
     e.preventDefault();
     setSending(true);
     try {
+      const apiBase = getApiBaseUrl();
       const token = localStorage.getItem("imap_mailbox_token");
-      const res = await fetch("/api/imap-mailbox/send", {
+      const res = await fetch(`${apiBase}/api/imap-mailbox/send`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

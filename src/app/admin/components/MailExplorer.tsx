@@ -116,19 +116,21 @@ export default function MailExplorer({ apiUrl }: MailExplorerProps) {
                 <p className="text-xs">No matching emails found.</p>
               </div>
             ) : (
-              filteredMails.map((email) => {
+              filteredMails.map((email, idx) => {
                 const dateStr = new Date(email.date).toLocaleTimeString([], {
                   hour: "2-digit",
                   minute: "2-digit",
                 });
                 const isSelected =
-                  selectedMail && email.id === selectedMail.id
+                  (selectedMail?.fileName && email.fileName && selectedMail.fileName === email.fileName && selectedMail.type === email.type) ||
+                  (Boolean(selectedMail?.id) && Boolean(email.id) && selectedMail?.id === email.id)
                     ? "bg-emerald-500/5 border-l-2 border-emerald-400"
                     : "border-l-2 border-transparent";
+                const itemKey = email.id ? `mail-id-${email.id}` : `mail-${email.type || "m"}-${email.fileName || idx}`;
 
                 return (
                   <div
-                    key={email.id}
+                    key={itemKey}
                     onClick={() => {
                       setSelectedMail(email);
                       setViewMode("html");
@@ -240,7 +242,7 @@ export default function MailExplorer({ apiUrl }: MailExplorerProps) {
                   <div className="flex flex-wrap gap-2">
                     {selectedMail.attachments.map((att, idx) => (
                       <a
-                        key={idx}
+                        key={att.url ? `att-exp-${att.url}` : `att-exp-${att.filename}-${idx}`}
                         href={att.url}
                         target="_blank"
                         rel="noreferrer"

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { getApiBaseUrl } from "@/lib/api-config";
 
 interface ImapInfo {
   primaryDomain: string;
@@ -34,8 +35,10 @@ export default function ImapMailboxLogin() {
       return;
     }
 
+    const apiBase = getApiBaseUrl();
+
     // Fetch primary domain & default IMAP credentials info
-    fetch("/api/imap-mailbox/info")
+    fetch(`${apiBase}/api/imap-mailbox/info`)
       .then(async res => {
         const text = await res.text();
         try {
@@ -69,7 +72,8 @@ export default function ImapMailboxLogin() {
     setError("");
 
     try {
-      const res = await fetch("/api/imap-mailbox/login", {
+      const apiBase = getApiBaseUrl();
+      const res = await fetch(`${apiBase}/api/imap-mailbox/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password })
@@ -106,7 +110,8 @@ export default function ImapMailboxLogin() {
     setError("");
 
     try {
-      const res = await fetch("/api/imap-mailbox/login", {
+      const apiBase = getApiBaseUrl();
+      const res = await fetch(`${apiBase}/api/imap-mailbox/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isMasterQuickLogin: true })

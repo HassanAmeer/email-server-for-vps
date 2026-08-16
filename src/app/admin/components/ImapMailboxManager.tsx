@@ -371,8 +371,8 @@ export default function ImapMailboxManager({ apiUrl }: ImapMailboxManagerProps) 
               className="bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500/60 font-medium"
             >
               <option value="ALL">📁 All Mailboxes ({mails.length})</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.email}>
+              {users.map((u, idx) => (
+                <option key={u.id ? `user-opt-${u.id}` : `user-opt-${u.email || idx}`} value={u.email}>
                   👤 {u.email}
                 </option>
               ))}
@@ -432,15 +432,18 @@ export default function ImapMailboxManager({ apiUrl }: ImapMailboxManagerProps) 
               ) : (
                 filteredMails
                   .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                  .map((mail) => {
-                  const isSelected = selectedMail?.id === mail.id;
+                  .map((mail, idx) => {
+                  const isSelected =
+                    (selectedMail?.fileName && mail.fileName && selectedMail.fileName === mail.fileName && selectedMail.type === mail.type) ||
+                    (Boolean(selectedMail?.id) && Boolean(mail.id) && selectedMail?.id === mail.id);
                   const senderName = getSenderName(mail.from);
                   const initial = getSenderInitial(mail.from);
                   const avatarGrad = getAvatarGradient(mail.from);
+                  const mailKey = mail.id ? `id-${mail.id}` : `${mail.type || "mail"}-${mail.fileName || idx}`;
 
                   return (
                     <div
-                      key={mail.id}
+                      key={mailKey}
                       onClick={() => setSelectedMail(mail)}
                       className={`p-4 cursor-pointer transition-all duration-200 border-l-4 flex gap-3.5 items-start ${
                         isSelected
@@ -607,7 +610,7 @@ export default function ImapMailboxManager({ apiUrl }: ImapMailboxManagerProps) 
                     <div className="flex flex-wrap gap-2 pt-2 border-t border-white/[0.04]">
                       {selectedMail.attachments.map((att, idx) => (
                         <a
-                          key={idx}
+                          key={att.url ? `att-${att.url}` : `att-${att.filename}-${idx}`}
                           href={`${apiUrl}${att.url}`}
                           target="_blank"
                           rel="noreferrer"
@@ -697,8 +700,8 @@ export default function ImapMailboxManager({ apiUrl }: ImapMailboxManagerProps) 
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.04]">
-                  {filteredUsers.map((u) => (
-                    <tr key={u.id} className="hover:bg-white/[0.02] transition-colors">
+                  {filteredUsers.map((u, idx) => (
+                    <tr key={u.id ? `u-row-${u.id}` : `u-row-${u.email || idx}`} className="hover:bg-white/[0.02] transition-colors">
                       <td className="px-6 py-4 font-mono font-medium text-white">
                         <div className="flex items-center gap-2.5">
                           <span className="w-2.5 h-2.5 rounded-full bg-blue-400"></span>

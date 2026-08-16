@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { getApiBaseUrl } from "@/lib/api-config";
 
 export default function MailboxInbox() {
   const [emails, setEmails] = useState<any[]>([]);
@@ -76,7 +77,8 @@ export default function MailboxInbox() {
 
   const fetchEmailsSilent = async (token: string, curPage: number, curSearch: string) => {
     try {
-      let url = `/api/mailbox/inbox?page=${curPage}&limit=${limit}`;
+      const apiBase = getApiBaseUrl();
+      let url = `${apiBase}/api/mailbox/inbox?page=${curPage}&limit=${limit}`;
       if (curSearch && curSearch.trim().length > 0) {
         url += `&search=${encodeURIComponent(curSearch.trim())}`;
       }
@@ -85,14 +87,19 @@ export default function MailboxInbox() {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {
-        const responseData = await res.json();
-        setEmails(responseData.data || []);
-        if (responseData.pagination) {
-          setTotalRecords(responseData.pagination.totalRecords || 0);
-          setTotalPages(responseData.pagination.totalPages || 1);
-        }
-        if (responseData.isPrimaryMailbox !== undefined) {
-          setIsPrimaryMailbox(responseData.isPrimaryMailbox);
+        const text = await res.text();
+        try {
+          const responseData = JSON.parse(text);
+          setEmails(responseData.data || []);
+          if (responseData.pagination) {
+            setTotalRecords(responseData.pagination.totalRecords || 0);
+            setTotalPages(responseData.pagination.totalPages || 1);
+          }
+          if (responseData.isPrimaryMailbox !== undefined) {
+            setIsPrimaryMailbox(responseData.isPrimaryMailbox);
+          }
+        } catch {
+          // ignore
         }
       }
     } catch (err) {
@@ -103,7 +110,8 @@ export default function MailboxInbox() {
   const fetchEmails = async (token: string, curPage: number, curSearch: string) => {
     try {
       setLoading(true);
-      let url = `/api/mailbox/inbox?page=${curPage}&limit=${limit}`;
+      const apiBase = getApiBaseUrl();
+      let url = `${apiBase}/api/mailbox/inbox?page=${curPage}&limit=${limit}`;
       if (curSearch && curSearch.trim().length > 0) {
         url += `&search=${encodeURIComponent(curSearch.trim())}`;
       }
@@ -117,8 +125,15 @@ export default function MailboxInbox() {
         return;
       }
 
+      const text = await res.text();
+      let responseData: any = {};
+      try {
+        responseData = JSON.parse(text);
+      } catch {
+        throw new Error("Server returned an invalid response.");
+      }
+
       if (res.ok) {
-        const responseData = await res.json();
         setEmails(responseData.data || []);
         if (responseData.pagination) {
           setTotalRecords(responseData.pagination.totalRecords || 0);
@@ -128,8 +143,7 @@ export default function MailboxInbox() {
           setIsPrimaryMailbox(responseData.isPrimaryMailbox);
         }
       } else {
-        const err = await res.json();
-        setError(err.error || "Failed to load emails");
+        setError(responseData.error || "Failed to load emails");
       }
     } catch (err: any) {
       setError(err.message);
@@ -144,13 +158,19 @@ export default function MailboxInbox() {
     setShowCompose(false);
     setLoadingMedia(true);
     try {
+      const apiBase = getApiBaseUrl();
       const token = localStorage.getItem("mailbox_token");
-      const res = await fetch("/api/mailbox/media", {
+      const res = await fetch(`${apiBase}/api/mailbox/media`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {
-        const data = await res.json();
-        setMediaFiles(data.media || []);
+        const text = await res.text();
+        try {
+          const data = JSON.parse(text);
+          setMediaFiles(data.media || []);
+        } catch {
+          // ignore
+        }
       }
     } catch (err) {
       console.error("Error fetching media:", err);
@@ -178,16 +198,25 @@ export default function MailboxInbox() {
     });
 
     try {
+      const apiBase = getApiBaseUrl();
       const token = localStorage.getItem("mailbox_token");
-      const res = await fetch(`/api/mailbox/inbox/${emailRecord.id}`, {
+      const res = await fetch(`${apiBase}/api/mailbox/inbox/${emailRecord.id}`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
 
-      if (res.ok) {
-        const data = await res.json();
+      const text = await res.text();
+      let data: any = null;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        alert("Failed to parse email content");
+        return;
+      }
+
+      if (res.ok && data) {
         setSelectedEmail({ ...emailRecord, details: data });
       } else {
-        alert("Failed to load email details");
+        alert(data?.error || "Failed to load email details");
       }
     } catch (err) {
       alert("Error loading email content");
@@ -198,8 +227,9 @@ export default function MailboxInbox() {
     e.preventDefault();
     setSending(true);
     try {
+      const apiBase = getApiBaseUrl();
       const token = localStorage.getItem("mailbox_token");
-      const res = await fetch("/api/mailbox/send", {
+      const res = await fetch(`${apiBase}/api/mailbox/send`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
