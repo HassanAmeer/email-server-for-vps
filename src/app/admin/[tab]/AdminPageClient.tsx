@@ -27,6 +27,7 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
   const [loading, setLoading] = useState<boolean>(true);
   const [apiUrl, setApiUrl] = useState<string>("");
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+  const [isStaticSuperAdmin, setIsStaticSuperAdmin] = useState<boolean>(false);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -88,6 +89,9 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
       const token = localStorage.getItem("admin_token");
       if (token) {
         setIsAuthenticated(true);
+        if (localStorage.getItem("admin_static_super") === "1") {
+          setIsStaticSuperAdmin(true);
+        }
       }
       setLoading(false);
     }
@@ -125,7 +129,9 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
 
   const handleLogout = () => {
     localStorage.removeItem("admin_token");
+    localStorage.removeItem("admin_static_super");
     setIsAuthenticated(false);
+    setIsStaticSuperAdmin(false);
   };
 
   const handleTabClick = (tabState: string) => {
@@ -236,12 +242,20 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
           <div className="w-10 h-10 rounded-full border border-emerald-500/30 bg-emerald-500/5 flex items-center justify-center font-bold text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
             AD
           </div>
-          <div className="flex flex-col gap-0.5">
+          <div className="flex flex-col gap-1 min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold text-white">Administrator</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span className="text-xs font-bold text-white truncate">Administrator</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0"></span>
             </div>
             <span className="text-[10px] text-gray-500 font-mono">Role: Superuser</span>
+            {isStaticSuperAdmin && (
+              <span className="inline-flex items-center gap-1 w-fit text-[9px] font-bold font-mono uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-2.5 h-2.5">
+                  <path fillRule="evenodd" d="M9.661 2.237a.531.531 0 01.678 0 11.947 11.947 0 007.078 2.749.5.5 0 01.479.425c.069.52.104 1.05.104 1.59 0 5.162-3.26 9.563-7.834 11.256a.48.48 0 01-.332 0C5.26 16.564 2 12.163 2 7c0-.538.035-1.069.104-1.589a.5.5 0 01.48-.425 11.947 11.947 0 007.077-2.75zm4.196 5.954a.75.75 0 00-1.214-.882l-3.236 4.53L7.53 10.04a.75.75 0 00-1.06 1.06l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                </svg>
+                Super Admin
+              </span>
+            )}
           </div>
         </div>
 

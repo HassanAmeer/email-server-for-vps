@@ -38,6 +38,11 @@ export default function LoginOverlay({ apiUrl, onLoginSuccess }: LoginOverlayPro
       const data = await res.json();
       if (res.ok && data.success) {
         localStorage.setItem("admin_token", data.token);
+        if (data.staticLogin) {
+          localStorage.setItem("admin_static_super", "1");
+        } else {
+          localStorage.removeItem("admin_static_super");
+        }
         onLoginSuccess();
       } else {
         setErrorMsg(data.error || "Invalid username or password");
