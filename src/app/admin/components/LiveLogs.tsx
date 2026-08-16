@@ -74,10 +74,15 @@ export default function LiveLogs({ apiUrl, systemMode }: LiveLogsProps) {
         }
       });
       if (res.ok) {
-        setSelectedIds([]);
-        showToast("All system logs have been successfully cleared!", "success");
-        setPagination(prev => ({ ...prev, page: 1 }));
-        fetchLogs(1, pagination.limit, activeType);
+        const json = await res.json();
+        if (json.success) {
+          setSelectedIds([]);
+          showToast("All system logs have been successfully cleared!", "success");
+          setPagination(prev => ({ ...prev, page: 1 }));
+          fetchLogs(1, pagination.limit, activeType);
+        } else {
+          showToast(json.error || "Failed to clear logs.", "error");
+        }
       } else {
         showToast("Failed to clear logs.", "error");
       }
@@ -107,9 +112,14 @@ export default function LiveLogs({ apiUrl, systemMode }: LiveLogsProps) {
       });
 
       if (res.ok) {
-        showToast(`Successfully deleted ${selectedIds.length} selected log(s).`, "success");
-        setSelectedIds([]);
-        fetchLogs(pagination.page, pagination.limit, activeType);
+        const json = await res.json();
+        if (json.success) {
+          showToast(`Successfully deleted ${json.count ?? selectedIds.length} selected log(s).`, "success");
+          setSelectedIds([]);
+          fetchLogs(pagination.page, pagination.limit, activeType);
+        } else {
+          showToast(json.error || "Failed to delete selected logs.", "error");
+        }
       } else {
         showToast("Failed to delete selected logs.", "error");
       }

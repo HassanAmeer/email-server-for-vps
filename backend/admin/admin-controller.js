@@ -71,6 +71,23 @@ const defaultApiSettings = [
 initApiSettings(defaultApiSettings);
 toggleApiSettingDB("mailbox-client-send", false);
 
+// Safe async request body reader
+async function parseJsonBody(req) {
+  let body = "";
+  await new Promise((resolve) => {
+    req.on("data", chunk => body += chunk.toString());
+    req.on("end", resolve);
+    req.on("error", resolve);
+    if (req.readableEnded) resolve();
+  });
+  if (!body) return {};
+  try {
+    return JSON.parse(body);
+  } catch (e) {
+    return null;
+  }
+}
+
 /**
  * Controller class to handle all admin actions
  */
@@ -85,28 +102,30 @@ export class AdminController {
    * Validates credentials for Admin Dashboard
    * Login with: admin / 1234
    */
-  static login(req, res) {
-    let body = "";
-    req.on("data", chunk => body += chunk.toString());
-    req.on("end", () => {
-      try {
-        const { email, username, password } = JSON.parse(body);
-        const loginName = username || email;
-        const adminPass = process.env.ADMIN_PASSWORD || "1234";
-
-        if ((loginName === "admin" || loginName === "admin@gmail.com") && password === adminPass) {
-          const token = Buffer.from(`admin:${adminPass}`).toString("base64");
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ success: true, token }));
-        } else {
-          res.writeHead(401, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ success: false, error: "Incorrect credentials" }));
-        }
-      } catch (err) {
+  static async login(req, res) {
+    try {
+      const parsed = await parseJsonBody(req);
+      if (parsed === null) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Invalid JSON body" }));
+        return;
       }
-    });
+      const { email, username, password } = parsed;
+      const loginName = username || email;
+      const adminPass = process.env.ADMIN_PASSWORD || "1234";
+
+      if ((loginName === "admin" || loginName === "admin@gmail.com") && password === adminPass) {
+        const token = Buffer.from(`admin:${adminPass}`).toString("base64");
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true, token }));
+      } else {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: false, error: "Incorrect credentials" }));
+      }
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
   }
 
   static getApiSettings(req, res) {
@@ -127,27 +146,29 @@ export class AdminController {
   /**
    * Helper to toggle API route activation
    */
-  static toggleApiSetting(req, res) {
-    let body = "";
-    req.on("data", chunk => body += chunk.toString());
-    req.on("end", () => {
-      try {
-        const { id, enabled } = JSON.parse(body);
-        const success = toggleApiSettingDB(id, enabled);
-        if (success) {
-          const list = getApiSettingsList();
-          const api = list.find(a => a.id === id);
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ success: true, api }));
-        } else {
-          res.writeHead(404, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "API setting not found" }));
-        }
-      } catch (err) {
+  static async toggleApiSetting(req, res) {
+    try {
+      const parsed = await parseJsonBody(req);
+      if (!parsed) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Invalid JSON body" }));
+        return;
       }
-    });
+      const { id, enabled } = parsed;
+      const success = toggleApiSettingDB(id, enabled);
+      if (success) {
+        const list = getApiSettingsList();
+        const api = list.find(a => a.id === id);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true, api }));
+      } else {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "API setting not found" }));
+      }
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
   }
 
   static resetApiSettingsHits(req, res) {
@@ -290,36 +311,38 @@ export class AdminController {
   /**
    * Adds or updates SMTP Relay credentials
    */
-  static addCredential(req, res) {
-    let body = "";
-    req.on("data", chunk => body += chunk.toString());
-    req.on("end", () => {
-      try {
-        const { username, password } = JSON.parse(body);
-        if (!username || !password) {
-          res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Username and password are required" }));
-          return;
-        }
-
-        let creds = { users: [] };
-        if (fs.existsSync(credsPath)) {
-          creds = JSON.parse(fs.readFileSync(credsPath, "utf-8"));
-        }
-
-        // Delete if username exists to prevent duplicates
-        creds.users = creds.users.filter(u => u.username !== username);
-        creds.users.push({ username, password });
-
-        fs.writeFileSync(credsPath, JSON.stringify(creds, null, 2), "utf-8");
-
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: true }));
-      } catch (err) {
-        res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: err.message }));
+  static async addCredential(req, res) {
+    try {
+      const parsed = await parseJsonBody(req);
+      if (!parsed) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid JSON body" }));
+        return;
       }
-    });
+      const { username, password } = parsed;
+      if (!username || !password) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Username and password are required" }));
+        return;
+      }
+
+      let creds = { users: [] };
+      if (fs.existsSync(credsPath)) {
+        creds = JSON.parse(fs.readFileSync(credsPath, "utf-8"));
+      }
+
+      // Delete if username exists to prevent duplicates
+      creds.users = creds.users.filter(u => u.username !== username);
+      creds.users.push({ username, password });
+
+      fs.writeFileSync(credsPath, JSON.stringify(creds, null, 2), "utf-8");
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
   }
 
   /**
@@ -437,164 +460,155 @@ export class AdminController {
   /**
    * Sets a domain as the primary domain
    */
-  static setPrimaryAttachedDomain(req, res, id) {
-    let body = "";
-    req.on("data", chunk => body += chunk.toString());
-    req.on("end", () => {
-      try {
-        let prefix = "my";
-        if (body) {
+  static async setPrimaryAttachedDomain(req, res, id) {
+    try {
+      let prefix = "my";
+      const parsed = await parseJsonBody(req);
+      if (parsed && parsed.prefix) {
+        prefix = parsed.prefix.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
+      }
+
+      const db = require('../database/db.js').default;
+      const exists = db.prepare("SELECT id, domain FROM attached_domains WHERE id = ?").get(id);
+      if (!exists) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Domain not found" }));
+        return;
+      }
+
+      db.transaction(() => {
+        db.prepare("UPDATE attached_domains SET is_primary = 0").run();
+        db.prepare("UPDATE attached_domains SET is_primary = 1, primary_prefix = ? WHERE id = ?").run(prefix || 'my', id);
+
+        const fullEmail = `${(prefix || 'my').trim().toLowerCase()}@${exists.domain.toLowerCase()}`;
+        const existingUser = db.prepare("SELECT id FROM mailbox_users WHERE LOWER(email) = LOWER(?) OR email LIKE ?").get(fullEmail, `%@${exists.domain.toLowerCase()}`);
+        if (existingUser) {
+          db.prepare("UPDATE mailbox_users SET email = ? WHERE id = ?").run(fullEmail, existingUser.id);
+        } else {
+          const defaultPwd = "Admin@" + Math.random().toString(36).slice(-8);
+          let hash = defaultPwd;
           try {
-            const parsed = JSON.parse(body);
-            if (parsed.prefix) {
-              prefix = parsed.prefix.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
+            if (typeof Bun !== "undefined" && Bun.password) {
+              hash = Bun.password.hashSync(defaultPwd, { algorithm: "bcrypt", cost: 10 });
             }
           } catch (e) {}
+          db.prepare("INSERT INTO mailbox_users (email, password_hash, plain_password, project_id) VALUES (?, ?, ?, ?)").run(fullEmail, hash, defaultPwd, 1);
         }
+      })();
 
-        const db = require('../database/db.js').default;
-        const exists = db.prepare("SELECT id, domain FROM attached_domains WHERE id = ?").get(id);
-        if (!exists) {
-          res.writeHead(404, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Domain not found" }));
-          return;
-        }
-
-        db.transaction(() => {
-          db.prepare("UPDATE attached_domains SET is_primary = 0").run();
-          db.prepare("UPDATE attached_domains SET is_primary = 1, primary_prefix = ? WHERE id = ?").run(prefix || 'my', id);
-
-          const fullEmail = `${(prefix || 'my').trim().toLowerCase()}@${exists.domain.toLowerCase()}`;
-          const existingUser = db.prepare("SELECT id FROM mailbox_users WHERE LOWER(email) = LOWER(?) OR email LIKE ?").get(fullEmail, `%@${exists.domain.toLowerCase()}`);
-          if (existingUser) {
-            db.prepare("UPDATE mailbox_users SET email = ? WHERE id = ?").run(fullEmail, existingUser.id);
-          } else {
-            const defaultPwd = "Admin@" + Math.random().toString(36).slice(-8);
-            let hash = defaultPwd;
-            try {
-              if (typeof Bun !== "undefined" && Bun.password) {
-                hash = Bun.password.hashSync(defaultPwd, { algorithm: "bcrypt", cost: 10 });
-              }
-            } catch (e) {}
-            db.prepare("INSERT INTO mailbox_users (email, password_hash, plain_password, project_id) VALUES (?, ?, ?, ?)").run(fullEmail, hash, defaultPwd, 1);
-          }
-        })();
-
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: true, primary_id: id, domain: exists.domain, primary_prefix: prefix || 'my' }));
-      } catch (error) {
-        res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: error.message }));
-      }
-    });
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true, primary_id: id, domain: exists.domain, primary_prefix: prefix || 'my' }));
+    } catch (error) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+    }
   }
 
   /**
    * Adds a new attached domain
    */
-  static addAttachedDomain(req, res) {
-    let body = "";
-    req.on("data", chunk => body += chunk.toString());
-    req.on("end", () => {
-      try {
-        const { domain, status = 'pending', plan = 'free', catch_all = 1, is_primary = 0 } = JSON.parse(body);
-        if (!domain) {
-          res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Domain name is required" }));
-          return;
-        }
-
-        const db = require('../database/db.js').default;
-
-        // If this is marked as primary, reset others
-        if (is_primary === 1 || is_primary === true) {
-          db.prepare("UPDATE attached_domains SET is_primary = 0").run();
-        }
-
-        const stmt = db.prepare("INSERT INTO attached_domains (domain, status, plan, catch_all, is_primary) VALUES (?, ?, ?, ?, ?)");
-        stmt.run(
-          domain.toLowerCase().trim(),
-          status,
-          plan,
-          catch_all === 0 || catch_all === false ? 0 : 1,
-          is_primary === 1 || is_primary === true ? 1 : 0
-        );
-        
-        res.writeHead(201, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: true }));
-      } catch (err) {
-        if (err.message && err.message.includes("UNIQUE constraint failed")) {
-          res.writeHead(409, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Domain is already attached" }));
-        } else {
-          res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: err.message }));
-        }
+  static async addAttachedDomain(req, res) {
+    try {
+      const parsed = await parseJsonBody(req);
+      if (!parsed) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid JSON body" }));
+        return;
       }
-    });
+
+      const { domain, status = 'pending', plan = 'free', catch_all = 1, is_primary = 0 } = parsed;
+      if (!domain) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Domain name is required" }));
+        return;
+      }
+
+      const db = require('../database/db.js').default;
+
+      // If this is marked as primary, reset others
+      if (is_primary === 1 || is_primary === true) {
+        db.prepare("UPDATE attached_domains SET is_primary = 0").run();
+      }
+
+      const stmt = db.prepare("INSERT INTO attached_domains (domain, status, plan, catch_all, is_primary) VALUES (?, ?, ?, ?, ?)");
+      stmt.run(
+        domain.toLowerCase().trim(),
+        status,
+        plan,
+        catch_all === 0 || catch_all === false ? 0 : 1,
+        is_primary === 1 || is_primary === true ? 1 : 0
+      );
+      
+      res.writeHead(201, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true }));
+    } catch (err) {
+      if (err.message && err.message.includes("UNIQUE constraint failed")) {
+        res.writeHead(409, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Domain is already attached" }));
+      } else {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    }
   }
 
   /**
    * Updates an attached domain's status, plan, catch_all, or is_primary setting
    */
-  static updateAttachedDomain(req, res, id) {
-    let body = "";
-    req.on("data", chunk => body += chunk.toString());
-    req.on("end", () => {
-      try {
-        const payload = JSON.parse(body);
-        if (payload.status === undefined && payload.catch_all === undefined && payload.plan === undefined && payload.is_primary === undefined) {
-          res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "No fields to update" }));
-          return;
-        }
-
-        const db = require('../database/db.js').default;
-        
-        let updates = [];
-        let values = [];
-        
-        if (payload.status !== undefined) {
-          updates.push("status = ?");
-          values.push(payload.status);
-        }
-        
-        if (payload.catch_all !== undefined) {
-          updates.push("catch_all = ?");
-          values.push(payload.catch_all === true || payload.catch_all === 1 ? 1 : 0);
-        }
-
-        if (payload.plan !== undefined) {
-          updates.push("plan = ?");
-          values.push(payload.plan);
-        }
-
-        if (payload.is_primary !== undefined) {
-          const isPrim = payload.is_primary === true || payload.is_primary === 1 ? 1 : 0;
-          if (isPrim === 1) {
-            db.prepare("UPDATE attached_domains SET is_primary = 0").run();
-          }
-          updates.push("is_primary = ?");
-          values.push(isPrim);
-        }
-        
-        values.push(id);
-        
-        const stmt = db.prepare(`UPDATE attached_domains SET ${updates.join(", ")} WHERE id = ?`);
-        const info = stmt.run(...values);
-        
-        if (info.changes > 0) {
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ success: true }));
-        } else {
-          res.writeHead(404, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Domain not found" }));
-        }
-      } catch (err) {
-        res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: err.message }));
+  static async updateAttachedDomain(req, res, id) {
+    try {
+      const payload = await parseJsonBody(req);
+      if (!payload || (payload.status === undefined && payload.catch_all === undefined && payload.plan === undefined && payload.is_primary === undefined)) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "No fields to update" }));
+        return;
       }
-    });
+
+      const db = require('../database/db.js').default;
+      
+      let updates = [];
+      let values = [];
+      
+      if (payload.status !== undefined) {
+        updates.push("status = ?");
+        values.push(payload.status);
+      }
+      
+      if (payload.catch_all !== undefined) {
+        updates.push("catch_all = ?");
+        values.push(payload.catch_all === true || payload.catch_all === 1 ? 1 : 0);
+      }
+
+      if (payload.plan !== undefined) {
+        updates.push("plan = ?");
+        values.push(payload.plan);
+      }
+
+      if (payload.is_primary !== undefined) {
+        const isPrim = payload.is_primary === true || payload.is_primary === 1 ? 1 : 0;
+        if (isPrim === 1) {
+          db.prepare("UPDATE attached_domains SET is_primary = 0").run();
+        }
+        updates.push("is_primary = ?");
+        values.push(isPrim);
+      }
+      
+      values.push(id);
+      
+      const stmt = db.prepare(`UPDATE attached_domains SET ${updates.join(", ")} WHERE id = ?`);
+      const info = stmt.run(...values);
+      
+      if (info.changes > 0) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true }));
+      } else {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Domain not found" }));
+      }
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
   }
 
   /**
@@ -730,33 +744,30 @@ export class AdminController {
     }
   }
 
-  static createMailboxUser(req, res, projectId) {
-    let body = "";
-    req.on("data", chunk => body += chunk.toString());
-    req.on("end", () => {
-      try {
-        const { email, password } = JSON.parse(body);
-        if (!email || !password) {
-          res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Email and password are required" }));
-          return;
-        }
-
-        const { createMailboxUser } = require('../database/db.js');
-        const result = createMailboxUser(email, password, projectId);
-        
-        if (result.success) {
-          res.writeHead(201, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ success: true }));
-        } else {
-          res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: result.error }));
-        }
-      } catch (err) {
-        res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: err.message }));
+  static async createMailboxUser(req, res, projectId) {
+    try {
+      const parsed = await parseJsonBody(req);
+      if (!parsed || !parsed.email || !parsed.password) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Email and password are required" }));
+        return;
       }
-    });
+      const { email, password } = parsed;
+
+      const { createMailboxUser } = require('../database/db.js');
+      const result = createMailboxUser(email, password, projectId);
+      
+      if (result.success) {
+        res.writeHead(201, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true }));
+      } else {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: result.error }));
+      }
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
   }
 
   static deleteMailboxUser(req, res, projectId, userId) {

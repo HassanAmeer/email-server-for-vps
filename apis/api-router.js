@@ -541,35 +541,41 @@ export class ApiRouter {
       
       if (req.method === "DELETE" || (req.method === "POST" && logType === "delete-selected")) {
         let body = "";
-        req.on("data", chunk => body += chunk.toString());
-        req.on("end", () => {
-          try {
-            let parsedBody = null;
-            if (body) {
-              try { parsedBody = JSON.parse(body); } catch(e) {}
-            }
-
-            if (parsedBody && Array.isArray(parsedBody.ids) && parsedBody.ids.length > 0) {
-              const result = deleteSystemLogsByIds ? deleteSystemLogsByIds(parsedBody.ids) : { count: 0 };
-              res.writeHead(200, { "Content-Type": "application/json" });
-              res.end(JSON.stringify({ success: true, count: result.count }));
-              return;
-            }
-
-            let typeToClear = "ALL";
-            if (logType === "receive") typeToClear = "RECEIVE";
-            else if (logType === "send") typeToClear = "SEND";
-            
-            const result = clearSystemLogs(typeToClear);
-            res.writeHead(200, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ success: true, ...result }));
-          } catch (delErr) {
-            console.error("DB Log Delete Error:", delErr);
-            res.writeHead(500, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ error: delErr.message }));
-          }
+        await new Promise((resolve) => {
+          req.on("data", chunk => body += chunk.toString());
+          req.on("end", resolve);
+          req.on("error", resolve);
+          if (req.readableEnded) resolve();
         });
-        return;
+
+        try {
+          let parsedBody = null;
+          if (body) {
+            try { parsedBody = JSON.parse(body); } catch(e) {}
+          }
+
+          if (parsedBody && Array.isArray(parsedBody.ids) && parsedBody.ids.length > 0) {
+            const result = deleteSystemLogsByIds ? deleteSystemLogsByIds(parsedBody.ids) : { count: 0 };
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ success: true, count: result.count }));
+            return;
+          }
+
+          let typeToClear = "ALL";
+          const norm = (logType || "").toLowerCase();
+          if (norm === "receive") typeToClear = "RECEIVE";
+          else if (norm === "send") typeToClear = "SEND";
+          
+          const result = clearSystemLogs(typeToClear);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ success: true, ...result }));
+          return;
+        } catch (delErr) {
+          console.error("DB Log Delete Error:", delErr);
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: delErr.message }));
+          return;
+        }
       }
 
       if (req.method === "GET") {

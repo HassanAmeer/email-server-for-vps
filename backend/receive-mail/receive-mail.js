@@ -484,9 +484,10 @@ const httpServer = http.createServer((req, res) => {
     return ApiRouter.handleTrafficStatsApi(req, res);
   }
 
-  if (cleanUrl.startsWith("/api/admin/dblogs/")) {
-    const logType = cleanUrl.split("/").pop();
-    return ApiRouter.getDbLogs(req, res, logType);
+  if (cleanUrl.startsWith("/api/admin/dblogs")) {
+    const parts = cleanUrl.replace(/\/+$/, "").split("/");
+    const logType = parts.length > 0 ? parts[parts.length - 1] : "all";
+    return ApiRouter.getDbLogs(req, res, logType || "all");
   }
 
   if (cleanUrl === "/api/admin/api-settings" && req.method === "GET") {

@@ -35,6 +35,7 @@ export default function LocalConsolePage() {
   const [customPrefix, setCustomPrefix] = useState("");
   const [generatedEmail, setGeneratedEmail] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [copiedGen, setCopiedGen] = useState(false);
 
   // Log States
@@ -192,9 +193,20 @@ export default function LocalConsolePage() {
         let mailsData: Email[] = Array.isArray(rawData) ? rawData : [];
 
         // Filter by generated email if set, otherwise show none
-        const currentGen = generatedEmailRef.current;
+        const currentGen = (generatedEmailRef.current || "").trim().toLowerCase();
         if (currentGen) {
-          mailsData = mailsData.filter(m => m && typeof m.to === "string" && m.to.toLowerCase() === currentGen.toLowerCase());
+          mailsData = mailsData.filter(m => {
+            if (!m) return false;
+            let toStr = "";
+            if (typeof m.to === "string") toStr = m.to;
+            else if (typeof (m.to as any)?.text === "string") toStr = (m.to as any).text;
+            else if (Array.isArray((m.to as any)?.value)) {
+              toStr = (m.to as any).value.map((v: any) => v?.address || "").join(" ");
+            } else {
+              toStr = JSON.stringify(m.to || "");
+            }
+            return toStr.toLowerCase().includes(currentGen);
+          });
         } else {
           mailsData = [];
         }
@@ -240,6 +252,12 @@ export default function LocalConsolePage() {
     } catch (err) {
       console.error("Error polling local data:", err);
     }
+  };
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchData();
+    setTimeout(() => setIsRefreshing(false), 600);
   };
 
   useEffect(() => {
@@ -603,11 +621,19 @@ export default function LocalConsolePage() {
                       </button>
                     )}
                     <button
-                      onClick={fetchData}
-                      className="bg-transparent border-none cursor-pointer transition-transform hover:rotate-45"
-                      title="Refresh Now"
+                      onClick={handleManualRefresh}
+                      disabled={isRefreshing}
+                      className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/[0.06] cursor-pointer transition-all disabled:opacity-50 flex items-center justify-center"
+                      title="Refresh Local Messages"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5 text-gray-400 hover:text-white">
+                      <svg 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        fill="none" 
+                        viewBox="0 0 24 24" 
+                        strokeWidth="2" 
+                        stroke="currentColor" 
+                        className={`w-4 h-4 text-sky-400 ${isRefreshing ? "animate-spin" : "transition-transform hover:rotate-45"}`}
+                      >
                         <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
                       </svg>
                     </button>
