@@ -2062,49 +2062,52 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
                   </div>
                 </div>
 
-                {/* Pure Note Text (Completely transparent, No background) */}
-                <p className="text-center text-[10.5px] text-gray-400 flex items-center justify-center gap-1.5 pt-2 select-none">
+              </div>
+
+              {/* iOS Bottom Fixed Section (Transparent, No Background Box) */}
+              <div className="px-3.5 pt-2 pb-3 bg-transparent border-t border-white/[0.08] flex flex-col gap-2 shrink-0">
+                {/* Centered Note Text (No background) */}
+                <p className="text-center text-[10.5px] text-gray-400 flex items-center justify-center gap-1.5 select-none">
                   <span className="text-xs">💡</span>
                   <span>Transfer All Emails From Multi Domains to Single Primary Domain/Email</span>
                 </p>
 
-              </div>
+                {/* Bottom Controls Row */}
+                <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/[0.04]">
+                  {/* Left: Counter & Status */}
+                  <div className="text-[11px] font-medium text-gray-400 flex items-center gap-1.5 min-w-0">
+                    <span className="w-2 h-2 rounded-full bg-[#30D158] shrink-0"></span>
+                    <span className="truncate">
+                      <strong className="text-white font-semibold">
+                        {domains.filter(d => d.route_to_primary === 1 || d.route_to_primary === true || d.is_primary === 1 || d.is_primary === true || d.domain === primaryDomain?.domain).length}
+                      </strong> of {domains.length} linked
+                    </span>
+                  </div>
 
-              {/* iOS Bottom Action Bar with Stats, Bulk Actions & Done Button */}
-              <div className="px-3.5 py-2 bg-[#1C1C1E]/90 backdrop-blur-md border-t border-white/[0.08] flex items-center justify-between gap-2 shrink-0">
-                {/* Left: Counter & Status */}
-                <div className="text-[11px] font-medium text-gray-400 flex items-center gap-1.5 min-w-0">
-                  <span className="w-2 h-2 rounded-full bg-[#30D158] shrink-0"></span>
-                  <span className="truncate">
-                    <strong className="text-white font-semibold">
-                      {domains.filter(d => d.route_to_primary === 1 || d.route_to_primary === true || d.is_primary === 1 || d.is_primary === true || d.domain === primaryDomain?.domain).length}
-                    </strong> of {domains.length} linked
-                  </span>
-                </div>
-
-                {/* Right: Quick Bulk Actions + Done Button */}
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => handleBulkToggleRouting(true)}
-                    className="px-2.5 py-1 rounded-lg bg-[#30D158]/15 hover:bg-[#30D158]/25 text-[#30D158] border border-[#30D158]/30 text-[11px] font-semibold transition-all cursor-pointer active:scale-95"
-                  >
-                    Link All
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleBulkToggleRouting(false)}
-                    className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 text-[11px] font-semibold transition-all cursor-pointer active:scale-95"
-                  >
-                    Unlink All
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsRoutingSheetOpen(false)}
-                    className="px-3.5 py-1 bg-[#0A84FF] hover:bg-[#0071E3] text-white text-xs font-semibold rounded-lg transition-all cursor-pointer shadow-sm active:scale-95 ml-1"
-                  >
-                    Done
-                  </button>
+                  {/* Right: Quick Bulk Actions + Done Button */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleBulkToggleRouting(true)}
+                      className="px-2.5 py-1 rounded-lg bg-[#30D158]/15 hover:bg-[#30D158]/25 text-[#30D158] border border-[#30D158]/30 text-[11px] font-semibold transition-all cursor-pointer active:scale-95"
+                    >
+                      Link All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleBulkToggleRouting(false)}
+                      className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 text-[11px] font-semibold transition-all cursor-pointer active:scale-95"
+                    >
+                      Unlink All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsRoutingSheetOpen(false)}
+                      className="px-3.5 py-1 bg-[#0A84FF] hover:bg-[#0071E3] text-white text-xs font-semibold rounded-lg transition-all cursor-pointer shadow-sm active:scale-95 ml-1"
+                    >
+                      Done
+                    </button>
+                  </div>
                 </div>
               </div>
 
