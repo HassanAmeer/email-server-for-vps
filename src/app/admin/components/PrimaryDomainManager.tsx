@@ -1993,7 +1993,7 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
                         .filter(d => d.domain.toLowerCase().includes(routingSearchQuery.toLowerCase()))
                         .map((domain) => {
                           const isPrimary = domain.domain === primaryDomain?.domain || domain.is_primary === 1 || domain.is_primary === true;
-                          const isLinked = domain.route_to_primary === 1 || domain.route_to_primary === true || domain.route_to_primary === undefined || isPrimary;
+                          const isLinked = isPrimary ? true : (domain.route_to_primary === 1 || domain.route_to_primary === true);
 
                           return (
                             <div
@@ -2003,22 +2003,22 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
                                 isPrimary ? "bg-amber-500/[0.04]" : "hover:bg-white/[0.03] cursor-pointer"
                               }`}
                             >
-                              {/* Left: iOS Checkmark Circle + Domain info */}
+                              {/* Left: Checkmark Box + Domain info */}
                               <div className="flex items-center gap-2.5 min-w-0">
                                 <div
-                                  className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 border transition-all ${
+                                  className={`w-4 h-4 rounded-[4px] flex items-center justify-center shrink-0 border transition-all ${
                                     isPrimary
-                                      ? "bg-amber-500 border-amber-500 text-black"
+                                      ? "bg-amber-500 border-amber-500 text-slate-950 shadow-sm"
                                       : isLinked
                                       ? "bg-[#0A84FF] border-[#0A84FF] text-white shadow-sm"
-                                      : "border-gray-600 bg-transparent"
+                                      : "border-zinc-600 bg-transparent text-transparent hover:border-zinc-400"
                                   }`}
                                 >
-                                  {(isLinked || isPrimary) && (
+                                  {(isLinked || isPrimary) ? (
                                     <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
                                     </svg>
-                                  )}
+                                  ) : null}
                                 </div>
 
                                 <div className="flex flex-col min-w-0">
@@ -2079,7 +2079,7 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
                     <span className="w-2 h-2 rounded-full bg-[#30D158] shrink-0"></span>
                     <span className="truncate">
                       <strong className="text-white font-semibold">
-                        {domains.filter(d => d.route_to_primary === 1 || d.route_to_primary === true || d.route_to_primary === undefined || d.is_primary === 1 || d.is_primary === true).length}
+                        {domains.filter(d => d.route_to_primary === 1 || d.route_to_primary === true || d.is_primary === 1 || d.is_primary === true || d.domain === primaryDomain?.domain).length}
                       </strong> of {domains.length} linked
                     </span>
                   </div>
