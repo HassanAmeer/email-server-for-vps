@@ -211,7 +211,7 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
       id: "mailboxes",
       name: "Permanent Mailbox Users",
       icon: "📬",
-      desc: "Permanent registered IMAP / Dovecot user accounts stored in SQLite mailbox_users.",
+      desc: "Permanent registered IMAP user accounts stored in SQLite mailbox_users.",
       countKey: `${status.mailboxUsersCount} mailbox users`,
       badge: status.mailboxUsersCount > 0 ? "Active" : "Empty",
       color: "indigo",
@@ -753,7 +753,7 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
             </div>
 
             <p className="text-xs text-gray-400 leading-relaxed">
-              Permanent mailbox accounts used for IMAP / Dovecot mail storage and third-party email client integrations.
+              Permanent mailbox accounts used for IMAP mail storage and third-party email client integrations.
             </p>
 
             <div className="bg-slate-900/60 p-3 rounded-xl border border-white/[0.04] space-y-1 text-xs text-gray-400 font-mono">
@@ -763,7 +763,7 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
               </div>
               <div className="flex justify-between">
                 <span>Auth Protocol:</span>
-                <span className="text-gray-300">Dovecot SQL / Passwd</span>
+                <span className="text-gray-300">Mailbox SQL / Passwd</span>
               </div>
             </div>
           </div>
