@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 
 interface DataSeedingManagerProps {
   apiUrl: string;
+  apiPrefix?: string;
+  tokenKey?: string;
 }
 
 interface SeedStatus {
@@ -37,7 +39,12 @@ interface DataCategory {
   color: string;
 }
 
-export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) {
+export default function DataSeedingManager({ apiUrl, apiPrefix = "/api/admin", tokenKey = "admin_token" }: DataSeedingManagerProps) {
+  // Target Scope Switcher (Client Admin vs DevPanel)
+  const [targetScope, setTargetScope] = useState<"admin" | "devpanel" | "devadmin">(
+    apiPrefix.includes("dev") ? "devpanel" : "admin"
+  );
+
   const [status, setStatus] = useState<SeedStatus>({
     totalEmails: 0,
     localEmailsCount: 0,
@@ -105,11 +112,12 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
     ]);
   };
 
-  const fetchStatus = async () => {
+  const fetchStatus = async (overrideScope?: "admin" | "devadmin") => {
     if (!apiUrl) return;
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") || "" : "";
-      const res = await fetch(`${apiUrl}/api/admin/seed/status`, {
+      const scopeToUse = overrideScope || targetScope;
+      const token = typeof window !== "undefined" ? localStorage.getItem(tokenKey) || "" : "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/seed/status?scope=${scopeToUse}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -123,28 +131,34 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
     }
   };
 
+  const handleScopeChange = (newScope: "admin" | "devpanel" | "devadmin") => {
+    setTargetScope(newScope);
+    fetchStatus(newScope as any);
+    addLog(`Switched seeding target environment to: ${newScope === "devpanel" || newScope === "devadmin" ? "DevPanel (devpanel)" : "Client Admin (admin)"}`, "info");
+  };
+
   useEffect(() => {
     fetchStatus();
-  }, [apiUrl]);
+  }, [apiUrl, targetScope]);
 
   const runSeedAction = async (action: string, payload: Record<string, any> = {}) => {
     if (!apiUrl) return;
     setActionLoading(action);
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") || "" : "";
-      const res = await fetch(`${apiUrl}/api/admin/seed`, {
+      const token = typeof window !== "undefined" ? localStorage.getItem(tokenKey) || "" : "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/seed`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ action, ...payload }),
+        body: JSON.stringify({ action, scope: targetScope, ...payload }),
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
         showToast(data.message || "Operation completed successfully!", "success");
-        addLog(data.message || `Action ${action} succeeded`, "success");
+        addLog(data.message || `Action ${action} succeeded for ${targetScope}`, "success");
         fetchStatus();
       } else {
         const errMsg = data.error || "Failed to execute seed operation";
@@ -282,6 +296,46 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
         </div>
       )}
 
+      {/* Top Scope Selector Tabs Bar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-2 bg-[#090C16] border border-white/[0.08] rounded-2xl shadow-xl">
+        <div className="flex items-center gap-2 p-1 bg-black/40 rounded-xl border border-white/[0.04] w-full sm:w-auto">
+          <button
+            onClick={() => handleScopeChange("admin")}
+            className={`flex items-center gap-2.5 px-5 py-2.5 rounded-lg text-xs font-bold font-mono uppercase tracking-wider transition-all duration-200 cursor-pointer flex-1 sm:flex-initial ${
+              targetScope === "admin"
+                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+                : "text-gray-400 hover:text-white hover:bg-white/[0.03] border border-transparent"
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${targetScope === "admin" ? "bg-emerald-400 animate-pulse" : "bg-gray-600"}`}></span>
+            <span>🏢 Client Admin 1 (admin)</span>
+          </button>
+
+          <button
+            onClick={() => handleScopeChange("devpanel")}
+            className={`flex items-center gap-2.5 px-5 py-2.5 rounded-lg text-xs font-bold font-mono uppercase tracking-wider transition-all duration-200 cursor-pointer flex-1 sm:flex-initial ${
+              targetScope === "devpanel" || targetScope === "devadmin"
+                ? "bg-violet-500/20 text-violet-300 border border-violet-500/40 shadow-[0_0_15px_rgba(139,92,246,0.15)]"
+                : "text-gray-400 hover:text-white hover:bg-white/[0.03] border border-transparent"
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${targetScope === "devpanel" || targetScope === "devadmin" ? "bg-violet-400 animate-pulse" : "bg-gray-600"}`}></span>
+            <span>⚡ DevPanel (devpanel)</span>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-400">
+          <span className="text-[10px] uppercase font-mono tracking-widest text-gray-500 font-bold">Active Seeding Target:</span>
+          <span className={`font-mono font-bold text-xs px-2.5 py-0.5 rounded-full border ${
+            targetScope === "devpanel" || targetScope === "devadmin"
+              ? "bg-violet-500/10 text-violet-300 border-violet-500/30"
+              : "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
+          }`}>
+            {targetScope === "devpanel" || targetScope === "devadmin" ? "DevPanel (scope='devpanel')" : "Client Admin 1 (scope='admin')"}
+          </span>
+        </div>
+      </div>
+
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900/80 via-[#0B0F19]/90 to-slate-900/80 p-6 md:p-8 rounded-3xl border border-white/[0.06] backdrop-blur-xl relative overflow-hidden shadow-2xl">
         <div className="absolute -top-24 -right-24 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -289,26 +343,34 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
 
         <div className="space-y-2 relative z-10">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-inner">
+            <div className={`p-2 rounded-xl border shadow-inner ${
+              targetScope === "devadmin"
+                ? "bg-violet-500/10 border-violet-500/20 text-violet-400"
+                : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+            }`}>
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 5.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125m16.5 5.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
               </svg>
             </div>
-            <span className="text-xs font-mono font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-              Developer Toolkit
+            <span className={`text-xs font-mono font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border ${
+              targetScope === "devpanel" || targetScope === "devadmin"
+                ? "text-violet-400 bg-violet-500/10 border-violet-500/20"
+                : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+            }`}>
+              {targetScope === "devpanel" || targetScope === "devadmin" ? "DevPanel Environment" : "Client Admin 1 Environment"}
             </span>
           </div>
           <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white">
             Data Seeding & Data Cleaner
           </h1>
           <p className="text-xs md:text-sm text-gray-400 max-w-2xl leading-relaxed">
-            Seed realistic demo data (emails, logs, projects, traffic stats) or selectively choose which data categories to delete (emails, domains, logs, primary domains, mailbox accounts).
+            Seed realistic demo data or selectively delete data for <span className="font-bold text-white">{targetScope === "devpanel" || targetScope === "devadmin" ? "DevPanel" : "Client Admin"}</span> ({targetScope === "devpanel" || targetScope === "devadmin" ? "scope='devpanel'" : "scope='admin'"}).
           </p>
         </div>
 
         <div className="flex items-center gap-3 relative z-10 shrink-0">
           <button
-            onClick={fetchStatus}
+            onClick={() => fetchStatus()}
             disabled={loading}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-slate-800/80 hover:bg-slate-700/80 border border-white/[0.08] text-gray-300 hover:text-white transition-all cursor-pointer shadow-lg"
           >
@@ -395,38 +457,48 @@ export default function DataSeedingManager({ apiUrl }: DataSeedingManagerProps) 
       </div>
 
       {/* Quick Master Seed (One-Click Banner) */}
-      <div className="bg-gradient-to-r from-emerald-950/40 via-slate-900/60 to-cyan-950/40 border border-emerald-500/30 p-6 md:p-8 rounded-3xl backdrop-blur-xl relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-2xl">
+      <div className={`border p-6 md:p-8 rounded-3xl backdrop-blur-xl relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-2xl transition-all ${
+        targetScope === "devadmin"
+          ? "bg-gradient-to-r from-violet-950/40 via-slate-900/60 to-purple-950/40 border-violet-500/30"
+          : "bg-gradient-to-r from-emerald-950/40 via-slate-900/60 to-cyan-950/40 border-emerald-500/30"
+      }`}>
         <div className="space-y-1.5 max-w-2xl relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold font-mono tracking-wider uppercase border border-emerald-500/30">
-            <span>⚡ Instant Demo Generator</span>
+          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold font-mono tracking-wider uppercase border ${
+            targetScope === "devpanel" || targetScope === "devadmin"
+              ? "bg-violet-500/20 text-violet-300 border-violet-500/30"
+              : "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+          }`}>
+            <span>⚡ Instant Demo Generator ({targetScope === "devpanel" || targetScope === "devadmin" ? "DevPanel" : "Client Admin"})</span>
           </div>
           <h2 className="text-xl md:text-2xl font-extrabold text-white">
-            Seed Complete Demo Environment
+            Seed Complete {targetScope === "devpanel" || targetScope === "devadmin" ? "DevPanel" : "Client Admin"} Environment
           </h2>
           <p className="text-xs md:text-sm text-gray-300 leading-relaxed">
-            One-click population: seeds <strong className="text-emerald-400">10 rich inbox emails</strong>, <strong className="text-emerald-400">100 system audit logs</strong>, primary domain (<code className="text-amber-300">micorna.biz</code>), secondary domain (<code className="text-amber-300">visakara.org</code>), <strong className="text-emerald-400">3 demo projects</strong> with API keys, and <strong className="text-emerald-400">7-day traffic analytics</strong> for the charts.
+            One-click population: seeds <strong className={targetScope === "devpanel" || targetScope === "devadmin" ? "text-violet-400" : "text-emerald-400"}>10 rich inbox emails</strong>, <strong className={targetScope === "devpanel" || targetScope === "devadmin" ? "text-violet-400" : "text-emerald-400"}>100 system audit logs</strong>, primary domain (<code className="text-amber-300">{targetScope === "devpanel" || targetScope === "devadmin" ? "devmail.biz" : "micorna.biz"}</code>), secondary domain (<code className="text-amber-300">{targetScope === "devpanel" || targetScope === "devadmin" ? "devbox.org" : "visakara.org"}</code>), <strong className={targetScope === "devpanel" || targetScope === "devadmin" ? "text-violet-400" : "text-emerald-400"}>3 demo projects</strong> with API keys, and <strong className={targetScope === "devpanel" || targetScope === "devadmin" ? "text-violet-400" : "text-emerald-400"}>7-day traffic analytics</strong>.
           </p>
         </div>
 
         <button
           onClick={() => runSeedAction("all")}
           disabled={actionLoading !== null}
-          className="w-full md:w-auto shrink-0 px-8 py-4 rounded-2xl font-extrabold text-sm text-emerald-400 hover:text-white bg-transparent hover:bg-emerald-500/15 active:scale-95 transition-all border border-emerald-500/60 hover:border-emerald-400 flex items-center justify-center gap-3 cursor-pointer relative z-10 disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`w-full md:w-auto shrink-0 px-8 py-4 rounded-2xl font-extrabold text-sm bg-transparent active:scale-95 transition-all border flex items-center justify-center gap-3 cursor-pointer relative z-10 disabled:opacity-50 disabled:cursor-not-allowed ${
+            targetScope === "devpanel" || targetScope === "devadmin"
+              ? "text-violet-400 hover:text-white hover:bg-violet-500/15 border-violet-500/60 hover:border-violet-400"
+              : "text-emerald-400 hover:text-white hover:bg-emerald-500/15 border-emerald-500/60 hover:border-emerald-400"
+          }`}
         >
           {actionLoading === "all" ? (
             <>
-              <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24" fill="none">
+              <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
               </svg>
-              <span>Seeding All Data...</span>
+              <span>Seeding Suite...</span>
             </>
           ) : (
             <>
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
-              </svg>
-              <span>Seed All Demo Data</span>
+              <span>✨</span>
+              <span>Seed {targetScope === "devpanel" || targetScope === "devadmin" ? "DevPanel" : "Client Admin"} Suite</span>
             </>
           )}
         </button>

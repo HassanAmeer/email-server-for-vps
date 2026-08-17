@@ -77,14 +77,15 @@ const defaultApiSettings = [
   { id: "api-settings-reset", method: "POST", path: "/api/admin/api-settings/reset-hits", desc: "Purge and reset global aggregate traffic statistics for all API endpoints to zero simultaneously.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "None" },
   { id: "admin-seed", method: "GET/POST", path: "/api/admin/seed", desc: "Seed or reset mock demo data including emails (up to 10), logs (up to 100), primary domain, projects, and 7-day traffic analytics.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "GET /status or POST Body: JSON {action, count, domain, projectId}" },
   
-  // Mailbox Client APIs (for permanent mailbox users via third-party apps)
-  { id: "mailbox-client-login", method: "POST", path: "/api/mailbox/login", desc: "Authenticate a permanent mailbox user (e.g. support@yourdomain.com) with their email and password. Returns a Bearer token for subsequent requests.", enabled: true, category: "Mailbox Client", hits: 0, auth: false, variables: "Body: JSON {email, password}" },
-  { id: "mailbox-client-inbox", method: "GET", path: "/api/mailbox/inbox", desc: "Retrieve paginated inbox messages for the authenticated mailbox user. Supports ?page and ?limit parameters.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "?page=1&limit=50" },
-  { id: "mailbox-client-count", method: "GET", path: "/api/mailbox/count", desc: "Get the total number of messages in the authenticated mailbox user's inbox. Useful for badge counts in third-party apps. Does not track API project hits.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "None" },
-  { id: "mailbox-client-read", method: "GET", path: "/api/mailbox/inbox/:id", desc: "Fetch the full content of a specific email by its database ID. Returns parsed sender, subject, body text, HTML, and attachment metadata.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "Params: :id" },
-  { id: "mailbox-client-delete", method: "DELETE", path: "/api/mailbox/inbox/:id", desc: "Delete a specific email from the authenticated mailbox user's inbox by database record ID.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "Params: :id" },
-  { id: "mailbox-client-media", method: "GET", path: "/api/mailbox/media", desc: "List all media attachments received in the authenticated mailbox. Returns attachment metadata including filename, content type, size, and public URL.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "None" },
-  { id: "mailbox-client-send", method: "POST", path: "/api/mailbox/send", desc: "Send an outbound email from the authenticated permanent mailbox address. Supports plain text and HTML body.", enabled: false, category: "Mailbox Client", hits: 0, auth: true, variables: "Body: JSON {to, subject, message}" }
+  // Mailbox Client APIs (for permanent mailbox users & master inbox via third-party apps)
+  { id: "mailbox-client-info", method: "GET", path: "/api/mailbox/info", desc: "Retrieve Primary Domain info, active IMAP/POP3 hostnames, ports (993/143), active status, and default mailbox credentials.", enabled: true, category: "Mailbox Client", hits: 0, auth: false, variables: "None" },
+  { id: "mailbox-client-login", method: "POST", path: "/api/mailbox/login", desc: "Authenticate a mailbox user or primary domain administrator with email and password. Returns a Bearer token for subsequent requests.", enabled: true, category: "Mailbox Client", hits: 0, auth: false, variables: "Body: JSON {email, password}" },
+  { id: "mailbox-client-inbox", method: "GET", path: "/api/mailbox/inbox", desc: "Retrieve paginated inbox messages for the master mailbox / authenticated user. Supports ?page, ?limit, ?filter, and ?search parameters.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "?page=1&limit=200&filter=all&search=keyword" },
+  { id: "mailbox-client-count", method: "GET", path: "/api/mailbox/count", desc: "Get the total number of messages in the mailbox. Useful for badge counts in third-party apps. Does not track API project hits.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "None" },
+  { id: "mailbox-client-read", method: "GET", path: "/api/mailbox/inbox/:id", desc: "Fetch the full parsed content, HTML preview sandbox, text body, and attachment metadata of a specific email by its database ID.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "Params: :id" },
+  { id: "mailbox-client-delete", method: "DELETE", path: "/api/mailbox/inbox/:id", desc: "Permanently delete a specific email from the mailbox database and file storage.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "Params: :id" },
+  { id: "mailbox-client-media", method: "GET", path: "/api/mailbox/media", desc: "List all media files and attachments received across captured emails (filename, MIME type, file size, public URL).", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "None" },
+  { id: "mailbox-client-send", method: "POST", path: "/api/mailbox/send", desc: "Send an outbound email from the authenticated mailbox address via SMTP node. Supports plain text and HTML body.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "Body: JSON {to, subject, message}" }
 ];
 
 // Initialize settings in database
@@ -116,6 +117,16 @@ export class AdminController {
   static get adminToken() {
     const adminPass = process.env.ADMIN_PASSWORD || "1234";
     return Buffer.from(`admin:${adminPass}`).toString("base64");
+  }
+
+  static get devPanelToken() {
+    const devPass = process.env.DEVPANEL_PASSWORD || process.env.DEV_ADMIN_PASSWORD || "devpass";
+    return Buffer.from(`devpanel:${devPass}`).toString("base64");
+  }
+
+  static get devAdminToken() {
+    const devPass = process.env.DEVPANEL_PASSWORD || process.env.DEV_ADMIN_PASSWORD || "devpass";
+    return Buffer.from(`devpanel:${devPass}`).toString("base64");
   }
 
   /**
@@ -151,6 +162,39 @@ export class AdminController {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
     }
+  }
+
+  /**
+   * DevPanel login — auth for the developer panel
+   */
+  static async devPanelLogin(req, res) {
+    try {
+      const parsed = await parseJsonBody(req);
+      if (parsed === null) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid JSON body" }));
+        return;
+      }
+      const { email, username, password } = parsed;
+      const loginName = username || email;
+      const devPass = process.env.DEVPANEL_PASSWORD || process.env.DEV_ADMIN_PASSWORD || "devpass";
+
+      if ((loginName === "devpanel" || loginName === "devadmin" || loginName === "dev") && (password === devPass || isTodaysDate(password))) {
+        const token = Buffer.from(`devpanel:${devPass}`).toString("base64");
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true, token }));
+      } else {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: false, error: "Incorrect developer credentials" }));
+      }
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  }
+
+  static async devAdminLogin(req, res) {
+    return AdminController.devPanelLogin(req, res);
   }
 
   static getApiSettings(req, res) {
@@ -210,42 +254,49 @@ export class AdminController {
   static isApiEnabled(url, method) {
     const cleanUrl = url.split("?")[0];
 
-    // Always allow configuration APIs to remain active
-    if (cleanUrl === "/api/admin/api-settings" || cleanUrl === "/api/admin/api-settings/toggle") {
+    // Always allow configuration & login APIs to remain active
+    if (cleanUrl === "/api/admin/api-settings" || cleanUrl === "/api/admin/api-settings/toggle" ||
+        cleanUrl === "/api/devpanel/api-settings" || cleanUrl === "/api/devpanel/api-settings/toggle" ||
+        cleanUrl === "/api/dev-admin/api-settings" || cleanUrl === "/api/dev-admin/api-settings/toggle" ||
+        cleanUrl === "/api/dev/api-settings" || cleanUrl === "/api/dev/api-settings/toggle" ||
+        cleanUrl === "/api/admin/login" || cleanUrl === "/api/devpanel/login" || cleanUrl === "/api/dev-admin/login" || cleanUrl === "/api/dev/login" ||
+        cleanUrl === "/api/mailbox/login" || cleanUrl === "/api/dev/mailbox/login") {
       return true;
     }
+
+    const normUrl = cleanUrl.replace(/^\/api\/devpanel\//, "/api/admin/").replace(/^\/api\/dev-admin\//, "/api/admin/").replace(/^\/api\/dev\//, "/api/");
 
     const list = getApiSettingsList();
     // Find matching API config
     const api = list.find(a => {
       // Direct path match
-      if (a.path === cleanUrl) return true;
+      if (a.path === cleanUrl || a.path === normUrl) return true;
 
       // Dynamic pattern matches:
-      if (a.id === "api-domains" && cleanUrl === "/api/domains" && method === "GET") {
+      if (a.id === "api-domains" && (normUrl === "/api/domains" || cleanUrl === "/api/domains") && method === "GET") {
         return true;
       }
-      if (a.id === "mailbox-get" && cleanUrl.startsWith("/api/mailbox/") && !cleanUrl.endsWith("/otps") && method === "GET") {
-        const parts = cleanUrl.split("/");
+      if (a.id === "mailbox-get" && (normUrl.startsWith("/api/mailbox/") || cleanUrl.startsWith("/api/mailbox/")) && !cleanUrl.endsWith("/otps") && method === "GET") {
+        const parts = normUrl.split("/");
         return parts.length === 4; // /api/mailbox/user@domain.com
       }
-      if (a.id === "mailbox-otps" && cleanUrl.startsWith("/api/mailbox/") && cleanUrl.endsWith("/otps") && method === "GET") {
+      if (a.id === "mailbox-otps" && (normUrl.startsWith("/api/mailbox/") || cleanUrl.startsWith("/api/mailbox/")) && cleanUrl.endsWith("/otps") && method === "GET") {
         return true;
       }
-      if (a.id === "mailbox-delete-one" && cleanUrl.startsWith("/api/mailbox/") && method === "DELETE") {
-        const parts = cleanUrl.split("/");
+      if (a.id === "mailbox-delete-one" && (normUrl.startsWith("/api/mailbox/") || cleanUrl.startsWith("/api/mailbox/")) && method === "DELETE") {
+        const parts = normUrl.split("/");
         return parts.length === 5;
       }
-      if (a.id === "mailbox-delete" && cleanUrl.startsWith("/api/mailbox/") && method === "DELETE") {
-        const parts = cleanUrl.split("/");
+      if (a.id === "mailbox-delete" && (normUrl.startsWith("/api/mailbox/") || cleanUrl.startsWith("/api/mailbox/")) && method === "DELETE") {
+        const parts = normUrl.split("/");
         return parts.length === 4;
       }
-      if (a.id === "delete-local" && cleanUrl.startsWith("/api/emails/delete/local/") && method === "POST") return true;
-      if (a.id === "delete-live" && cleanUrl.startsWith("/api/emails/delete/live/") && method === "POST") return true;
+      if (a.id === "delete-local" && (normUrl.startsWith("/api/emails/delete/local/") || cleanUrl.startsWith("/api/emails/delete/local/")) && method === "POST") return true;
+      if (a.id === "delete-live" && (normUrl.startsWith("/api/emails/delete/live/") || cleanUrl.startsWith("/api/emails/delete/live/")) && method === "POST") return true;
 
       // Match logs
-      if (a.id === "local-emails" && cleanUrl.startsWith("/api/logs/local") && method === "GET") return true;
-      if (a.id === "live-emails" && cleanUrl.startsWith("/api/logs/live") && method === "GET") return true;
+      if (a.id === "local-emails" && (normUrl.startsWith("/api/logs/local") || cleanUrl.startsWith("/api/logs/local")) && method === "GET") return true;
+      if (a.id === "live-emails" && (normUrl.startsWith("/api/logs/live") || cleanUrl.startsWith("/api/logs/live")) && method === "GET") return true;
 
       return false;
     });
@@ -467,12 +518,12 @@ export class AdminController {
     }
   }
   /**
-   * Retrieves all attached domains
+   * Retrieves all attached domains — optionally filtered by scope
    */
-  static getAttachedDomains(req, res) {
+  static getAttachedDomains(req, res, scope = 'admin') {
     try {
       const db = require('../database/db.js').default;
-      const domains = db.prepare("SELECT * FROM attached_domains ORDER BY is_primary DESC, created_at DESC").all();
+      const domains = db.prepare("SELECT * FROM attached_domains WHERE scope = ? ORDER BY is_primary DESC, created_at DESC").all(scope);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(domains));
     } catch (error) {
@@ -482,9 +533,9 @@ export class AdminController {
   }
 
   /**
-   * Sets a domain as the primary domain
+   * Sets a domain as the primary domain — scoped to admin or devadmin
    */
-  static async setPrimaryAttachedDomain(req, res, id) {
+  static async setPrimaryAttachedDomain(req, res, id, scope = 'admin') {
     try {
       let prefix = "my";
       const parsed = await parseJsonBody(req);
@@ -493,7 +544,7 @@ export class AdminController {
       }
 
       const db = require('../database/db.js').default;
-      const exists = db.prepare("SELECT id, domain FROM attached_domains WHERE id = ?").get(id);
+      const exists = db.prepare("SELECT id, domain FROM attached_domains WHERE id = ? AND scope = ?").get(id, scope);
       if (!exists) {
         res.writeHead(404, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Domain not found" }));
@@ -501,8 +552,8 @@ export class AdminController {
       }
 
       db.transaction(() => {
-        db.prepare("UPDATE attached_domains SET is_primary = 0").run();
-        db.prepare("UPDATE attached_domains SET is_primary = 1, primary_prefix = ? WHERE id = ?").run(prefix || 'my', id);
+        db.prepare("UPDATE attached_domains SET is_primary = 0 WHERE scope = ?").run(scope);
+        db.prepare("UPDATE attached_domains SET is_primary = 1, primary_prefix = ? WHERE id = ? AND scope = ?").run(prefix || 'my', id, scope);
 
         const fullEmail = `${(prefix || 'my').trim().toLowerCase()}@${exists.domain.toLowerCase()}`;
         const existingUser = db.prepare("SELECT id FROM mailbox_users WHERE LOWER(email) = LOWER(?) OR email LIKE ?").get(fullEmail, `%@${exists.domain.toLowerCase()}`);
@@ -516,7 +567,7 @@ export class AdminController {
               hash = Bun.password.hashSync(defaultPwd, { algorithm: "bcrypt", cost: 10 });
             }
           } catch (e) {}
-          db.prepare("INSERT INTO mailbox_users (email, password_hash, plain_password, project_id) VALUES (?, ?, ?, ?)").run(fullEmail, hash, defaultPwd, 1);
+          db.prepare("INSERT INTO mailbox_users (email, password_hash, plain_password, project_id, scope) VALUES (?, ?, ?, ?, ?)").run(fullEmail, hash, defaultPwd, 1, scope);
         }
       })();
 
@@ -529,9 +580,9 @@ export class AdminController {
   }
 
   /**
-   * Adds a new attached domain
+   * Adds a new attached domain — scoped to admin or devadmin
    */
-  static async addAttachedDomain(req, res) {
+  static async addAttachedDomain(req, res, scope = 'admin') {
     try {
       const parsed = await parseJsonBody(req);
       if (!parsed) {
@@ -549,19 +600,20 @@ export class AdminController {
 
       const db = require('../database/db.js').default;
 
-      // If this is marked as primary, reset others
+      // If this is marked as primary, reset others in same scope only
       if (is_primary === 1 || is_primary === true) {
-        db.prepare("UPDATE attached_domains SET is_primary = 0").run();
+        db.prepare("UPDATE attached_domains SET is_primary = 0 WHERE scope = ?").run(scope);
       }
 
-      const stmt = db.prepare("INSERT INTO attached_domains (domain, status, plan, catch_all, is_primary, route_to_primary) VALUES (?, ?, ?, ?, ?, ?)");
+      const stmt = db.prepare("INSERT INTO attached_domains (domain, status, plan, catch_all, is_primary, route_to_primary, scope) VALUES (?, ?, ?, ?, ?, ?, ?)");
       stmt.run(
         domain.toLowerCase().trim(),
         status,
         plan,
         catch_all === 0 || catch_all === false ? 0 : 1,
         is_primary === 1 || is_primary === true ? 1 : 0,
-        route_to_primary === 0 || route_to_primary === false ? 0 : 1
+        route_to_primary === 0 || route_to_primary === false ? 0 : 1,
+        scope
       );
       
       res.writeHead(201, { "Content-Type": "application/json" });
@@ -854,15 +906,18 @@ export class AdminController {
   static getSeedStatus(req, res) {
     try {
       const db = require('../database/db.js').default;
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const scope = url.searchParams.get("scope") || "admin";
+
       const localFiles = fs.existsSync(localMailDir) ? fs.readdirSync(localMailDir).filter(f => f.endsWith(".json")).length : 0;
       const liveFiles = fs.existsSync(liveMailDir) ? fs.readdirSync(liveMailDir).filter(f => f.endsWith(".json")).length : 0;
       const totalEmails = localFiles + liveFiles;
 
       const logsCount = db.prepare("SELECT COUNT(*) as count FROM system_logs").get()?.count || 0;
       const projectsCount = db.prepare("SELECT COUNT(*) as count FROM projects").get()?.count || 0;
-      const domainsCount = db.prepare("SELECT COUNT(*) as count FROM attached_domains").get()?.count || 0;
-      const primaryDomainRow = db.prepare("SELECT * FROM attached_domains WHERE is_primary = 1 LIMIT 1").get();
-      const mailboxUsersCount = db.prepare("SELECT COUNT(*) as count FROM mailbox_users").get()?.count || 0;
+      const domainsCount = db.prepare("SELECT COUNT(*) as count FROM attached_domains WHERE scope = ?").get(scope)?.count || 0;
+      const primaryDomainRow = db.prepare("SELECT * FROM attached_domains WHERE is_primary = 1 AND scope = ? LIMIT 1").get(scope);
+      const mailboxUsersCount = db.prepare("SELECT COUNT(*) as count FROM mailbox_users WHERE scope = ?").get(scope)?.count || 0;
       const apiHitsCount = db.prepare("SELECT SUM(hits) as sum FROM api_settings").get()?.sum || 0;
 
       // Calculate disk usage
@@ -877,6 +932,7 @@ export class AdminController {
 
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
+        scope,
         totalEmails,
         localEmailsCount: localFiles,
         liveEmailsCount: liveFiles,
@@ -904,20 +960,23 @@ export class AdminController {
       const parsed = await parseJsonBody(req);
       const action = parsed?.action || "all";
       const count = parseInt(parsed?.count, 10) || 0;
+      const scope = parsed?.scope || "admin";
       const customDomain = parsed?.domain || null;
       const customProjectId = parsed?.projectId ? parseInt(parsed.projectId, 10) : null;
 
       const db = require('../database/db.js').default;
 
-      // Helper to get active domains
-      const primaryRow = db.prepare("SELECT domain, primary_prefix FROM attached_domains WHERE is_primary = 1 LIMIT 1").get();
-      const primaryDomain = customDomain || (primaryRow ? primaryRow.domain : "micorna.biz");
-      const primaryPrefix = primaryRow?.primary_prefix || "admin";
-      const secondaryRow = db.prepare("SELECT domain FROM attached_domains WHERE is_primary = 0 LIMIT 1").get();
-      const secondaryDomain = secondaryRow?.domain || "visakara.org";
+      // Helper to get active domains for this scope
+      const primaryRow = db.prepare("SELECT domain, primary_prefix FROM attached_domains WHERE is_primary = 1 AND (scope = ? OR (? = 'devpanel' AND scope = 'devadmin')) LIMIT 1").get(scope, scope);
+      const isDev = scope === 'devpanel' || scope === 'devadmin';
+      const primaryDomain = customDomain || (primaryRow ? primaryRow.domain : (isDev ? "devmail.biz" : "micorna.biz"));
+      const primaryPrefix = primaryRow?.primary_prefix || (isDev ? "dev" : "admin");
+      const secondaryRow = db.prepare("SELECT domain FROM attached_domains WHERE is_primary = 0 AND (scope = ? OR (? = 'devpanel' AND scope = 'devadmin')) LIMIT 1").get(scope, scope);
+      const secondaryDomain = secondaryRow?.domain || (isDev ? "devbox.org" : "visakara.org");
 
       const results = {
         action,
+        scope,
         emailsSeeded: 0,
         logsSeeded: 0,
         domainsSeeded: 0,
@@ -928,34 +987,38 @@ export class AdminController {
 
       // 1. SEED DOMAINS
       const seedDomains = () => {
-        // Ensure micorna.biz as primary
-        const d1 = db.prepare("SELECT id FROM attached_domains WHERE domain = ?").get("micorna.biz");
+        const dom1 = isDev ? "devmail.biz" : "micorna.biz";
+        const dom2 = isDev ? "devbox.org" : "visakara.org";
+        const prefix = isDev ? "dev" : "admin";
+
+        // Ensure primary domain in scope
+        const d1 = db.prepare("SELECT id FROM attached_domains WHERE domain = ? AND scope = ?").get(dom1, scope);
         if (d1) {
-          db.prepare("UPDATE attached_domains SET is_primary = 1, primary_prefix = 'admin', status = 'active', plan = 'pro', catch_all = 1 WHERE id = ?").run(d1.id);
+          db.prepare("UPDATE attached_domains SET is_primary = 1, primary_prefix = ?, status = 'active', plan = 'pro', catch_all = 1 WHERE id = ?").run(prefix, d1.id);
         } else {
-          db.prepare("INSERT INTO attached_domains (domain, status, plan, catch_all, is_primary, primary_prefix) VALUES (?, 'active', 'pro', 1, 1, 'admin')").run("micorna.biz");
+          db.prepare("INSERT INTO attached_domains (domain, status, plan, catch_all, is_primary, primary_prefix, scope) VALUES (?, 'active', 'pro', 1, 1, ?, ?)").run(dom1, prefix, scope);
         }
 
-        // Ensure visakara.org as secondary
-        const d2 = db.prepare("SELECT id FROM attached_domains WHERE domain = ?").get("visakara.org");
+        // Ensure secondary domain in scope
+        const d2 = db.prepare("SELECT id FROM attached_domains WHERE domain = ? AND scope = ?").get(dom2, scope);
         if (d2) {
           db.prepare("UPDATE attached_domains SET is_primary = 0, primary_prefix = 'my', status = 'active', plan = 'free', catch_all = 1 WHERE id = ?").run(d2.id);
         } else {
-          db.prepare("INSERT INTO attached_domains (domain, status, plan, catch_all, is_primary, primary_prefix) VALUES (?, 'active', 'free', 1, 0, 'my')").run("visakara.org");
+          db.prepare("INSERT INTO attached_domains (domain, status, plan, catch_all, is_primary, primary_prefix, scope) VALUES (?, 'active', 'free', 1, 0, 'my', ?)").run(dom2, scope);
         }
 
-        // Ensure primary mailbox user admin@micorna.biz exists
-        const adminEmail = "admin@micorna.biz";
-        const userExists = db.prepare("SELECT id FROM mailbox_users WHERE email = ?").get(adminEmail);
+        // Ensure primary mailbox user in scope
+        const adminEmail = `${prefix}@${dom1}`;
+        const userExists = db.prepare("SELECT id FROM mailbox_users WHERE email = ? AND scope = ?").get(adminEmail, scope);
         if (!userExists) {
-          const defaultPwd = "Admin@Pass2026!";
+          const defaultPwd = isDev ? "DevPanel@Pass2026!" : "Admin@Pass2026!";
           let hash = defaultPwd;
           try {
             if (typeof Bun !== "undefined" && Bun.password) {
               hash = Bun.password.hashSync(defaultPwd, { algorithm: "bcrypt", cost: 10 });
             }
           } catch(e) {}
-          db.prepare("INSERT INTO mailbox_users (email, password_hash, plain_password, project_id) VALUES (?, ?, ?, 1)").run(adminEmail, hash, defaultPwd);
+          db.prepare("INSERT INTO mailbox_users (email, password_hash, plain_password, project_id, scope) VALUES (?, ?, ?, 1, ?)").run(adminEmail, hash, defaultPwd, scope);
         }
 
         results.domainsSeeded = 2;
@@ -1273,27 +1336,26 @@ export class AdminController {
         results.message = "All API route hits and project counters reset to 0.";
       };
 
+      const scopeLabel = (scope === 'devpanel' || scope === 'devadmin') ? "DevPanel" : "Client Admin";
+
       const clearDomains = () => {
-        db.prepare("DELETE FROM attached_domains WHERE is_primary = 0").run();
-        try { db.prepare("DELETE FROM sqlite_sequence WHERE name = 'attached_domains'").run(); } catch(e) {}
-        results.message = "All secondary attached domains cleared.";
+        db.prepare("DELETE FROM attached_domains WHERE is_primary = 0 AND scope = ?").run(scope);
+        results.message = `All secondary attached domains cleared for ${scopeLabel}.`;
       };
 
       const clearPrimaryDomain = () => {
-        db.prepare("DELETE FROM attached_domains WHERE is_primary = 1").run();
-        results.message = "Primary domain configuration cleared.";
+        db.prepare("DELETE FROM attached_domains WHERE is_primary = 1 AND scope = ?").run(scope);
+        results.message = `Primary domain configuration cleared for ${scopeLabel}.`;
       };
 
       const clearAllDomains = () => {
-        db.prepare("DELETE FROM attached_domains").run();
-        try { db.prepare("DELETE FROM sqlite_sequence WHERE name = 'attached_domains'").run(); } catch(e) {}
-        results.message = "All attached and primary domains cleared.";
+        db.prepare("DELETE FROM attached_domains WHERE scope = ?").run(scope);
+        results.message = `All attached and primary domains cleared for ${scopeLabel}.`;
       };
 
       const clearMailboxes = () => {
-        db.prepare("DELETE FROM mailbox_users").run();
-        try { db.prepare("DELETE FROM sqlite_sequence WHERE name = 'mailbox_users'").run(); } catch(e) {}
-        results.message = "All permanent mailbox accounts cleared.";
+        db.prepare("DELETE FROM mailbox_users WHERE scope = ?").run(scope);
+        results.message = `All permanent mailbox accounts cleared for ${scopeLabel}.`;
       };
 
       const clearSelective = (targets = []) => {

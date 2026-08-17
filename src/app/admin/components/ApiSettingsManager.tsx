@@ -16,9 +16,11 @@ interface ApiRouteSetting {
 
 interface ApiSettingsProps {
   apiUrl: string;
+  apiPrefix?: string;
+  tokenKey?: string;
 }
 
-export default function ApiSettingsManager({ apiUrl }: ApiSettingsProps) {
+export default function ApiSettingsManager({ apiUrl, apiPrefix = "/api/admin", tokenKey = "admin_token" }: ApiSettingsProps) {
   const [routes, setRoutes] = useState<ApiRouteSetting[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -27,7 +29,7 @@ export default function ApiSettingsManager({ apiUrl }: ApiSettingsProps) {
   const fetchSettings = async () => {
     if (!apiUrl) return;
     try {
-      const res = await fetch(`${apiUrl}/api/admin/api-settings`);
+      const res = await fetch(`${apiUrl}${apiPrefix}/api-settings`);
       if (res.ok) {
         const data = await res.json();
         setRoutes(data);
@@ -44,7 +46,7 @@ export default function ApiSettingsManager({ apiUrl }: ApiSettingsProps) {
 
   useEffect(() => {
     fetchSettings();
-  }, [apiUrl]);
+  }, [apiUrl, apiPrefix, tokenKey]);
 
   const handleToggle = async (id: string, currentStatus: boolean) => {
     if (!apiUrl) return;
@@ -55,7 +57,7 @@ export default function ApiSettingsManager({ apiUrl }: ApiSettingsProps) {
     );
 
     try {
-      const res = await fetch(`${apiUrl}/api/admin/api-settings/toggle`, {
+      const res = await fetch(`${apiUrl}${apiPrefix}/api-settings/toggle`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, enabled: !currentStatus }),

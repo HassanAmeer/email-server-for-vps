@@ -23,9 +23,11 @@ interface Project {
 
 interface ProjectsManagerProps {
   apiUrl: string;
+  apiPrefix?: string;
+  tokenKey?: string;
 }
 
-export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
+export default function ProjectsManager({ apiUrl, apiPrefix = "/api/admin", tokenKey = "admin_token" }: ProjectsManagerProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -76,8 +78,8 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
     if (!apiUrl) return;
     try {
       setLoading(true);
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/projects`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/projects`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {
@@ -85,7 +87,7 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
         setProjects(data);
         setError("");
       } else if (res.status === 401) {
-        window.location.href = "/admin";
+        setError("Unauthorized or session expired");
       } else {
         throw new Error("Failed to load projects");
       }
@@ -106,7 +108,7 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
 
   useEffect(() => {
     fetchProjects();
-  }, [apiUrl]);
+  }, [apiUrl, apiPrefix, tokenKey]);
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,8 +116,8 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
 
     setIsCreating(true);
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/projects`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/projects`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -142,8 +144,8 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
     if (!confirm("Are you sure you want to delete this project? This will break API integrations using its API Key.")) return;
 
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/projects/${id}`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/projects/${id}`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` }
       });
@@ -161,8 +163,8 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
 
   const handleSaveWebhook = async (id: number) => {
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/projects/${id}`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/projects/${id}`, {
         method: "PUT",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -186,8 +188,8 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
   const handleSaveName = async (id: number) => {
     if (!editingName.trim()) return;
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/projects/${id}`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/projects/${id}`, {
         method: "PUT",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -210,8 +212,8 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
 
   const handleToggleActive = async (id: number, currentStatus: boolean | number) => {
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/projects/${id}`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/projects/${id}`, {
         method: "PUT",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -234,8 +236,8 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
   const fetchProjectEmails = async (projectId: number, page: number) => {
     setLoadingEmails(true);
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/projects/${projectId}/emails?page=${page}&limit=50`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/projects/${projectId}/emails?page=${page}&limit=50`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {
@@ -256,8 +258,8 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
     setLoadingFiles(true);
     setIsFilesModalOpen(true);
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/projects/${projectId}/files`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/projects/${projectId}/files`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {
@@ -277,8 +279,8 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
   const fetchProjectMailboxUsers = async (projectId: number) => {
     setLoadingMailboxUsers(true);
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/projects/${projectId}/mailbox`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/projects/${projectId}/mailbox`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {
@@ -301,8 +303,8 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
 
     setIsCreatingMailbox(true);
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/projects/${viewingAnalyticsFor.id}/mailbox`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/projects/${viewingAnalyticsFor.id}/mailbox`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -330,8 +332,8 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
     if (!viewingAnalyticsFor || !confirm("Are you sure you want to delete this mailbox user?")) return;
 
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/projects/${viewingAnalyticsFor.id}/mailbox/${userId}`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/projects/${viewingAnalyticsFor.id}/mailbox/${userId}`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` }
       });
@@ -369,8 +371,8 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
 
     setLoadingStats(true);
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/projects/${project.id}/stats`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/projects/${project.id}/stats`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {
@@ -394,8 +396,8 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
     if (!viewingAnalyticsFor) return;
     setIsSavingSettings(true);
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/projects/${viewingAnalyticsFor.id}/advanced`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/projects/${viewingAnalyticsFor.id}/advanced`, {
         method: "PUT",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -459,8 +461,8 @@ export default function ProjectsManager({ apiUrl }: ProjectsManagerProps) {
   const handleResetProjectHits = async (project: Project) => {
     if (!window.confirm(`Are you sure you want to reset API hits for project "${project.name}"?`)) return;
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/projects/${project.id}/hits`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/projects/${project.id}/hits`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` }
       });

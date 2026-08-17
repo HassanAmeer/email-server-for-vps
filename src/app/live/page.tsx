@@ -32,7 +32,7 @@ export default function LiveConsolePage() {
 
   const [domains, setDomains] = useState<string[]>([]);
   const [selectedDomain, setSelectedDomain] = useState("");
-  const [customPrefix, setCustomPrefix] = useState("");
+  const [emailDraft, setEmailDraft] = useState("");
   const [generatedEmail, setGeneratedEmail] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -124,16 +124,6 @@ export default function LiveConsolePage() {
       .catch(err => console.error("Error fetching domains:", err));
   }, [apiUrl]);
 
-  // Set Custom Email Address
-  const handleSetCustomEmail = () => {
-    if (!customPrefix.trim() || !selectedDomain) return;
-    const cleanUser = customPrefix.trim().toLowerCase().replace(/@.*$/, '').replace(/[^a-zA-Z0-9._-]/g, '');
-    if (!cleanUser) return;
-    const customEmail = `${cleanUser}@${selectedDomain}`;
-    setGeneratedEmail(customEmail);
-    setEmails([]);
-  };
-
   // Generate Random Email Address
   const handleGenerate = async () => {
     if (!apiUrl || !selectedDomain) return;
@@ -142,21 +132,33 @@ export default function LiveConsolePage() {
       const res = await fetch(`${apiUrl}/api/mailbox/generate?domain=${selectedDomain}`);
       const data = await res.json();
       if (res.ok && data.email) {
+        const namePart = String(data.email).split("@")[0];
+        setEmailDraft(namePart);
         setGeneratedEmail(data.email);
-        setEmails([]); 
+        setEmails([]);
       } else {
         const randomStr = Math.random().toString(36).substring(2, 9);
+        setEmailDraft(randomStr);
         setGeneratedEmail(`${randomStr}@${selectedDomain}`);
         setEmails([]);
       }
     } catch (err) {
       console.error(err);
       const randomStr = Math.random().toString(36).substring(2, 9);
+      setEmailDraft(randomStr);
       setGeneratedEmail(`${randomStr}@${selectedDomain}`);
       setEmails([]);
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  // Save current name draft with selected domain as the active mailbox
+  const handleSaveEmail = () => {
+    const namePart = (emailDraft || "").trim().toLowerCase().split("@")[0].replace(/[^a-zA-Z0-9._-]/g, "");
+    if (!namePart || !selectedDomain) return;
+    setGeneratedEmail(`${namePart}@${selectedDomain}`);
+    setEmails([]);
   };
 
   const handleCopyGen = () => {
@@ -468,106 +470,158 @@ export default function LiveConsolePage() {
         </header>
 
         {/* Generate Email Header Component */}
-        <div className="bg-[#0B0F19] border border-white/[0.06] p-5 rounded-2xl flex flex-col xl:flex-row gap-5 items-start xl:items-center justify-between shadow-xl">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3.5 w-full xl:w-auto flex-wrap">
-            
-            {/* Domain Selector */}
-            <div className="flex flex-col gap-1.5 min-w-[170px]">
-              <label className="text-[10px] uppercase text-gray-400 font-bold tracking-widest pl-1">Select Domain</label>
-              <select 
-                value={selectedDomain}
-                onChange={e => setSelectedDomain(e.target.value)}
-                className="bg-slate-900/60 border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500/50 cursor-pointer"
-              >
-                {domains.map((d, idx) => {
-                  const domainStr = typeof d === "string" ? d : ((d as any)?.domain || `domain-${idx}`);
-                  return <option key={domainStr} value={domainStr}>{domainStr}</option>;
-                })}
-              </select>
-            </div>
+        <div className="relative bg-white/[0.04] border border-white/[0.08] backdrop-blur-2xl rounded-[1.75rem] p-4 sm:p-6 shadow-[0_8px_40px_rgba(0,0,0,0.35)] overflow-hidden">
+          {/* Cupertino top highlight */}
+          <div className="pointer-events-none absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+          <div className="pointer-events-none absolute -top-24 -right-20 w-72 h-72 bg-emerald-500/[0.12] rounded-full blur-[90px]" />
+          <div className="pointer-events-none absolute -bottom-28 -left-20 w-72 h-72 bg-sky-500/[0.08] rounded-full blur-[90px]" />
 
-            {/* Custom Email Input */}
-            <div className="flex flex-col gap-1.5 flex-1 min-w-[240px]">
-              <label className="text-[10px] uppercase text-gray-400 font-bold tracking-widest pl-1">Custom Username (Optional)</label>
-              <div className="flex items-center bg-slate-900/60 border border-white/[0.08] rounded-xl px-3 focus-within:border-emerald-500/50 transition-colors">
-                <input 
-                  type="text" 
-                  value={customPrefix} 
-                  onChange={e => setCustomPrefix(e.target.value.replace(/[^a-zA-Z0-9._-]/g, ''))}
-                  onKeyDown={e => { if (e.key === 'Enter') handleSetCustomEmail(); }}
-                  placeholder="e.g. abc2 or loveu"
-                  className="bg-transparent py-2.5 text-sm text-white focus:outline-none w-full placeholder:text-gray-600 font-mono"
-                />
-                <span className="text-xs text-emerald-400/80 font-mono select-none whitespace-nowrap pl-1">
-                  @{selectedDomain || "domain"}
-                </span>
+          {/* Section Header */}
+          <div className="relative flex items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br from-emerald-400/30 to-teal-400/10 border border-white/15 flex items-center justify-center shadow-lg shadow-emerald-500/10">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor" className="w-5 h-5 text-emerald-300">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-white font-semibold text-base sm:text-lg tracking-tight leading-tight truncate">Create Temporary Email</h2>
+                <p className="text-gray-400/70 text-[11px] sm:text-xs mt-0.5 tracking-tight truncate hidden sm:block">Generate a random name or type your own, then save to start receiving mail</p>
               </div>
             </div>
-
-            {/* Actions: Set Custom & Random Generate */}
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={handleSetCustomEmail}
-                disabled={!customPrefix.trim() || !selectedDomain}
-                className="bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 font-bold px-4 py-2.5 rounded-xl text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1.5 shadow-sm whitespace-nowrap"
-                title="Create custom email address"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3.5 h-3.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
-                <span>Set Custom</span>
-              </button>
-
-              <button 
-                onClick={handleGenerate}
-                disabled={isGenerating || !selectedDomain}
-                className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1.5 shadow-lg shadow-emerald-500/10 whitespace-nowrap"
-                title="Generate random email"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3.5 h-3.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
-                </svg>
-                <span>{isGenerating ? "Generating..." : "Random"}</span>
-              </button>
-            </div>
+            {selectedDomain && (
+              <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/[0.08] border border-white/10 text-emerald-300 text-[11px] font-semibold shrink-0">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+                </span>
+                Ready
+              </div>
+            )}
           </div>
 
-          <div className="flex-grow flex justify-end w-full xl:w-auto mt-4 xl:mt-0">
-            {generatedEmail ? (
-              <div className="bg-emerald-500/10 border border-emerald-500/20 px-5 py-3 rounded-xl flex items-center justify-between gap-4 min-w-[280px]">
-                <div className="flex flex-col">
-                  <span className="text-[10px] uppercase text-emerald-500 font-bold tracking-widest">Active Mailbox</span>
-                  <span className="text-white font-mono font-bold text-sm select-all">{generatedEmail}</span>
+          {/* Controls */}
+          <div className="relative flex flex-col md:flex-row items-stretch md:items-center gap-2.5 w-full">
+
+            {/* Generate Icon Button - iOS style */}
+            <div className="flex flex-col gap-1.5 shrink-0">
+              <label className="text-[10px] uppercase text-gray-400/70 font-semibold tracking-widest pl-1">Generate</label>
+              <button
+                onClick={handleGenerate}
+                disabled={isGenerating || !selectedDomain}
+                className="h-11 px-4 flex items-center justify-center gap-2 rounded-xl bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] text-emerald-300 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]"
+                title="Generate random email"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className={`w-4.5 h-4.5 ${isGenerating ? "animate-spin" : ""}`}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
+                </svg>
+                <span className="text-[13px] font-semibold">{isGenerating ? "Generating..." : "Random"}</span>
+              </button>
+            </div>
+
+            {/* Name + Domain Combined - iOS grouped input */}
+            <div className="flex flex-col gap-1.5 flex-1 min-w-[240px]">
+              <label className="text-[10px] uppercase text-gray-400/70 font-semibold tracking-widest pl-1">Email Address</label>
+              <div className="flex items-stretch bg-white/[0.05] border border-white/10 rounded-xl focus-within:border-emerald-400/50 focus-within:bg-white/[0.07] transition-all overflow-hidden">
+                <div className="flex items-center px-3 bg-white/[0.04] border-r border-white/[0.07]">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor" className="w-4 h-4 text-emerald-300/70 shrink-0">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                  </svg>
                 </div>
-                <button 
-                  onClick={handleCopyGen}
-                  className="bg-white/5 hover:bg-white/10 p-2 rounded-lg transition-colors text-gray-300 cursor-pointer"
-                  title="Copy Email"
-                >
-                  {copiedGen ? (
-                    <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                <input
+                  type="text"
+                  value={emailDraft}
+                  onChange={e => setEmailDraft(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSaveEmail(); }}
+                  placeholder="name"
+                  className="bg-transparent py-2.5 px-3 text-sm text-white focus:outline-none w-full placeholder:text-gray-500 font-mono flex-1 min-w-0"
+                />
+                <div className="flex items-center flex-1 min-w-0 bg-white/[0.04]">
+                  <span className="text-emerald-300 font-mono select-none px-1.5 shrink-0">@</span>
+                  <select
+                    value={selectedDomain}
+                    onChange={e => setSelectedDomain(e.target.value)}
+                    className="bg-transparent border-l border-white/[0.07] px-2.5 py-2.5 text-sm text-white focus:outline-none cursor-pointer flex-1 min-w-0"
+                  >
+                    {domains.map((d, idx) => {
+                      const domainStr = typeof d === "string" ? d : ((d as any)?.domain || `domain-${idx}`);
+                      return <option key={domainStr} value={domainStr}>{domainStr}</option>;
+                    })}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Save Button - iOS tint */}
+            <button
+              onClick={handleSaveEmail}
+              disabled={!emailDraft.trim() || !selectedDomain}
+              className="h-11 px-6 bg-emerald-400 hover:bg-emerald-300 active:scale-[0.97] text-slate-950 font-semibold rounded-xl text-sm transition-all shadow-[0_6px_24px_rgba(52,211,153,0.35)] hover:shadow-[0_6px_32px_rgba(52,211,153,0.5)] flex items-center justify-center gap-2 shrink-0 cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+              title="Save email address as active mailbox"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+              <span>Save</span>
+            </button>
+          </div>
+
+          {/* Active Mailbox Status Bar */}
+          <div className="relative mt-4">
+            {generatedEmail ? (
+              <div className="relative bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 flex items-center justify-between gap-3 overflow-hidden">
+                <div className="pointer-events-none absolute inset-y-0 left-0 w-[3px] bg-emerald-400" />
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="relative flex h-2.5 w-2.5 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
+                  </span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[9px] uppercase text-emerald-300/80 font-semibold tracking-widest">Active Mailbox</span>
+                    <span className="text-white font-mono font-semibold text-[13px] sm:text-sm select-all truncate tracking-tight">{generatedEmail}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button 
+                    onClick={handleCopyGen}
+                    className="bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 p-2 rounded-lg transition-all text-gray-300 hover:text-emerald-300 cursor-pointer active:scale-95"
+                    title="Copy Email"
+                  >
+                    {copiedGen ? (
+                      <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                    ) : (
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75" />
+                      </svg>
+                    )}
+                  </button>
+                  <button
+                    onClick={handleGenerate}
+                    disabled={isGenerating}
+                    className="bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 p-2 rounded-lg transition-all text-gray-300 hover:text-emerald-300 cursor-pointer active:scale-95 disabled:opacity-40"
+                    title="Regenerate"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className={`w-3.5 h-3.5 ${isGenerating ? "animate-spin text-emerald-400" : ""}`}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
                     </svg>
-                  ) : (
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75" />
-                    </svg>
-                  )}
-                </button>
+                  </button>
+                </div>
               </div>
             ) : (
-              <div className="bg-slate-900/50 border border-white/[0.06] px-5 py-3 rounded-xl flex items-center justify-center min-w-[280px]">
-                <span className="text-gray-500 text-xs text-center">Enter custom username or click Random to start</span>
+              <div className="bg-white/[0.03] border border-dashed border-white/[0.12] px-4 py-3 rounded-xl flex items-center justify-center">
+                <span className="text-gray-400/80 text-[11px] sm:text-xs text-center tracking-tight">Click <span className="text-emerald-300 font-semibold">Random</span> to generate a name or type a custom one, then <span className="text-emerald-300 font-semibold">Save</span> to start receiving mail</span>
               </div>
             )}
           </div>
         </div>
 
         {/* Navigation Tabs */}
-        <nav className="flex gap-3 bg-white/[0.02] p-1.5 rounded-xl border border-white/[0.06] w-fit flex-wrap">
+        <nav className="flex gap-3 bg-white/[0.02] p-1.5 rounded-xl border border-white/[0.06] w-fit overflow-x-auto no-scrollbar max-w-full">
           <button
             onClick={() => setActiveTab("inbox-tab")}
-            className={`tab-btn flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all ${
+            className={`tab-btn flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all whitespace-nowrap ${
               activeTab === "inbox-tab" ? "text-white bg-white/[0.05]" : "text-gray-400 hover:text-white"
             }`}
           >
@@ -578,7 +632,7 @@ export default function LiveConsolePage() {
           </button>
           <button
             onClick={() => setActiveTab("json-tab")}
-            className={`tab-btn flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all ${
+            className={`tab-btn flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all whitespace-nowrap ${
               activeTab === "json-tab" ? "text-white bg-white/[0.05]" : "text-gray-400 hover:text-white"
             }`}
           >
@@ -589,7 +643,7 @@ export default function LiveConsolePage() {
           </button>
           <button
             onClick={() => setActiveTab("syslog-tab")}
-            className={`tab-btn flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all ${
+            className={`tab-btn flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all whitespace-nowrap ${
               activeTab === "syslog-tab" ? "text-white bg-white/[0.05]" : "text-gray-400 hover:text-white"
             }`}
           >
@@ -600,7 +654,7 @@ export default function LiveConsolePage() {
           </button>
           <button
             onClick={() => setActiveTab("send-tab")}
-            className={`tab-btn flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all ${
+            className={`tab-btn flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer transition-all whitespace-nowrap ${
               activeTab === "send-tab" ? "text-white bg-white/[0.05]" : "text-gray-400 hover:text-white"
             }`}
           >

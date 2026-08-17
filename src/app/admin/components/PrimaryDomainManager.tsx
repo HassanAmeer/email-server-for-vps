@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 
 interface PrimaryDomainManagerProps {
   apiUrl: string;
+  apiPrefix?: string;
+  tokenKey?: string;
 }
 
 interface AttachedDomain {
@@ -18,7 +20,7 @@ interface AttachedDomain {
   created_at: string;
 }
 
-export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerProps) {
+export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin", tokenKey = "admin_token" }: PrimaryDomainManagerProps) {
   const [domains, setDomains] = useState<AttachedDomain[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [serverIp, setServerIp] = useState<string>(process.env.NEXT_PUBLIC_SERVER_IP || "127.0.0.1");
@@ -70,14 +72,14 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
       fetchDomains(true);
       fetchServerInfo();
     }
-  }, [apiUrl]);
+  }, [apiUrl, apiPrefix, tokenKey]);
 
   const fetchDomains = async (showLoadingSpinner = false) => {
     if (!apiUrl) return;
     if (showLoadingSpinner) setLoading(true);
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/domains`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/domains`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -103,8 +105,8 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
   const fetchServerInfo = async () => {
     if (!apiUrl) return;
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/serverinfo`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/serverinfo`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -129,10 +131,10 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
     setMailboxLoading(true);
 
     try {
-      const token = localStorage.getItem("admin_token") || "";
+      const token = localStorage.getItem(tokenKey) || "";
 
       // 1. Fetch projects to get a valid default project_id
-      const projRes = await fetch(`${apiUrl}/api/admin/projects`, {
+      const projRes = await fetch(`${apiUrl}${apiPrefix}/projects`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (projRes.ok) {
@@ -143,7 +145,7 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
       }
 
       // 2. Fetch existing mailbox users
-      const usersRes = await fetch(`${apiUrl}/api/admin/mailbox-users`, {
+      const usersRes = await fetch(`${apiUrl}${apiPrefix}/mailbox-users`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (usersRes.ok) {
@@ -195,11 +197,11 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
 
     setMailboxSaving(true);
     try {
-      const token = localStorage.getItem("admin_token") || "";
+      const token = localStorage.getItem(tokenKey) || "";
       let res;
       if (mailboxUserId) {
         // Update existing user email & password
-        res = await fetch(`${apiUrl}/api/admin/mailbox-users/${mailboxUserId}`, {
+        res = await fetch(`${apiUrl}${apiPrefix}/mailbox-users/${mailboxUserId}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -213,7 +215,7 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
         });
       } else {
         // Create new mailbox user
-        res = await fetch(`${apiUrl}/api/admin/mailbox-users`, {
+        res = await fetch(`${apiUrl}${apiPrefix}/mailbox-users`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -283,8 +285,8 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
     );
 
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/domains/${id}/primary`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/domains/${id}/primary`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -330,8 +332,8 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
     setShowDeleteConfirmModal(null);
 
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/domains/${id}`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/domains/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -361,8 +363,8 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
     );
 
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/domains/${domainId}`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/domains/${domainId}`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -401,8 +403,8 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
     setDomains((prev) => prev.map((d) => ({ ...d, route_to_primary: targetFlag })));
 
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/domains/bulk-routing`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/domains/bulk-routing`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -679,7 +681,7 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
 
                       {/* Mailbox UI Button */}
                       <a
-                        href="/imap-mailbox"
+                        href="/mailbox"
                         target="_blank"
                         rel="noreferrer"
                         className="px-3 py-1.5 rounded-[8px] border border-amber-500/40 hover:border-amber-400 bg-amber-500/5 hover:bg-amber-500/15 text-amber-400 hover:text-amber-300 text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95"
@@ -1494,14 +1496,14 @@ export default function PrimaryDomainManager({ apiUrl }: PrimaryDomainManagerPro
                       </span>
                       <div className="bg-[#1C1C1E] rounded-xl border border-white/[0.08] overflow-hidden">
                         <a
-                          href="/imap-mailbox"
+                          href="/mailbox"
                           target="_blank"
                           rel="noreferrer"
                           className="flex items-center justify-between px-3.5 py-2.5 hover:bg-white/[0.04] transition-colors"
                         >
                           <span className="text-xs font-medium text-white">Open Webmail Inbox</span>
                           <span className="text-xs text-gray-400 flex items-center gap-1 font-mono">
-                            <span>/imap-mailbox</span>
+                            <span>/mailbox</span>
                             <span className="text-gray-500 font-sans text-sm">›</span>
                           </span>
                         </a>

@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 
 interface OverviewProps {
   apiUrl: string;
+  apiPrefix?: string;
+  tokenKey?: string;
   stats: {
     totalEmails: number;
     diskUsageBytes: number;
@@ -19,7 +21,7 @@ interface ApiRouteSetting {
   enabled: boolean;
 }
 
-export default function Overview({ apiUrl, stats }: OverviewProps) {
+export default function Overview({ apiUrl, stats, apiPrefix = "/api/admin", tokenKey = "admin_token" }: OverviewProps) {
   const [apiRoutes, setApiRoutes] = useState<ApiRouteSetting[]>([]);
   const [trafficStats, setTrafficStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,12 +35,12 @@ export default function Overview({ apiUrl, stats }: OverviewProps) {
         return;
       }
       try {
-        const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") || "" : "";
+        const token = typeof window !== "undefined" ? localStorage.getItem(tokenKey) || "" : "";
         const headers = { "Authorization": `Bearer ${token}` };
 
         const [res, trafficRes] = await Promise.allSettled([
-          fetch(`${apiUrl}/api/admin/api-settings`, { headers }),
-          fetch(`${apiUrl}/api/admin/stats/traffic`, { headers })
+          fetch(`${apiUrl}${apiPrefix}/api-settings`, { headers }),
+          fetch(`${apiUrl}${apiPrefix}/stats/traffic`, { headers })
         ]);
 
         if (!isMounted) return;
@@ -66,7 +68,7 @@ export default function Overview({ apiUrl, stats }: OverviewProps) {
     return () => {
       isMounted = false;
     };
-  }, [apiUrl]);
+  }, [apiUrl, apiPrefix, tokenKey]);
 
   const formatBytes = (bytes: number) => {
     if (!bytes || bytes === 0) return "0 Bytes";

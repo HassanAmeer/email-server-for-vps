@@ -9,9 +9,11 @@ interface SMTPUser {
 
 interface CredentialsManagerProps {
   apiUrl: string;
+  apiPrefix?: string;
+  tokenKey?: string;
 }
 
-export default function CredentialsManager({ apiUrl }: CredentialsManagerProps) {
+export default function CredentialsManager({ apiUrl, apiPrefix = "/api/admin", tokenKey = "admin_token" }: CredentialsManagerProps) {
   const [credentials, setCredentials] = useState<SMTPUser[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -23,7 +25,7 @@ export default function CredentialsManager({ apiUrl }: CredentialsManagerProps) 
   const fetchCredentials = async () => {
     if (!apiUrl) return;
     try {
-      const res = await fetch(`${apiUrl}/api/admin/credentials`);
+      const res = await fetch(`${apiUrl}${apiPrefix}/credentials`);
       if (res.ok) {
         const data = await res.json();
         setCredentials(data);
@@ -37,14 +39,14 @@ export default function CredentialsManager({ apiUrl }: CredentialsManagerProps) 
 
   useEffect(() => {
     fetchCredentials();
-  }, [apiUrl]);
+  }, [apiUrl, apiPrefix, tokenKey]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!apiUrl || !username || !password) return;
 
     try {
-      const res = await fetch(`${apiUrl}/api/admin/credentials`, {
+      const res = await fetch(`${apiUrl}${apiPrefix}/credentials`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -68,7 +70,7 @@ export default function CredentialsManager({ apiUrl }: CredentialsManagerProps) 
   const handleDelete = async (userToDelete: string) => {
     if (!apiUrl) return;
     try {
-      const res = await fetch(`${apiUrl}/api/admin/credentials/${encodeURIComponent(userToDelete)}`, {
+      const res = await fetch(`${apiUrl}${apiPrefix}/credentials/${encodeURIComponent(userToDelete)}`, {
         method: "DELETE",
       });
       if (res.ok) {

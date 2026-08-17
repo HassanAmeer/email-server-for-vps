@@ -6,10 +6,25 @@ import { APP_VERSION } from "@/lib/version";
 interface LoginOverlayProps {
   apiUrl: string;
   onLoginSuccess: () => void;
+  loginEndpoint?: string;
+  tokenKey?: string;
+  superTokenKey?: string;
+  panelLabel?: string;
+  accentColor?: "emerald" | "violet";
+  defaultUsername?: string;
 }
 
-export default function LoginOverlay({ apiUrl, onLoginSuccess }: LoginOverlayProps) {
-  const [username, setUsername] = useState("admin");
+export default function LoginOverlay({
+  apiUrl,
+  onLoginSuccess,
+  loginEndpoint = "/api/admin/login",
+  tokenKey = "admin_token",
+  superTokenKey = "admin_static_super",
+  panelLabel = "ADMIN CONSOLE",
+  accentColor = "emerald",
+  defaultUsername = "admin",
+}: LoginOverlayProps) {
+  const [username, setUsername] = useState(defaultUsername);
   const [password, setPassword] = useState("");
   const [isPwdFocused, setIsPwdFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -29,7 +44,7 @@ export default function LoginOverlay({ apiUrl, onLoginSuccess }: LoginOverlayPro
     setErrorMsg("");
 
     try {
-      const res = await fetch(`${apiUrl}/api/admin/login`, {
+      const res = await fetch(`${apiUrl}${loginEndpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, email: username, password }),
@@ -37,11 +52,11 @@ export default function LoginOverlay({ apiUrl, onLoginSuccess }: LoginOverlayPro
 
       const data = await res.json();
       if (res.ok && data.success) {
-        localStorage.setItem("admin_token", data.token);
-        if (data.staticLogin) {
-          localStorage.setItem("admin_static_super", "1");
-        } else {
-          localStorage.removeItem("admin_static_super");
+        localStorage.setItem(tokenKey, data.token);
+        if (data.staticLogin && superTokenKey) {
+          localStorage.setItem(superTokenKey, "1");
+        } else if (superTokenKey) {
+          localStorage.removeItem(superTokenKey);
         }
         onLoginSuccess();
       } else {
@@ -79,14 +94,16 @@ export default function LoginOverlay({ apiUrl, onLoginSuccess }: LoginOverlayPro
             
             {/* Header */}
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase font-bold tracking-[0.25em] text-emerald-400 font-mono">
-                ADMIN CONSOLE
+              <span className={`text-[10px] uppercase font-bold tracking-[0.25em] font-mono ${
+                accentColor === "violet" ? "text-violet-400" : "text-emerald-400"
+              }`}>
+                {panelLabel}
               </span>
               <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                 Sign in
               </h2>
               <p className="text-xs sm:text-sm text-gray-400">
-                Enter superuser credentials to unlock the dashboard
+                Enter credentials to unlock the dashboard
               </p>
             </div>
 
@@ -193,11 +210,11 @@ export default function LoginOverlay({ apiUrl, onLoginSuccess }: LoginOverlayPro
 
             {/* Bottom Card Footer */}
             <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs text-gray-500 font-mono">
-              <a href="/imap-mailbox" className="hover:text-emerald-400 transition-colors flex items-center gap-1">
-                <span>← IMAP Webmail</span>
+              <a href="/mailbox" className="hover:text-emerald-400 transition-colors flex items-center gap-1">
+                <span>← Webmail Inbox</span>
               </a>
-              <a href="/mailbox" className="hover:text-emerald-400 transition-colors">
-                User Mailbox →
+              <a href="/doc" className="hover:text-emerald-400 transition-colors">
+                API Docs →
               </a>
             </div>
 

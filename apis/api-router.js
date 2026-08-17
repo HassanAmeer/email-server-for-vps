@@ -1066,7 +1066,7 @@ export class ApiRouter {
   // NEW ADMIN WEBMAIL USERS API
   // ==========================================
 
-  static async handleAdminMailboxUsersApi(req, res) {
+  static async handleAdminMailboxUsersApi(req, res, defaultScope = "admin") {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ") || authHeader.split(" ")[1] !== AdminController.adminToken) {
       res.writeHead(401, { "Content-Type": "application/json" });
@@ -1077,35 +1077,39 @@ export class ApiRouter {
     try {
       const dbModule = await import("../backend/database/db.js");
       const db = dbModule.default;
+      const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+      const scope = url.searchParams.get("scope") || req.headers["x-scope"] || defaultScope || "admin";
       const cleanUrl = req.url.split("?")[0];
 
-      // GET /api/admin/mailbox-users
-      if (req.method === "GET" && cleanUrl === "/api/admin/mailbox-users") {
+      // GET mailbox-users
+      if (req.method === "GET" && (cleanUrl === "/api/admin/mailbox-users" || cleanUrl === "/api/devpanel/mailbox-users" || cleanUrl === "/api/dev-admin/mailbox-users")) {
         const users = db.query(`
-          SELECT w.id, w.email, w.plain_password, w.project_id, w.created_at, p.name as project_name,
+          SELECT w.id, w.email, w.plain_password, w.project_id, w.created_at, w.scope, p.name as project_name,
                  (SELECT COUNT(*) FROM received_emails WHERE recipient = w.email) as received_count
           FROM mailbox_users w
           LEFT JOIN projects p ON w.project_id = p.id
+          WHERE (w.scope = ? OR (? = 'admin' AND (w.scope IS NULL OR w.scope = '')))
           ORDER BY w.created_at DESC
-        `).all();
+        `).all(scope, scope);
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(users));
         return;
       }
 
-      // POST /api/admin/mailbox-users
-      if (req.method === "POST" && cleanUrl === "/api/admin/mailbox-users") {
+      // POST mailbox-users
+      if (req.method === "POST" && (cleanUrl === "/api/admin/mailbox-users" || cleanUrl === "/api/devpanel/mailbox-users" || cleanUrl === "/api/dev-admin/mailbox-users")) {
         let body = "";
         req.on("data", chunk => body += chunk.toString());
         req.on("end", () => {
           try {
-            const { email, password, project_id } = JSON.parse(body);
+            const { email, password, project_id, scope: bodyScope } = JSON.parse(body);
             if (!email || !password || !project_id) {
               res.writeHead(400, { "Content-Type": "application/json" });
               res.end(JSON.stringify({ error: "Email, password, and project selection are required" }));
               return;
             }
 
+            const targetScope = bodyScope || scope || "admin";
             const hash = Bun.password.hashSync(password, {
               algorithm: "bcrypt",
               cost: 10,
@@ -1116,10 +1120,10 @@ export class ApiRouter {
             let userId;
             if (existing) {
               userId = existing.id;
-              db.prepare("UPDATE mailbox_users SET password_hash = ?, plain_password = ?, project_id = COALESCE(?, project_id) WHERE id = ?").run(hash, password, project_id || null, userId);
+              db.prepare("UPDATE mailbox_users SET password_hash = ?, plain_password = ?, project_id = COALESCE(?, project_id), scope = ? WHERE id = ?").run(hash, password, project_id || null, targetScope, userId);
             } else {
-              const stmt = db.prepare("INSERT INTO mailbox_users (email, password_hash, plain_password, project_id) VALUES (?, ?, ?, ?)");
-              const result = stmt.run(email, hash, password, project_id || 1);
+              const stmt = db.prepare("INSERT INTO mailbox_users (email, password_hash, plain_password, project_id, scope) VALUES (?, ?, ?, ?, ?)");
+              const result = stmt.run(email, hash, password, project_id || 1, targetScope);
               userId = result.lastInsertRowid;
             }
 
@@ -1128,13 +1132,13 @@ export class ApiRouter {
               const [prefix, dom] = email.split("@");
               if (prefix && dom) {
                 try {
-                  db.prepare("UPDATE attached_domains SET primary_prefix = ? WHERE LOWER(domain) = LOWER(?) AND is_primary = 1").run(prefix, dom);
+                  db.prepare("UPDATE attached_domains SET primary_prefix = ? WHERE LOWER(domain) = LOWER(?) AND is_primary = 1 AND scope = ?").run(prefix, dom, targetScope);
                 } catch (e) {}
               }
             }
             
             res.writeHead(201, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ id: userId, email, plain_password: password, project_id }));
+            res.end(JSON.stringify({ id: userId, email, plain_password: password, project_id, scope: targetScope }));
           } catch (err) {
             res.writeHead(500, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ error: err.message }));
@@ -1143,8 +1147,8 @@ export class ApiRouter {
         return;
       }
 
-      // PUT /api/admin/mailbox-users/:id
-      if (req.method === "PUT" && cleanUrl.startsWith("/api/admin/mailbox-users/")) {
+      // PUT mailbox-users/:id
+      if (req.method === "PUT" && (cleanUrl.startsWith("/api/admin/mailbox-users/") || cleanUrl.startsWith("/api/devpanel/mailbox-users/") || cleanUrl.startsWith("/api/dev-admin/mailbox-users/"))) {
         const id = cleanUrl.split("/").pop();
         if (!id) {
           res.writeHead(400, { "Content-Type": "application/json" });
@@ -1198,8 +1202,8 @@ export class ApiRouter {
         return;
       }
 
-      // DELETE /api/admin/mailbox-users/:id
-      if (req.method === "DELETE" && cleanUrl.startsWith("/api/admin/mailbox-users/")) {
+      // DELETE mailbox-users/:id
+      if (req.method === "DELETE" && (cleanUrl.startsWith("/api/admin/mailbox-users/") || cleanUrl.startsWith("/api/devpanel/mailbox-users/") || cleanUrl.startsWith("/api/dev-admin/mailbox-users/"))) {
         const id = cleanUrl.split("/").pop();
         if (!id) {
           res.writeHead(400, { "Content-Type": "application/json" });
@@ -1279,271 +1283,14 @@ export class ApiRouter {
   }
 
   // ==========================================
-  // NEW WEBMAIL API
-  // ==========================================
-  // MAILBOX AUTHENTICATED ENDPOINTS
+  // UNIFIED MASTER MAILBOX ENDPOINTS (/api/mailbox/*)
   // ==========================================
   static async handleMailboxApi(req, res) {
     try {
       const dbModule = await import("../backend/database/db.js");
-      const { verifyMailboxUser, getMailboxInbox, isPrimaryMailboxUser } = dbModule;
-      const cleanUrl = req.url.split("?")[0];
-
-      // CORS Preflight
-      if (req.method === "OPTIONS") {
-        res.writeHead(204);
-        res.end();
-        return;
-      }
-
-      // POST /api/mailbox/login
-      if (cleanUrl === "/api/mailbox/login" && req.method === "POST") {
-        let body = "";
-        req.on("data", chunk => body += chunk.toString());
-        req.on("end", async () => {
-          try {
-            const { email, password } = JSON.parse(body);
-            if (!email || !password) {
-              res.writeHead(400, { "Content-Type": "application/json" });
-              res.end(JSON.stringify({ error: "Email and password are required" }));
-              return;
-            }
-
-            const user = verifyMailboxUser(email, password);
-            if (!user) {
-              res.writeHead(401, { "Content-Type": "application/json" });
-              res.end(JSON.stringify({ error: "Invalid email or password" }));
-              return;
-            }
-
-            // Simple token generation (in production, use jsonwebtoken)
-            const crypto = await import("crypto");
-            const token = crypto.randomBytes(32).toString("hex") + ":" + user.email;
-
-            res.writeHead(200, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ success: true, token, user }));
-          } catch (e) {
-            res.writeHead(400, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ error: e.message }));
-          }
-        });
-        return;
-      }
-
-      // Validate Auth for remaining routes
-      const authHeader = req.headers["authorization"];
-      if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        res.writeHead(401, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Unauthorized" }));
-        return;
-      }
-
-      const token = authHeader.split(" ")[1];
-      const colonIdx = token.indexOf(":");
-      if (colonIdx === -1) {
-        res.writeHead(401, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Invalid token format" }));
-        return;
-      }
-      const userEmail = token.substring(colonIdx + 1);
-
-      // GET /api/mailbox/inbox
-      if (cleanUrl === "/api/mailbox/inbox" && req.method === "GET") {
-        const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
-        const page = parseInt(parsedUrl.searchParams.get("page") || "1", 10);
-        const limit = parseInt(parsedUrl.searchParams.get("limit") || "200", 10);
-        const search = parsedUrl.searchParams.get("search") || "";
-        const filter = parsedUrl.searchParams.get("filter") || "all";
-
-        const data = getMailboxInbox(userEmail, page, limit, search, filter);
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(data));
-        return;
-      }
-
-      // GET /api/mailbox/count
-      // Returns total number of messages in the authenticated user's inbox (no hit tracking).
-      if (cleanUrl === "/api/mailbox/count" && req.method === "GET") {
-        try {
-          const db = dbModule.default;
-          const isPrimary = isPrimaryMailboxUser(userEmail);
-          const row = isPrimary
-            ? db.prepare("SELECT COUNT(*) as count FROM received_emails").get()
-            : db.prepare("SELECT COUNT(*) as count FROM received_emails WHERE recipient = ?").get(userEmail);
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ email: userEmail, count: row ? row.count : 0, isPrimaryMailbox: isPrimary }));
-        } catch (err) {
-          res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: err.message }));
-        }
-        return;
-      }
-
-      // POST /api/mailbox/send
-      if (cleanUrl === "/api/mailbox/send" && req.method === "POST") {
-        if (!AdminController.isApiEnabled("/api/mailbox/send", "POST")) {
-          res.writeHead(503, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "This API endpoint is currently disabled." }));
-          return;
-        }
-        let body = "";
-        req.on("data", chunk => body += chunk.toString());
-        req.on("end", async () => {
-          try {
-            const data = JSON.parse(body);
-            const { to, subject, message } = data;
-            
-            if (!to || !message) {
-              res.writeHead(400, { "Content-Type": "application/json" });
-              res.end(JSON.stringify({ error: "'to' and 'message' fields are required" }));
-              return;
-            }
-
-            const IS_LIVE = process.env.live !== "false";
-            
-            if (IS_LIVE) {
-              const { sendOutboundEmail: sendOutboundEmailLive } = await import("../backend/send-mail-simple/send-mail-from-generated-mail-from-live.js");
-              await sendOutboundEmailLive({
-                from: userEmail,
-                to,
-                subject: subject || "",
-                text: message,
-                html: "",
-                attachments: []
-              });
-            } else {
-              const { sendOutboundEmail: sendOutboundEmailLocal } = await import("../backend/send-mail-simple/send-mail-from-generated-mail-from-local.js");
-              await sendOutboundEmailLocal({
-                from: userEmail,
-                to,
-                subject: subject || "",
-                text: message,
-                html: "",
-                attachments: []
-              });
-            }
-
-            res.writeHead(200, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ success: true }));
-          } catch (error) {
-            console.error("Mailbox Send Error:", error);
-            res.writeHead(500, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ error: error.message }));
-          }
-        });
-        return;
-      }
-
-      // GET /api/mailbox/inbox/:id
-      if (cleanUrl.match(/\/api\/mailbox\/inbox\/\d+/) && req.method === "GET") {
-        const id = cleanUrl.split("/").pop();
-        const isPrimary = isPrimaryMailboxUser(userEmail);
-        
-        // Fetch the specific email directly
-        const db = dbModule.default;
-        const emailRecord = db.prepare("SELECT id, file_name, recipient, sender, subject, created_at, has_attachment, attachment_size FROM received_emails WHERE id = ?").get(id);
-        
-        if (!emailRecord || (!isPrimary && emailRecord.recipient !== userEmail)) {
-          res.writeHead(404, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Email not found" }));
-          return;
-        }
-
-        const content = readEmailJsonFile(emailRecord.file_name, emailRecord);
-        if (content) {
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(content);
-        } else {
-          res.writeHead(404, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Email file missing" }));
-        }
-        return;
-      }
-      // DELETE /api/mailbox/inbox/:id
-      if (cleanUrl.match(/\/api\/mailbox\/inbox\/\d+/) && req.method === "DELETE") {
-        const id = cleanUrl.split("/").pop();
-        const isPrimary = isPrimaryMailboxUser(userEmail);
-        const db = dbModule.default;
-        
-        const emailRecord = db.prepare("SELECT file_name, recipient FROM received_emails WHERE id = ?").get(id);
-        if (!emailRecord || (!isPrimary && emailRecord.recipient !== userEmail)) {
-          res.writeHead(404, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Email not found" }));
-          return;
-        }
-
-        db.prepare("DELETE FROM received_emails WHERE id = ?").run(id);
-
-        if (emailRecord.file_name) {
-          const livePath = path.join(liveMailDir, emailRecord.file_name);
-          if (fs.existsSync(livePath)) { try { fs.unlinkSync(livePath); } catch(e){} }
-          const localPath = path.join(localMailDir, emailRecord.file_name);
-          if (fs.existsSync(localPath)) { try { fs.unlinkSync(localPath); } catch(e){} }
-        }
-
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: true }));
-        return;
-      }
-
-      // GET /api/mailbox/media
-      if (cleanUrl === "/api/mailbox/media" && req.method === "GET") {
-        const isPrimary = isPrimaryMailboxUser(userEmail);
-        const db = dbModule.default;
-        const emails = isPrimary
-          ? db.prepare("SELECT id, recipient, sender, created_at, file_name FROM received_emails WHERE has_attachment = 1 ORDER BY id DESC").all()
-          : db.prepare("SELECT id, recipient, sender, created_at, file_name FROM received_emails WHERE recipient = ? AND has_attachment = 1 ORDER BY id DESC").all(userEmail);
-        
-        const targetDir = getTargetStorageDir();
-        const allMedia = [];
-
-        for (const email of emails) {
-          const content = readEmailJsonFile(email.file_name);
-          if (content) {
-            try {
-              const parsed = JSON.parse(content);
-              if (parsed.attachments && Array.isArray(parsed.attachments)) {
-                parsed.attachments.forEach((att, index) => {
-                  allMedia.push({
-                    emailId: email.id,
-                    recipient: email.recipient,
-                    sender: email.sender,
-                    date: email.created_at,
-                    filename: att.filename || `attachment-${index}`,
-                    contentType: att.contentType,
-                    size: att.size || 0,
-                    url: att.url
-                  });
-                });
-              }
-            } catch (err) {
-              console.error("Error reading media for email", email.id, err);
-            }
-          }
-        }
-
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ media: allMedia }));
-        return;
-      }
-
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Not Found" }));
-    } catch (err) {
-      console.error("Mailbox API Error:", err);
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Internal Server Error" }));
-    }
-  }
-
-  // ==========================================
-  // IMAP MASTER MAILBOX ENDPOINTS (/api/imap-mailbox/*)
-  // ==========================================
-  static async handleImapMailboxApi(req, res) {
-    try {
-      const dbModule = await import("../backend/database/db.js");
       const { verifyMailboxUser, getPrimaryDomain, getActiveDomains } = dbModule;
       const cleanUrl = req.url.split("?")[0];
+      const normUrl = cleanUrl.replace("/api/imap-mailbox", "/api/mailbox");
 
       // CORS Preflight
       if (req.method === "OPTIONS") {
@@ -1552,8 +1299,8 @@ export class ApiRouter {
         return;
       }
 
-      // GET /api/imap-mailbox/info
-      if (cleanUrl === "/api/imap-mailbox/info" && req.method === "GET") {
+      // GET /api/mailbox/info
+      if (normUrl === "/api/mailbox/info" && req.method === "GET") {
         const primary = getPrimaryDomain();
         const activeDomains = getActiveDomains();
         const primaryDomain = primary ? primary.domain : (activeDomains[0] || "mailserver10.com");
@@ -1589,8 +1336,8 @@ export class ApiRouter {
         return;
       }
 
-      // POST /api/imap-mailbox/login
-      if (cleanUrl === "/api/imap-mailbox/login" && req.method === "POST") {
+      // POST /api/mailbox/login
+      if (normUrl === "/api/mailbox/login" && req.method === "POST") {
         let body = "";
         req.on("data", chunk => body += chunk.toString());
         req.on("end", async () => {
@@ -1605,7 +1352,7 @@ export class ApiRouter {
               const userEmail = email && email.includes("@") ? email : `admin@${primaryDomain}`;
 
               const crypto = await import("crypto");
-              const token = "imap_master_" + crypto.randomBytes(32).toString("hex") + ":" + userEmail;
+              const token = "mailbox_master_" + crypto.randomBytes(32).toString("hex") + ":" + userEmail;
 
               res.writeHead(200, { "Content-Type": "application/json" });
               res.end(JSON.stringify({
@@ -1615,7 +1362,7 @@ export class ApiRouter {
                   email: userEmail,
                   is_primary: true,
                   is_master: true,
-                  role: "IMAP Master Admin",
+                  role: "Master Mailbox Admin",
                   domain: primaryDomain
                 }
               }));
@@ -1632,7 +1379,7 @@ export class ApiRouter {
             const user = verifyMailboxUser(email, password);
             if (user) {
               const crypto = await import("crypto");
-              const token = "imap_" + crypto.randomBytes(32).toString("hex") + ":" + user.email;
+              const token = "mailbox_" + crypto.randomBytes(32).toString("hex") + ":" + user.email;
               user.is_primary = true;
               user.is_master = true;
 
@@ -1644,12 +1391,12 @@ export class ApiRouter {
             // Check admin fallback password
             if (password === adminPass) {
               const crypto = await import("crypto");
-              const token = "imap_master_" + crypto.randomBytes(32).toString("hex") + ":" + email;
+              const token = "mailbox_master_" + crypto.randomBytes(32).toString("hex") + ":" + email;
               res.writeHead(200, { "Content-Type": "application/json" });
               res.end(JSON.stringify({
                 success: true,
                 token,
-                user: { email, is_primary: true, is_master: true, role: "IMAP Master Admin" }
+                user: { email, is_primary: true, is_master: true, role: "Master Mailbox Admin" }
               }));
               return;
             }
@@ -1664,7 +1411,7 @@ export class ApiRouter {
         return;
       }
 
-      // Validate Auth for remaining IMAP mailbox routes
+      // Validate Auth for remaining mailbox routes
       const authHeader = req.headers["authorization"];
       if (!authHeader || !authHeader.startsWith("Bearer ")) {
         res.writeHead(401, { "Content-Type": "application/json" });
@@ -1676,8 +1423,8 @@ export class ApiRouter {
       const colonIdx = token.indexOf(":");
       const userEmail = colonIdx !== -1 ? token.substring(colonIdx + 1) : "admin@primary";
 
-      // GET /api/imap-mailbox/inbox
-      if (cleanUrl === "/api/imap-mailbox/inbox" && req.method === "GET") {
+      // GET /api/mailbox/inbox
+      if (normUrl === "/api/mailbox/inbox" && req.method === "GET") {
         const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
         const page = parseInt(parsedUrl.searchParams.get("page") || "1", 10);
         const limit = parseInt(parsedUrl.searchParams.get("limit") || "200", 10);
@@ -1733,9 +1480,23 @@ export class ApiRouter {
         return;
       }
 
-      // GET /api/imap-mailbox/inbox/:id
-      if (cleanUrl.match(/\/api\/imap-mailbox\/inbox\/\d+/) && req.method === "GET") {
-        const id = cleanUrl.split("/").pop();
+      // GET /api/mailbox/count
+      if (normUrl === "/api/mailbox/count" && req.method === "GET") {
+        try {
+          const db = dbModule.default;
+          const row = db.prepare("SELECT COUNT(*) as count FROM received_emails").get();
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ email: userEmail, count: row ? row.count : 0, isPrimaryMailbox: true }));
+        } catch (err) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+      }
+
+      // GET /api/mailbox/inbox/:id
+      if (normUrl.match(/\/api\/mailbox\/inbox\/\d+/) && req.method === "GET") {
+        const id = normUrl.split("/").pop();
         const db = dbModule.default;
         const emailRecord = db.prepare("SELECT id, file_name, recipient, sender, subject, created_at, has_attachment, attachment_size FROM received_emails WHERE id = ?").get(id);
         
@@ -1756,9 +1517,9 @@ export class ApiRouter {
         return;
       }
 
-      // DELETE /api/imap-mailbox/inbox/:id
-      if (cleanUrl.match(/\/api\/imap-mailbox\/inbox\/\d+/) && req.method === "DELETE") {
-        const id = cleanUrl.split("/").pop();
+      // DELETE /api/mailbox/inbox/:id
+      if (normUrl.match(/\/api\/mailbox\/inbox\/\d+/) && req.method === "DELETE") {
+        const id = normUrl.split("/").pop();
         const db = dbModule.default;
         const emailRecord = db.prepare("SELECT file_name FROM received_emails WHERE id = ?").get(id);
         if (!emailRecord) {
@@ -1781,8 +1542,8 @@ export class ApiRouter {
         return;
       }
 
-      // GET /api/imap-mailbox/media
-      if (cleanUrl === "/api/imap-mailbox/media" && req.method === "GET") {
+      // GET /api/mailbox/media
+      if (normUrl === "/api/mailbox/media" && req.method === "GET") {
         const db = dbModule.default;
         const emails = db.prepare("SELECT id, recipient, sender, created_at, file_name FROM received_emails WHERE has_attachment = 1 ORDER BY id DESC").all();
         const targetDir = getTargetStorageDir();
@@ -1816,8 +1577,8 @@ export class ApiRouter {
         return;
       }
 
-      // POST /api/imap-mailbox/send
-      if (cleanUrl === "/api/imap-mailbox/send" && req.method === "POST") {
+      // POST /api/mailbox/send
+      if (normUrl === "/api/mailbox/send" && req.method === "POST") {
         let body = "";
         req.on("data", chunk => body += chunk.toString());
         req.on("end", async () => {
@@ -1857,7 +1618,7 @@ export class ApiRouter {
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ success: true }));
           } catch (error) {
-            console.error("IMAP Mailbox Send Error:", error);
+            console.error("Mailbox Send Error:", error);
             res.writeHead(500, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ error: error.message }));
           }
@@ -1866,12 +1627,16 @@ export class ApiRouter {
       }
 
       res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "IMAP Mailbox API endpoint not found" }));
+      res.end(JSON.stringify({ error: "Mailbox API endpoint not found" }));
     } catch (err) {
-      console.error("IMAP Mailbox API Error:", err);
+      console.error("Mailbox API Error:", err);
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
     }
+  }
+
+  static async handleImapMailboxApi(req, res) {
+    return ApiRouter.handleMailboxApi(req, res);
   }
 
   /**

@@ -5,49 +5,55 @@ import { useRouter } from "next/navigation";
 import { getApiBaseUrl } from "@/lib/api-config";
 import { APP_VERSION } from "@/lib/version";
 
+interface ImapInfo {
+  primaryDomain: string;
+  catchAll: boolean;
+  imap: {
+    host: string;
+    sslPort: number;
+    plainPort: number;
+    status: string;
+  };
+  defaultCredentials?: {
+    email: string;
+    password?: string;
+  };
+}
+
 const features = [
   {
-    title: "Your inbox",
-    desc: "Send & Receive",
+    title: "Catch-all inbound",
+    desc: "Applied to primary domain",
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 7.5l-8.14 5.9a2.25 2.25 0 01-2.72 0L2.25 7.5m18.75 0A2.25 2.25 0 0018.75 5.25H5.25A2.25 2.25 0 003 7.5v9a2.25 2.25 0 002.25 2.25h13.5A2.25 2.25 0 0021 16.5v-9z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
       </svg>
     )
   },
   {
-    title: "Attachment viewer",
-    desc: "Maximum types",
+    title: "IMAPS Inbox",
+    desc: "Access via Gmail & 3rd party apps",
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
       </svg>
     )
   },
   {
-    title: "Single user email",
-    desc: "Your personal address",
+    title: "All users emails",
+    desc: "View and managed",
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
       </svg>
     )
   },
   {
-    title: "Instant OTP codes",
-    desc: "Codes surfaced immediately",
+    title: "Live mail stream",
+    desc: "Real-time feed on your VPS",
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
-      </svg>
-    )
-  },
-  {
-    title: "Real-time updates",
-    desc: "New mail streams in live",
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
       </svg>
     )
   }
@@ -56,16 +62,53 @@ const features = [
 export default function MailboxLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isPwdFocused, setIsPwdFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [info, setInfo] = useState<ImapInfo | null>(null);
+  const [loadingInfo, setLoadingInfo] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem("mailbox_token");
+    setPassword("");
+    const t = setTimeout(() => setPassword(""), 150);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem("mailbox_token") || localStorage.getItem("imap_mailbox_token");
     if (token) {
       router.push("/mailbox/inbox");
+      return;
     }
+
+    const apiBase = getApiBaseUrl();
+
+    // Fetch primary domain & default IMAP credentials info
+    fetch(`${apiBase}/api/mailbox/info`)
+      .then(async res => {
+        const text = await res.text();
+        try {
+          return JSON.parse(text);
+        } catch {
+          return null;
+        }
+      })
+      .then(data => {
+        if (data && data.success) {
+          setInfo(data);
+          if (data.defaultCredentials?.email && !email) {
+            setEmail(data.defaultCredentials.email);
+          }
+        }
+      })
+      .catch(err => {
+        console.warn("Could not load Mailbox info:", err);
+      })
+      .finally(() => {
+        setLoadingInfo(false);
+      });
   }, [router]);
 
   const handleLogin = async (e?: React.FormEvent) => {
@@ -95,7 +138,10 @@ export default function MailboxLogin() {
 
       if (res.ok && data.token) {
         localStorage.setItem("mailbox_token", data.token);
-        localStorage.setItem("mailbox_user", JSON.stringify(data.user));
+        localStorage.setItem("imap_mailbox_token", data.token);
+        const userData = JSON.stringify(data.user || { email, is_primary: true });
+        localStorage.setItem("mailbox_user", userData);
+        localStorage.setItem("imap_mailbox_user", userData);
         router.push("/mailbox/inbox");
       } else {
         setError(data.error || "Login failed. Check your credentials.");
@@ -135,10 +181,10 @@ export default function MailboxLogin() {
               </div>
               <div className="flex flex-col">
                 <span className="text-sm font-extrabold tracking-tight text-white flex items-center gap-1.5 leading-none">
-                  <span>User Mailbox</span>
-                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">LIVE</span>
+                  <span>Mailbox</span>
+                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Primary Domain</span>
                 </span>
-                <span className="text-[9px] font-semibold text-gray-400 tracking-wider font-mono mt-1">USER MAILBOX INTERFACE</span>
+                <span className="text-[9px] font-semibold text-gray-400 tracking-wider font-mono mt-1">ALL MAIL INTERFACE</span>
               </div>
             </div>
 
@@ -151,12 +197,14 @@ export default function MailboxLogin() {
           {/* Middle Hero Typography & Features */}
           <div className="relative z-10 my-auto py-4 max-w-lg">
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-[1.06] mb-2.5">
-              User Mailbox.<br />
-              <span className="bg-gradient-to-r from-emerald-300 via-emerald-400 to-teal-400 bg-clip-text text-transparent">Your mail, your way.</span>
+              <span className="bg-gradient-to-r from-emerald-300 via-emerald-400 to-teal-400 bg-clip-text text-transparent">Master Mailbox</span>
             </h1>
+            <p className="text-sm text-white font-mono font-extrabold tracking-widest mb-5">
+              ALL EMAILS VIEWER
+            </p>
 
             <p className="text-xs sm:text-sm text-gray-400 leading-relaxed mb-5 max-w-md">
-              Sign in to read every email sent to your address — delivered, stored, and updated live in your own secure mailbox.
+              The central master inbox for your primary domain. Inbound messages are captured, encrypted, and streamed live to this single mailbox.
             </p>
 
             {/* Feature List */}
@@ -169,19 +217,19 @@ export default function MailboxLogin() {
                     </div>
                     <span className="text-xs sm:text-[13px] font-semibold text-gray-200">{f.title}</span>
                   </div>
-                  <span className="text-xs text-gray-400 font-mono hidden sm:inline">{f.desc}</span>
+                  <span className="text-xs text-right text-gray-400 font-mono hidden sm:inline w-[200px] whitespace-nowrap overflow-hidden text-ellipsis">{f.desc}</span>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Bottom Node Tag */}
-          <div className="relative z-10 pt-2 flex items-center justify-between text-xs text-gray-400 font-mono">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-              <span>User Emails · Inbox</span>
+          <div className="relative z-10 pt-2 flex items-center justify-between gap-3 text-xs text-gray-400 font-mono">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0"></span>
+              <span className="truncate text-gray-300">Live Mail Server · IMAPS Active · APIs Available</span>
             </div>
-            <span>{APP_VERSION}</span>
+            <span className="shrink-0 text-emerald-400/80 font-bold">{APP_VERSION}</span>
           </div>
         </div>
 
@@ -213,7 +261,7 @@ export default function MailboxLogin() {
                 Sign in
               </h2>
               <p className="text-xs sm:text-sm text-gray-400">
-                Enter your mailbox credentials to read your emails
+                Enter your mailbox credentials to open the master inbox
               </p>
             </div>
 
@@ -228,8 +276,12 @@ export default function MailboxLogin() {
             )}
 
             {/* Form */}
-            <form onSubmit={handleLogin} className="flex flex-col gap-3.5 sm:gap-4">
+            <form onSubmit={handleLogin} autoComplete="off" className="flex flex-col gap-3.5 sm:gap-4">
               
+              {/* Dummy hidden inputs to intercept browser aggressive autofill */}
+              <input type="text" name="fake_usernameremembered" style={{ display: 'none' }} tabIndex={-1} autoComplete="off" />
+              <input type="password" name="fake_passwordremembered" style={{ display: 'none' }} tabIndex={-1} autoComplete="off" />
+
               {/* Email Input */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-gray-300 tracking-wide font-mono">
@@ -239,10 +291,11 @@ export default function MailboxLogin() {
                   <input
                     type="email"
                     required
+                    name="imap_email_address"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@yourdomain.com"
-                    autoComplete="email"
+                    placeholder="admin@primarydomain.com"
+                    autoComplete="off"
                     className="w-full bg-[#121826] border border-white/[0.08] focus:border-emerald-500/60 focus:ring-2 focus:ring-emerald-500/20 rounded-xl px-4 py-3 text-xs sm:text-sm text-white focus:outline-none transition-all placeholder:text-gray-500 font-mono"
                   />
                   <div className="absolute right-3.5 text-gray-500 pointer-events-none">
@@ -264,10 +317,13 @@ export default function MailboxLogin() {
                   <input
                     type={showPassword ? "text" : "password"}
                     required
+                    name="imap_account_key"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onFocus={() => setIsPwdFocused(true)}
+                    readOnly={!isPwdFocused}
                     placeholder="••••••••••••"
-                    autoComplete="current-password"
+                    autoComplete="new-password"
                     className="w-full bg-[#121826] border border-white/[0.08] focus:border-emerald-500/60 focus:ring-2 focus:ring-emerald-500/20 rounded-xl px-4 py-3 text-xs sm:text-sm text-white focus:outline-none transition-all placeholder:text-gray-500 pr-11 font-mono"
                   />
                   <button
@@ -315,8 +371,8 @@ export default function MailboxLogin() {
               <a href="/admin/primary-domain" className="hover:text-emerald-400 transition-colors flex items-center gap-1">
                 <span>← Admin Panel</span>
               </a>
-              <a href="/imap-mailbox" className="hover:text-emerald-400 transition-colors">
-                IMAP Mailbox →
+              <a href="/doc" className="hover:text-emerald-400 transition-colors">
+                API Docs →
               </a>
             </div>
 

@@ -12,7 +12,6 @@ import ProjectsManager from "../components/ProjectsManager";
 import SetupManager from "../components/SetupManager";
 import DomainsManager from "../components/DomainsManager";
 import PrimaryDomainManager from "../components/PrimaryDomainManager";
-import MailboxManager from "../components/MailboxManager";
 import DataSeedingManager from "../components/DataSeedingManager";
 import { APP_VERSION } from "@/lib/version";
 
@@ -44,7 +43,7 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
     explorer: "explorer-tab",
     logs: "logs-tab",
     projects: "projects-tab",
-    mailbox: "mailbox-tab",
+    mailbox: "primary-domain-tab",
     domains: "domains-tab",
     "primary-domain": "primary-domain-tab",
     "primary-domains": "primary-domain-tab",
@@ -61,7 +60,6 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
     "explorer-tab": "explorer",
     "logs-tab": "logs",
     "projects-tab": "projects",
-    "mailbox-tab": "mailbox",
     "domains-tab": "domains",
     "primary-domain-tab": "primary-domain",
     "setup-tab": "domains",
@@ -224,10 +222,10 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
             </div>
             <div className="flex flex-col">
               <span className="font-extrabold text-sm tracking-widest uppercase font-mono bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
-                {isStaticSuperAdmin ? "Super Admin" : "Admin Panel"}
+                {isStaticSuperAdmin ? "Dev Admin" : "Admin Panel"}
               </span>
-              <span className={`text-[9px] font-bold uppercase tracking-wider font-mono ${isStaticSuperAdmin ? "text-amber-400" : "text-emerald-400"}`}>
-                {isStaticSuperAdmin ? "Root Access" : "Control Panel"}
+              <span className={`text-[9px] font-bold uppercase tracking-wider font-mono ${isStaticSuperAdmin ? "text-violet-400" : "text-emerald-400"}`}>
+                {isStaticSuperAdmin ? "Developer Access" : "Control Panel"}
               </span>
             </div>
           </div>
@@ -239,28 +237,6 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-        </div>
-
-        {/* Admin profile crest */}
-        <div className="p-5 border-b border-white/[0.04] bg-white/[0.01] flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full border border-emerald-500/30 bg-emerald-500/5 flex items-center justify-center font-bold text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
-            AD
-          </div>
-          <div className="flex flex-col gap-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold text-white truncate">Administrator</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0"></span>
-            </div>
-            <span className="text-[10px] text-gray-500 font-mono">Role: Superuser</span>
-            {isStaticSuperAdmin && (
-              <span className="inline-flex items-center gap-1 w-fit text-[9px] font-bold font-mono uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-2.5 h-2.5">
-                  <path fillRule="evenodd" d="M9.661 2.237a.531.531 0 01.678 0 11.947 11.947 0 007.078 2.749.5.5 0 01.479.425c.069.52.104 1.05.104 1.59 0 5.162-3.26 9.563-7.834 11.256a.48.48 0 01-.332 0C5.26 16.564 2 12.163 2 7c0-.538.035-1.069.104-1.589a.5.5 0 01.48-.425 11.947 11.947 0 007.077-2.75zm4.196 5.954a.75.75 0 00-1.214-.882l-3.236 4.53L7.53 10.04a.75.75 0 00-1.06 1.06l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
-                </svg>
-                Super Admin
-              </span>
-            )}
-          </div>
         </div>
 
         {/* Sidebar Nav Links */}
@@ -350,23 +326,6 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
               </button>
             </>
           )}
-
-          <button
-            onClick={() => handleTabClick("mailbox-tab")}
-            className={`w-full flex items-center gap-3.5 px-5 py-3.5 text-xs font-bold tracking-wide cursor-pointer transition-all duration-300 relative group overflow-hidden ${
-              activeTab === "mailbox-tab" 
-                ? "rounded-none text-emerald-400 bg-emerald-500/10 shadow-[0_2px_12px_rgba(16,185,129,0.03)]" 
-                : "rounded-none text-gray-400 hover:text-white hover:bg-white/[0.02]"
-            }`}
-          >
-            {activeTab === "mailbox-tab" && (
-              <span className="absolute left-0 inset-y-0 w-[3px] bg-emerald-400"></span>
-            )}
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-            </svg>
-            <span>Users Mailbox</span>
-          </button>
 
           <button
             onClick={() => handleTabClick("logs-tab")}
@@ -472,10 +431,6 @@ export function AdminPageClient({ tabSegment }: AdminPageClientProps) {
 
           {activeTab === "projects-tab" && (
             <ProjectsManager apiUrl={apiUrl} />
-          )}
-
-          {activeTab === "mailbox-tab" && (
-            <MailboxManager apiUrl={apiUrl} />
           )}
 
           {(activeTab === "domains-tab" || activeTab === "setup-tab") && (

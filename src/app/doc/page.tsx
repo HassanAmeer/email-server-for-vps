@@ -691,6 +691,33 @@ const endpoints = [
   },
   // ─── Mailbox Client APIs (for Third-Party App Integration) ───
   {
+    id: "mailbox-client-info",
+    method: "GET",
+    path: "/api/mailbox/info",
+    title: "Mailbox Server Info",
+    category: "Mailbox Client",
+    desc: "Fetch Primary Domain configuration, IMAP/POP3 hostnames, SSL/Plain port numbers (993/143), active status, and default mailbox credentials.",
+    payload: null,
+    response: `{
+  "success": true,
+  "primaryDomain": "mailserver10.com",
+  "catchAll": true,
+  "imap": {
+    "host": "mail.mailserver10.com",
+    "sslPort": 993,
+    "plainPort": 143,
+    "status": "active"
+  },
+  "defaultCredentials": {
+    "email": "admin@mailserver10.com",
+    "password": "••••••••"
+  }
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/mailbox/info",
+    returns: "JSON Object",
+    auth: false,
+  },
+  {
     id: "mailbox-client-login",
     method: "POST",
     path: "/api/mailbox/login",
@@ -830,7 +857,7 @@ const endpoints = [
     title: "Send Email (Mailbox)",
     category: "Mailbox Client",
     desc: "Send an outbound email from the authenticated permanent mailbox address. The `from` is automatically set to the logged-in user's mailbox email.",
-    disabled: true,
+    disabled: false,
     payload: `{
   "to": "recipient@example.com",
   "subject": "Hello from my mailbox",
@@ -938,16 +965,20 @@ export default function ApiDocumentation() {
             </span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-400">
+          <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-400">
             <Link href="/" className="hover:text-white transition-colors cursor-pointer bg-transparent border-none">Home</Link>
-            <Link href="/doc" className="text-emerald-400 transition-colors cursor-pointer bg-transparent border-none">Developer APIs</Link>
+            <Link href="/doc" className="text-emerald-400 font-semibold transition-colors cursor-pointer bg-transparent border-none">Client APIs</Link>
+            <Link href="/devdoc" className="text-amber-400 hover:text-amber-300 font-semibold transition-colors cursor-pointer bg-transparent border-none flex items-center gap-1.5">
+              <span>Dev API Hub</span>
+              <span className="text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded">/api/dev</span>
+            </Link>
             <Link href="/admin" className="hover:text-white transition-colors cursor-pointer bg-transparent border-none">Consoles</Link>
-            <Link href="/" className="hover:text-white transition-colors cursor-pointer bg-transparent border-none">System Status</Link>
+            <Link href="/mailbox" className="hover:text-white transition-colors cursor-pointer bg-transparent border-none">Webmail</Link>
           </nav>
 
           <div className="flex items-center gap-3">
-            <Link href="/admin/" className="text-xs sm:text-sm font-semibold text-gray-300 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.08] px-4 py-2 rounded-xl transition-all">Login</Link>
-            <Link href="/admin/" className="text-xs sm:text-sm font-bold text-black bg-emerald-500 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20 px-4 py-2 rounded-xl transition-all cursor-pointer">Sign Up</Link>
+            <Link href="/devdoc" className="text-xs font-bold text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-3 py-2 rounded-xl transition-all">Dev Docs →</Link>
+            <Link href="/admin/" className="text-xs sm:text-sm font-bold text-black bg-emerald-500 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20 px-4 py-2 rounded-xl transition-all cursor-pointer">Admin</Link>
           </div>
         </div>
       </header>

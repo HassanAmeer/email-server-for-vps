@@ -13,9 +13,11 @@ interface mailboxUser {
 
 interface MailboxManagerProps {
   apiUrl: string;
+  apiPrefix?: string;
+  tokenKey?: string;
 }
 
-export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
+export default function MailboxManager({ apiUrl, apiPrefix = "/api/admin", tokenKey = "admin_token" }: MailboxManagerProps) {
   const [users, setUsers] = useState<mailboxUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -27,14 +29,15 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
   const [newPassword, setNewPassword] = useState("");
   const [creating, setCreating] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 50;
+  const [searchQuery, setSearchQuery] = useState("");
+  const [itemsPerPage] = useState(50);
 
   const fetchUsers = async () => {
     if (!apiUrl) return;
     try {
-      const res = await fetch(`${apiUrl}/api/admin/mailbox-users`, {
+      const res = await fetch(`${apiUrl}${apiPrefix}/mailbox-users`, {
         headers: {
-          "Authorization": `Bearer ${localStorage.getItem("admin_token")}`
+          "Authorization": `Bearer ${localStorage.getItem(tokenKey)}`
         }
       });
       if (res.ok) {
@@ -54,9 +57,9 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
   const fetchDomains = async () => {
     if (!apiUrl) return;
     try {
-      const res = await fetch(`${apiUrl}/api/admin/domains`, {
+      const res = await fetch(`${apiUrl}${apiPrefix}/domains`, {
         headers: {
-          "Authorization": `Bearer ${localStorage.getItem("admin_token")}`
+          "Authorization": `Bearer ${localStorage.getItem(tokenKey)}`
         }
       });
       if (res.ok) {
@@ -81,9 +84,9 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
   const fetchProjects = async () => {
     if (!apiUrl) return;
     try {
-      const res = await fetch(`${apiUrl}/api/admin/projects`, {
+      const res = await fetch(`${apiUrl}${apiPrefix}/projects`, {
         headers: {
-          "Authorization": `Bearer ${localStorage.getItem("admin_token")}`
+          "Authorization": `Bearer ${localStorage.getItem(tokenKey)}`
         }
       });
       if (res.ok) {
@@ -102,7 +105,23 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
     fetchUsers();
     fetchDomains();
     fetchProjects();
-  }, [apiUrl]);
+  }, [apiUrl, apiPrefix, tokenKey]);
+
+  const filteredUsers = users.filter(u => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return u.email.toLowerCase().includes(q) || (u.project_name && u.project_name.toLowerCase().includes(q));
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / itemsPerPage));
+  const paginatedUsers = filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  // Keep currentPage valid when list changes
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,11 +131,11 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
     const fullEmail = `${newUsername}@${selectedDomain}`;
     
     try {
-      const res = await fetch(`${apiUrl}/api/admin/mailbox-users`, {
+      const res = await fetch(`${apiUrl}${apiPrefix}/mailbox-users`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("admin_token")}`
+          "Authorization": `Bearer ${localStorage.getItem(tokenKey)}`
         },
         body: JSON.stringify({
           email: fullEmail,
@@ -144,10 +163,10 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
     if (!window.confirm(`Are you sure you want to delete mailbox user ${email}?`)) return;
 
     try {
-      const res = await fetch(`${apiUrl}/api/admin/mailbox-users/${id}`, {
+      const res = await fetch(`${apiUrl}${apiPrefix}/mailbox-users/${id}`, {
         method: "DELETE",
         headers: {
-          "Authorization": `Bearer ${localStorage.getItem("admin_token")}`
+          "Authorization": `Bearer ${localStorage.getItem(tokenKey)}`
         }
       });
 
@@ -169,33 +188,126 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
     );
   }
 
-  const totalPages = Math.ceil(users.length / ITEMS_PER_PAGE);
-  const paginatedUsers = users.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const renderPagination = (position: "top" | "bottom") => {
+    if (filteredUsers.length === 0) return null;
 
-  const renderPagination = () => {
-    if (totalPages <= 1) return null;
+    const startItem = (currentPage - 1) * itemsPerPage + 1;
+    const endItem = Math.min(currentPage * itemsPerPage, filteredUsers.length);
+
+    // Generate page numbers window (up to 5 pages around current)
+    const getPageNumbers = () => {
+      const delta = 2;
+      const range: number[] = [];
+      for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) {
+        range.push(i);
+      }
+      return range;
+    };
+
+    const middlePages = getPageNumbers();
+
     return (
-      <div className="flex items-center justify-between px-6 py-3 bg-[#111726]/30 border-t border-b border-white/[0.04]">
-        <div className="text-sm text-gray-400">
-          Showing <span className="font-medium text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-medium text-white">{Math.min(currentPage * ITEMS_PER_PAGE, users.length)}</span> of <span className="font-medium text-white">{users.length}</span> results
+      <div className={`flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-3.5 bg-[#0e1424]/90 backdrop-blur-md ${
+        position === "top" ? "border-b border-white/[0.06]" : "border-t border-white/[0.06]"
+      }`}>
+        <div className="flex items-center gap-3 text-xs text-gray-400">
+          <span>
+            Showing <strong className="font-bold text-white">{startItem}</strong>–<strong className="font-bold text-white">{endItem}</strong> of <strong className="font-bold text-emerald-400">{filteredUsers.length}</strong> mailboxes
+          </span>
+          <span className="text-gray-600 font-mono">|</span>
+          <span className="text-gray-500 font-mono text-[11px]">50 users/page</span>
         </div>
-        <div className="flex gap-2">
+
+        <div className="flex items-center gap-1.5 flex-wrap justify-center">
+          {/* First Button */}
+          <button
+            onClick={() => setCurrentPage(1)}
+            disabled={currentPage === 1}
+            className="px-2.5 py-1 text-xs rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 hover:text-white border border-white/[0.06] disabled:opacity-30 disabled:cursor-not-allowed transition-all font-mono"
+            title="First Page"
+          >
+            « First
+          </button>
+
+          {/* Prev Button */}
           <button
             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
             disabled={currentPage === 1}
-            className="px-3 py-1.5 text-sm bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg border border-white/10 text-white transition-colors"
+            className="px-2.5 py-1 text-xs rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 hover:text-white border border-white/[0.06] disabled:opacity-30 disabled:cursor-not-allowed transition-all font-mono"
+            title="Previous Page"
           >
-            Previous
+            ‹ Prev
           </button>
-          <span className="px-3 py-1.5 text-sm text-gray-400 font-medium">
-            Page {currentPage} of {totalPages}
-          </span>
+
+          {/* Page 1 */}
+          <button
+            onClick={() => setCurrentPage(1)}
+            className={`min-w-[28px] px-2 py-1 text-xs rounded-lg font-bold font-mono transition-all ${
+              currentPage === 1
+                ? "bg-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.3)]"
+                : "bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 border border-white/[0.06]"
+            }`}
+          >
+            1
+          </button>
+
+          {/* Left Ellipsis */}
+          {middlePages.length > 0 && middlePages[0] > 2 && (
+            <span className="text-gray-600 px-1 font-mono text-xs">...</span>
+          )}
+
+          {/* Middle Pages */}
+          {middlePages.map(page => (
+            <button
+              key={page}
+              onClick={() => setCurrentPage(page)}
+              className={`min-w-[28px] px-2 py-1 text-xs rounded-lg font-bold font-mono transition-all ${
+                currentPage === page
+                  ? "bg-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.3)]"
+                  : "bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 border border-white/[0.06]"
+              }`}
+            >
+              {page}
+            </button>
+          ))}
+
+          {/* Right Ellipsis */}
+          {middlePages.length > 0 && middlePages[middlePages.length - 1] < totalPages - 1 && (
+            <span className="text-gray-600 px-1 font-mono text-xs">...</span>
+          )}
+
+          {/* Last Page (if totalPages > 1) */}
+          {totalPages > 1 && (
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              className={`min-w-[28px] px-2 py-1 text-xs rounded-lg font-bold font-mono transition-all ${
+                currentPage === totalPages
+                  ? "bg-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.3)]"
+                  : "bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 border border-white/[0.06]"
+              }`}
+            >
+              {totalPages}
+            </button>
+          )}
+
+          {/* Next Button */}
           <button
             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
-            className="px-3 py-1.5 text-sm bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg border border-white/10 text-white transition-colors"
+            className="px-2.5 py-1 text-xs rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 hover:text-white border border-white/[0.06] disabled:opacity-30 disabled:cursor-not-allowed transition-all font-mono"
+            title="Next Page"
           >
-            Next
+            Next ›
+          </button>
+
+          {/* Last Button */}
+          <button
+            onClick={() => setCurrentPage(totalPages)}
+            disabled={currentPage === totalPages}
+            className="px-2.5 py-1 text-xs rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 hover:text-white border border-white/[0.06] disabled:opacity-30 disabled:cursor-not-allowed transition-all font-mono"
+            title="Last Page"
+          >
+            Last »
           </button>
         </div>
       </div>
@@ -203,7 +315,7 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
   };
 
   return (
-    <div className="flex flex-col gap-6 p-6 lg:p-10 flex-grow overflow-y-auto max-h-screen">
+    <div className="flex flex-col gap-6 p-6 lg:p-10 flex-grow">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold text-white tracking-tight">Users Mailbox Accounts</h1>
         <p className="text-sm text-gray-400">Manage permanent user mailbox email accounts linked to projects and domains.</p>
@@ -285,9 +397,43 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
       </div>
 
       <div className="bg-[#0D121F] border border-white/[0.05] rounded-2xl flex flex-col overflow-hidden shadow-2xl">
-        <div className="p-6 border-b border-white/[0.06] bg-[#111726]">
-          <h2 className="text-lg font-bold text-white">Existing Accounts ({users.length})</h2>
+        <div className="p-5 md:p-6 border-b border-white/[0.06] bg-[#111726] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-bold text-white">Existing Accounts ({users.length})</h2>
+            {filteredUsers.length !== users.length && (
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
+                {filteredUsers.length} filtered
+              </span>
+            )}
+          </div>
+
+          {/* Search Box */}
+          {users.length > 0 && (
+            <div className="relative w-full sm:w-72">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                placeholder="Search mailbox or project..."
+                className="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:border-emerald-500/50 transition-all"
+              />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="2"
+                stroke="currentColor"
+                className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+              </svg>
+            </div>
+          )}
         </div>
+
         {error ? (
           <div className="p-8 text-center text-red-400 text-sm font-semibold">{error}</div>
         ) : users.length === 0 ? (
@@ -300,9 +446,15 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
             <h3 className="text-white font-bold mb-1">No User Mailbox Accounts</h3>
             <p className="text-sm text-gray-400 max-w-sm">Create an account above to start receiving and sending emails globally.</p>
           </div>
+        ) : filteredUsers.length === 0 ? (
+          <div className="p-12 text-center text-gray-400 text-sm">
+            No mailbox accounts matching &quot;{searchQuery}&quot;
+          </div>
         ) : (
           <div className="overflow-x-auto flex flex-col">
-            {renderPagination()}
+            {/* Top Pagination */}
+            {renderPagination("top")}
+
             <table className="w-full text-left text-sm whitespace-nowrap">
               <thead className="bg-[#111726]/50 text-gray-400 text-xs uppercase tracking-wider font-semibold">
                 <tr>
@@ -345,7 +497,9 @@ export default function MailboxManager({ apiUrl }: MailboxManagerProps) {
                 ))}
               </tbody>
             </table>
-            {renderPagination()}
+
+            {/* Bottom Pagination */}
+            {renderPagination("bottom")}
           </div>
         )}
       </div>

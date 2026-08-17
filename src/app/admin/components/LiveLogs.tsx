@@ -4,10 +4,12 @@ import { useState, useEffect, useMemo } from "react";
 
 interface LiveLogsProps {
   apiUrl: string;
+  apiPrefix?: string;
+  tokenKey?: string;
   systemMode: "Live" | "Local";
 }
 
-export default function LiveLogs({ apiUrl, systemMode }: LiveLogsProps) {
+export default function LiveLogs({ apiUrl, systemMode, apiPrefix = "/api/admin", tokenKey = "admin_token" }: LiveLogsProps) {
   const [data, setData] = useState<any[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 1 });
   const [loading, setLoading] = useState(false);
@@ -29,10 +31,10 @@ export default function LiveLogs({ apiUrl, systemMode }: LiveLogsProps) {
     if (!apiUrl) return;
     setLoading(true);
     try {
-      const token = localStorage.getItem("admin_token");
+      const token = localStorage.getItem(tokenKey);
       const endpointType = type === "all" ? "all" : type.toLowerCase();
       const searchParam = search ? `&search=${encodeURIComponent(search.trim())}` : "";
-      const res = await fetch(`${apiUrl}/api/admin/dblogs/${endpointType}?page=${page}&limit=${limit}${searchParam}`, {
+      const res = await fetch(`${apiUrl}${apiPrefix}/dblogs/${endpointType}?page=${page}&limit=${limit}${searchParam}`, {
         headers: {
           "Authorization": `Bearer ${token}`
         }
@@ -58,14 +60,14 @@ export default function LiveLogs({ apiUrl, systemMode }: LiveLogsProps) {
       fetchLogs(pagination.page, pagination.limit, activeType, searchQuery);
     }, 250);
     return () => clearTimeout(timer);
-  }, [apiUrl, pagination.page, pagination.limit, activeType, searchQuery]);
+  }, [apiUrl, apiPrefix, tokenKey, pagination.page, pagination.limit, activeType, searchQuery]);
 
   // Fetch current RCPT TO logging flag state
   const fetchRcptFlag = async () => {
     if (!apiUrl) return;
     try {
-      const token = localStorage.getItem("admin_token");
-      const res = await fetch(`${apiUrl}/api/admin/smtp-flags`, {
+      const token = localStorage.getItem(tokenKey);
+      const res = await fetch(`${apiUrl}${apiPrefix}/smtp-flags`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -75,15 +77,15 @@ export default function LiveLogs({ apiUrl, systemMode }: LiveLogsProps) {
     } catch (e) {}
   };
 
-  useEffect(() => { fetchRcptFlag(); }, [apiUrl]);
+  useEffect(() => { fetchRcptFlag(); }, [apiUrl, apiPrefix, tokenKey]);
 
   // Toggle RCPT TO logging
   const toggleRcptLogging = async () => {
     if (!apiUrl || rcptLoggingLoading) return;
     setRcptLoggingLoading(true);
     try {
-      const token = localStorage.getItem("admin_token");
-      const res = await fetch(`${apiUrl}/api/admin/smtp-flags`, {
+      const token = localStorage.getItem(tokenKey);
+      const res = await fetch(`${apiUrl}${apiPrefix}/smtp-flags`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ flag: "rcpt_logging", value: rcptLogging ? 0 : 1 })
@@ -114,9 +116,9 @@ export default function LiveLogs({ apiUrl, systemMode }: LiveLogsProps) {
     
     setClearing(true);
     try {
-      const token = localStorage.getItem("admin_token");
+      const token = localStorage.getItem(tokenKey);
       const endpointType = activeType === "all" ? "all" : activeType.toLowerCase();
-      const res = await fetch(`${apiUrl}/api/admin/dblogs/${endpointType}`, {
+      const res = await fetch(`${apiUrl}${apiPrefix}/dblogs/${endpointType}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -151,8 +153,8 @@ export default function LiveLogs({ apiUrl, systemMode }: LiveLogsProps) {
 
     setDeletingSelected(true);
     try {
-      const token = localStorage.getItem("admin_token");
-      const res = await fetch(`${apiUrl}/api/admin/dblogs/all`, {
+      const token = localStorage.getItem(tokenKey);
+      const res = await fetch(`${apiUrl}${apiPrefix}/dblogs/all`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${token}`,

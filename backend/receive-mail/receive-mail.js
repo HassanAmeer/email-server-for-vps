@@ -508,6 +508,16 @@ const httpServer = http.createServer((req, res) => {
 
   const cleanUrl = req.url.split("?")[0];
 
+  // DevPanel auth middleware helper (supports devPanelToken, devAdminToken and master adminToken)
+  const checkDevAuth = () => {
+    const authHeader = req.headers.authorization || "";
+    return authHeader.startsWith("Bearer ") && (
+      authHeader.split(" ")[1] === AdminController.devPanelToken ||
+      authHeader.split(" ")[1] === AdminController.devAdminToken ||
+      authHeader.split(" ")[1] === AdminController.adminToken
+    );
+  };
+
   // Server-Sent Events (SSE) Real-Time Stream Endpoint
   if (cleanUrl === "/api/stream/events" && req.method === "GET") {
     res.writeHead(200, {
@@ -536,6 +546,206 @@ const httpServer = http.createServer((req, res) => {
     return;
   }
 
+  // ==========================================
+  // DEV ENDPOINTS ROUTER (/api/dev/*)
+  // Maps /api/dev/* endpoints for Developer & DevAdmin integrations
+  // ==========================================
+  if (cleanUrl.startsWith("/api/dev/")) {
+    const devSubPath = cleanUrl.substring("/api/dev/".length);
+
+    // Dev Login alias
+    if (devSubPath === "login" && req.method === "POST") {
+      return AdminController.devAdminLogin(req, res);
+    }
+
+    // Dev Admin management routes
+    if (devSubPath === "stats" || devSubPath === "stats/traffic" || devSubPath.startsWith("credentials") || 
+        devSubPath.startsWith("projects") || devSubPath.startsWith("domains") || devSubPath.startsWith("mailbox-users") ||
+        devSubPath.startsWith("api-settings") || devSubPath.startsWith("seed") || devSubPath.startsWith("dblogs") ||
+        devSubPath.startsWith("smtp-flags") || devSubPath === "serverinfo" || devSubPath === "dkim/generate") {
+      
+      const authHeader = req.headers.authorization || "";
+      const isDevAuth = (authHeader.startsWith("Bearer ") && authHeader.split(" ")[1] === AdminController.devAdminToken) ||
+                        (authHeader.startsWith("Bearer ") && authHeader.split(" ")[1] === AdminController.adminToken);
+
+      if (devSubPath === "stats" && req.method === "GET") {
+        if (!isDevAuth) { res.writeHead(401, { "Content-Type": "application/json" }); return res.end(JSON.stringify({ error: "Unauthorized" })); }
+        return ApiRouter.getStats(req, res);
+      }
+      if (devSubPath === "stats/traffic" && req.method === "GET") {
+        if (!isDevAuth) { res.writeHead(401, { "Content-Type": "application/json" }); return res.end(JSON.stringify({ error: "Unauthorized" })); }
+        return ApiRouter.handleTrafficStatsApi(req, res);
+      }
+      if (devSubPath === "api-settings" && req.method === "GET") {
+        return ApiRouter.getApiSettings(req, res);
+      }
+      if (devSubPath === "api-settings/toggle" && req.method === "POST") {
+        return ApiRouter.toggleApiSetting(req, res);
+      }
+      if (devSubPath === "api-settings/reset-hits" && req.method === "POST") {
+        return ApiRouter.resetApiSettingsHits(req, res);
+      }
+      if (devSubPath.startsWith("seed")) {
+        const prox = Object.create(req);
+        prox.url = req.url.replace("/api/dev/", "/api/admin/");
+        prox.headers = { ...req.headers, authorization: `Bearer ${AdminController.adminToken}` };
+        return ApiRouter.handleSeedDataApi(prox, res);
+      }
+      if (devSubPath.startsWith("dblogs")) {
+        const prox = Object.create(req);
+        prox.url = req.url.replace("/api/dev/", "/api/admin/");
+        prox.headers = { ...req.headers, authorization: `Bearer ${AdminController.adminToken}` };
+        const parts = cleanUrl.replace(/\/+$/, "").split("/");
+        const logType = parts.length > 0 ? parts[parts.length - 1] : "all";
+        return ApiRouter.getDbLogs(prox, res, logType || "all");
+      }
+      if (devSubPath === "smtp-flags" && req.method === "GET") {
+        const flags = getAllFlags();
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ success: true, flags }));
+      }
+      if (devSubPath === "smtp-flags" && req.method === "POST") {
+        let body = "";
+        req.on("data", chunk => { body += chunk.toString(); });
+        req.on("end", () => {
+          try {
+            const { flag, value } = JSON.parse(body || "{}");
+            if (!flag) {
+              res.writeHead(400, { "Content-Type": "application/json" });
+              return res.end(JSON.stringify({ error: "flag is required" }));
+            }
+            const newVal = (value === true || value === "1" || value === 1) ? "1" : "0";
+            setSetting(flag, newVal);
+            const updated = getAllFlags();
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ success: true, flags: updated }));
+          } catch (e) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "Invalid JSON body" }));
+          }
+        });
+        return;
+      }
+      if (devSubPath.startsWith("projects")) {
+        const prox = Object.create(req);
+        prox.url = req.url.replace("/api/dev/", "/api/admin/");
+        prox.headers = { ...req.headers, authorization: `Bearer ${AdminController.adminToken}` };
+        return ApiRouter.handleProjectsApi(prox, res);
+      }
+      if (devSubPath.startsWith("domains") && req.method !== "GET") {
+        const parts = cleanUrl.split("/").filter(Boolean);
+        if (parts.length === 5 && parts[4] === "verify" && req.method === "POST") {
+          return AdminController.verifyAttachedDomain(req, res, parts[3]);
+        }
+        if (parts.length === 5 && parts[4] === "primary" && req.method === "POST") {
+          return AdminController.setPrimaryAttachedDomain(req, res, parts[3], "devadmin");
+        }
+        if (parts.length === 4 && parts[3] === "bulk-routing" && req.method === "POST") {
+          return AdminController.bulkUpdateDomainRouting(req, res);
+        }
+        if (req.method === "POST") return AdminController.addAttachedDomain(req, res, "devadmin");
+        if (req.method === "PUT") return AdminController.updateAttachedDomain(req, res, parts[3]);
+        if (req.method === "DELETE") return AdminController.deleteAttachedDomain(req, res, parts[3]);
+      }
+      if (devSubPath.startsWith("credentials")) {
+        if (req.method === "GET") return ApiRouter.getCredentials(req, res);
+        if (req.method === "POST") return ApiRouter.addCredential(req, res);
+        if (req.method === "DELETE") {
+          const username = decodeURIComponent(cleanUrl.split("/api/dev/credentials/")[1]);
+          return ApiRouter.deleteCredential(req, res, username);
+        }
+      }
+      if (devSubPath === "serverinfo" && req.method === "GET") {
+        return ApiRouter.getDkimKey(req, res);
+      }
+      if (devSubPath === "dkim/generate" && req.method === "POST") {
+        return ApiRouter.generateDkimKey(req, res);
+      }
+    }
+
+    // Standard client & mailbox endpoints mapped under /api/dev/*
+    const standardReq = Object.create(req);
+    standardReq.url = req.url.replace(/^\/api\/dev\//, "/api/");
+    const targetClean = cleanUrl.replace(/^\/api\/dev\//, "/api/");
+
+    if (targetClean === "/api/domains" && req.method === "GET") {
+      return ApiRouter.getDomains(standardReq, res);
+    }
+    if (targetClean === "/api/mailbox/generate" && req.method === "GET") {
+      return ApiRouter.generateMailbox(standardReq, res);
+    }
+    if (targetClean === "/api/mailbox/custom" && req.method === "GET") {
+      return ApiRouter.customGenerateMailbox(standardReq, res);
+    }
+    if (targetClean === "/api/project/forbidden-ids") {
+      return ApiRouter.handleForbiddenIds(standardReq, res);
+    }
+    if (targetClean === "/api/project/retention") {
+      return ApiRouter.handleRetentionApi(standardReq, res);
+    }
+    if (targetClean === "/api/project/allowed-files") {
+      return ApiRouter.handleAllowedFilesApi(standardReq, res);
+    }
+    if (targetClean.startsWith("/api/mailbox/info") ||
+        targetClean.startsWith("/api/mailbox/inbox") || 
+        targetClean.startsWith("/api/mailbox/login") || 
+        targetClean.startsWith("/api/mailbox/send") || 
+        targetClean.startsWith("/api/mailbox/media") ||
+        targetClean === "/api/mailbox/count") {
+      return ApiRouter.handleMailboxApi(standardReq, res);
+    }
+    if (targetClean.startsWith("/api/mailbox/") && req.method === "GET") {
+      const parts = targetClean.split("/");
+      const email = parts[3];
+      const isOtps = parts[4] === "otps";
+      const isSimple = parts[4] === "simple";
+      if (isOtps) {
+        return ApiRouter.getOtps(standardReq, res, email);
+      } else if (isSimple) {
+        return ApiRouter.getSimpleEmails(standardReq, res, email);
+      } else {
+        return ApiRouter.getMailbox(standardReq, res, email);
+      }
+    }
+    if (targetClean.startsWith("/api/mailbox/") && req.method === "DELETE") {
+      const parts = targetClean.split("/");
+      const email = parts[3];
+      const mailId = parts[4];
+      if (mailId) {
+        return ApiRouter.deleteMail(standardReq, res, email, mailId);
+      } else {
+        return ApiRouter.deleteMailbox(standardReq, res, email);
+      }
+    }
+    if (targetClean.startsWith("/api/attachments/") && req.method === "GET") {
+      const filename = targetClean.split("/")[3];
+      return ApiRouter.getAttachment(standardReq, res, filename);
+    }
+    if (targetClean === "/api/emails/local" && req.method === "GET") {
+      return ApiRouter.getLocalEmails(standardReq, res);
+    }
+    if (targetClean === "/api/emails/live" && req.method === "GET") {
+      return ApiRouter.getLiveEmails(standardReq, res);
+    }
+    if (targetClean.startsWith("/api/emails/delete/local/") && req.method === "POST") {
+      const filename = targetClean.split("/api/emails/delete/local/")[1];
+      return ApiRouter.deleteLocalEmail(standardReq, res, filename);
+    }
+    if (targetClean.startsWith("/api/emails/delete/live/") && req.method === "POST") {
+      const filename = targetClean.split("/api/emails/delete/live/")[1];
+      return ApiRouter.deleteLiveEmail(standardReq, res, filename);
+    }
+    if (targetClean === "/api/send-email/local" && req.method === "POST") {
+      return ApiRouter.sendLocalEmail(standardReq, res);
+    }
+    if (targetClean === "/api/send-email/live" && req.method === "POST") {
+      return ApiRouter.sendLiveEmail(standardReq, res);
+    }
+    if (targetClean === "/api/mails" && req.method === "GET") {
+      return ApiRouter.getAllMails(standardReq, res);
+    }
+  }
+
   // Intercept api-router temporary mailbox endpoints
   if (cleanUrl === "/api/domains" && req.method === "GET") {
     return ApiRouter.getDomains(req, res);
@@ -561,13 +771,10 @@ const httpServer = http.createServer((req, res) => {
     return ApiRouter.handleAllowedFilesApi(req, res);
   }
 
-  // Handle IMAP Master Mailbox Web UI APIs
-  if (cleanUrl.startsWith("/api/imap-mailbox")) {
-    return ApiRouter.handleImapMailboxApi(req, res);
-  }
-
-  // Handle Permanent Mailbox Web UI APIs before they get caught by temporary mailbox regex
-  if (cleanUrl.startsWith("/api/mailbox/inbox") || 
+  // Handle Master Mailbox Web UI APIs
+  if (cleanUrl.startsWith("/api/imap-mailbox") ||
+      cleanUrl.startsWith("/api/mailbox/info") ||
+      cleanUrl.startsWith("/api/mailbox/inbox") || 
       cleanUrl.startsWith("/api/mailbox/login") || 
       cleanUrl.startsWith("/api/mailbox/send") || 
       cleanUrl.startsWith("/api/mailbox/media") ||
@@ -669,11 +876,163 @@ const httpServer = http.createServer((req, res) => {
     return ApiRouter.generateDkimKey(req, res);
   }
 
-  // SMTP Server Flags: GET all flags
+  // ==========================================
+  // DEVPANEL ROUTES (/api/devpanel/* & /api/dev-admin/*)
+  // ==========================================
+
+  if ((cleanUrl === "/api/devpanel/login" || cleanUrl === "/api/dev-admin/login") && req.method === "POST") {
+    return AdminController.devPanelLogin(req, res);
+  }
+
+  if (cleanUrl.startsWith("/api/devpanel/") || cleanUrl.startsWith("/api/dev-admin/")) {
+    if (!checkDevAuth()) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    const normDevUrl = cleanUrl.startsWith("/api/devpanel/") 
+      ? cleanUrl.replace("/api/devpanel/", "/api/dev-admin/")
+      : cleanUrl;
+
+    // Stats
+    if (normDevUrl === "/api/dev-admin/stats" && req.method === "GET") {
+      return ApiRouter.getStats(req, res);
+    }
+
+    // Traffic stats
+    if (normDevUrl === "/api/dev-admin/stats/traffic" && req.method === "GET") {
+      return ApiRouter.handleTrafficStatsApi(req, res);
+    }
+
+    // Domains — scope=devpanel
+    if (normDevUrl.startsWith("/api/dev-admin/domains")) {
+      const parts = normDevUrl.split("/").filter(Boolean);
+      // POST /api/dev-admin/domains/:id/verify
+      if (parts.length === 5 && parts[4] === "verify" && req.method === "POST") {
+        return AdminController.verifyAttachedDomain(req, res, parts[3]);
+      }
+      // POST /api/dev-admin/domains/:id/primary
+      if (parts.length === 5 && parts[4] === "primary" && req.method === "POST") {
+        return AdminController.setPrimaryAttachedDomain(req, res, parts[3], "devpanel");
+      }
+      // POST /api/dev-admin/domains/bulk-routing
+      if (parts.length === 4 && parts[3] === "bulk-routing" && req.method === "POST") {
+        return AdminController.bulkUpdateDomainRouting(req, res);
+      }
+      if (req.method === "GET") return AdminController.getAttachedDomains(req, res, "devpanel");
+      if (req.method === "POST") return AdminController.addAttachedDomain(req, res, "devpanel");
+      if (req.method === "PUT") return AdminController.updateAttachedDomain(req, res, parts[3]);
+      if (req.method === "DELETE") return AdminController.deleteAttachedDomain(req, res, parts[3]);
+      res.writeHead(405, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Method Not Allowed" }));
+      return;
+    }
+
+    // Mailbox users — scope=devpanel
+    if (normDevUrl.startsWith("/api/dev-admin/mailbox-users")) {
+      const proxiedReq = Object.create(req);
+      proxiedReq.url = req.url.replace("/api/devpanel/", "/api/admin/").replace("/api/dev-admin/", "/api/admin/");
+      proxiedReq.headers = { ...req.headers, authorization: `Bearer ${AdminController.adminToken}`, "x-scope": "devpanel" };
+      return ApiRouter.handleAdminMailboxUsersApi(proxiedReq, res, "devpanel");
+    }
+
+    // SMTP Flags
+    if (normDevUrl === "/api/dev-admin/smtp-flags" && req.method === "GET") {
+      const flags = getAllFlags();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ success: true, flags }));
+    }
+    if (normDevUrl === "/api/dev-admin/smtp-flags" && req.method === "POST") {
+      let body = "";
+      req.on("data", chunk => { body += chunk.toString(); });
+      req.on("end", () => {
+        try {
+          const { flag, value } = JSON.parse(body || "{}");
+          if (!flag) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            return res.end(JSON.stringify({ error: "flag is required" }));
+          }
+          const newVal = (value === true || value === "1" || value === 1) ? "1" : "0";
+          setSetting(flag, newVal);
+          const updated = getAllFlags();
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ success: true, flags: updated }));
+        } catch (e) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Invalid JSON body" }));
+        }
+      });
+      return;
+    }
+
+    // Projects
+    if (normDevUrl.startsWith("/api/dev-admin/projects")) {
+      const proxiedReq = Object.create(req);
+      proxiedReq.url = req.url.replace("/api/devpanel/", "/api/admin/").replace("/api/dev-admin/", "/api/admin/");
+      proxiedReq.headers = { ...req.headers, authorization: `Bearer ${AdminController.adminToken}` };
+      return ApiRouter.handleProjectsApi(proxiedReq, res);
+    }
+
+    // API Settings
+    if (normDevUrl === "/api/dev-admin/api-settings" && req.method === "GET") {
+      return ApiRouter.getApiSettings(req, res);
+    }
+    if (normDevUrl === "/api/dev-admin/api-settings/toggle" && req.method === "POST") {
+      return ApiRouter.toggleApiSetting(req, res);
+    }
+    if (normDevUrl === "/api/dev-admin/api-settings/reset-hits" && req.method === "POST") {
+      return ApiRouter.resetApiSettingsHits(req, res);
+    }
+
+    // Data Seeding
+    if (normDevUrl.startsWith("/api/dev-admin/seed")) {
+      const proxiedReq = Object.create(req);
+      proxiedReq.url = req.url.replace("/api/devpanel/", "/api/admin/").replace("/api/dev-admin/", "/api/admin/");
+      proxiedReq.headers = { ...req.headers, authorization: `Bearer ${AdminController.adminToken}` };
+      return ApiRouter.handleSeedDataApi(proxiedReq, res);
+    }
+
+    // Server Logs (dblogs)
+    if (normDevUrl.startsWith("/api/dev-admin/dblogs")) {
+      const proxiedReq = Object.create(req);
+      proxiedReq.url = req.url.replace("/api/devpanel/", "/api/admin/").replace("/api/dev-admin/", "/api/admin/");
+      proxiedReq.headers = { ...req.headers, authorization: `Bearer ${AdminController.adminToken}` };
+      const parts = normDevUrl.replace(/\/+$/, "").split("/");
+      const logType = parts.length > 0 ? parts[parts.length - 1] : "all";
+      return ApiRouter.getDbLogs(proxiedReq, res, logType || "all");
+    }
+
+    // Server Info (DKIM)
+    if (normDevUrl === "/api/dev-admin/serverinfo" && req.method === "GET") {
+      return ApiRouter.getDkimKey(req, res);
+    }
+    if (normDevUrl === "/api/dev-admin/dkim/generate" && req.method === "POST") {
+      return ApiRouter.generateDkimKey(req, res);
+    }
+
+    // Credentials
+    if (normDevUrl === "/api/dev-admin/credentials" && req.method === "GET") {
+      return ApiRouter.getCredentials(req, res);
+    }
+    if (normDevUrl === "/api/dev-admin/credentials" && req.method === "POST") {
+      return ApiRouter.addCredential(req, res);
+    }
+    if (normDevUrl.startsWith("/api/dev-admin/credentials/") && req.method === "DELETE") {
+      const username = decodeURIComponent(normDevUrl.split("/api/dev-admin/credentials/")[1]);
+      return ApiRouter.deleteCredential(req, res, username);
+    }
+
+    // Fallback 404
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "DevPanel endpoint not found" }));
+    return;
+  }
+
+
   if (cleanUrl === "/api/admin/smtp-flags" && req.method === "GET") {
     const authHeader = req.headers["authorization"] || "";
-    const adminToken = Buffer.from("admin:1234").toString("base64");
-    if (authHeader !== `Bearer ${adminToken}`) {
+    if (authHeader !== `Bearer ${AdminController.adminToken}`) {
       res.writeHead(401, { "Content-Type": "application/json" });
       return res.end(JSON.stringify({ error: "Unauthorized" }));
     }
@@ -685,8 +1044,7 @@ const httpServer = http.createServer((req, res) => {
   // SMTP Server Flags: POST to toggle/set a flag
   if (cleanUrl === "/api/admin/smtp-flags" && req.method === "POST") {
     const authHeader = req.headers["authorization"] || "";
-    const adminToken = Buffer.from("admin:1234").toString("base64");
-    if (authHeader !== `Bearer ${adminToken}`) {
+    if (authHeader !== `Bearer ${AdminController.adminToken}`) {
       res.writeHead(401, { "Content-Type": "application/json" });
       return res.end(JSON.stringify({ error: "Unauthorized" }));
     }

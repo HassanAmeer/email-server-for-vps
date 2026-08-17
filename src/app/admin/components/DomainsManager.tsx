@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 
 interface DomainsManagerProps {
   apiUrl: string;
+  apiPrefix?: string;
+  tokenKey?: string;
 }
 
 interface AttachedDomain {
@@ -36,7 +38,7 @@ interface VerificationModalState {
   };
 }
 
-export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
+export default function DomainsManager({ apiUrl, apiPrefix = "/api/admin", tokenKey = "admin_token" }: DomainsManagerProps) {
   // Attached Domains State
   const [domains, setDomains] = useState<AttachedDomain[]>([]);
   const [loadingDomains, setLoadingDomains] = useState<boolean>(false);
@@ -83,7 +85,7 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
       fetchDomains(true);
       fetchDkimKey();
     }
-  }, [apiUrl]);
+  }, [apiUrl, apiPrefix, tokenKey]);
 
   const fetchDomains = async (showLoadingState = false) => {
     if (!apiUrl) return;
@@ -91,8 +93,8 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
       setLoadingDomains(true);
     }
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/domains`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/domains`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -112,8 +114,8 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
     if (!apiUrl) return;
     setLoadingDkim(true);
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/serverinfo`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/serverinfo`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -163,8 +165,8 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
     setIsSubmittingDomain(true);
 
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/domains`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/domains`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -198,8 +200,8 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
   const handleVerifyDomain = async (domainObj: AttachedDomain) => {
     setVerifyingId(domainObj.id);
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/domains/${domainObj.id}/verify`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/domains/${domainObj.id}/verify`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -243,8 +245,8 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
     setDomains(prev => prev.map(d => d.id === id ? { ...d, status: "active" } : d));
     setVerificationModal(null);
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/domains/${id}`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/domains/${id}`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -269,8 +271,8 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
     // Pure Local State Management: Update immediately in UI
     setDomains(prev => prev.map(d => d.id === id ? { ...d, status: newStatus } : d));
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/domains/${id}`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/domains/${id}`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -298,8 +300,8 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
     // Pure Local State Management: Update immediately in UI
     setDomains(prev => prev.map(d => d.id === id ? { ...d, catch_all: newCatchAll } : d));
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/domains/${id}`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/domains/${id}`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -326,8 +328,8 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
     // Pure Local State Management: Update immediately in UI
     setDomains(prev => prev.map(d => d.id === id ? { ...d, plan: newPlan } : d));
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/domains/${id}`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/domains/${id}`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -355,8 +357,8 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
     // Pure Local State Management: Update immediately in UI
     setDomains(prev => prev.map(d => d.id === id ? { ...d, route_to_primary: newRouting } : d));
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/domains/${id}`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/domains/${id}`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -388,8 +390,8 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
     setShowDeleteConfirmModal(null);
 
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/domains/${id}`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/domains/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -416,8 +418,8 @@ export default function DomainsManager({ apiUrl }: DomainsManagerProps) {
     setShowDkimConfirmModal(false);
     setGeneratingDkim(true);
     try {
-      const token = localStorage.getItem("admin_token") || "";
-      const res = await fetch(`${apiUrl}/api/admin/dkim/generate`, {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/dkim/generate`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` }
       });

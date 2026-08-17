@@ -94,6 +94,9 @@ try { db.exec(`ALTER TABLE attached_domains ADD COLUMN is_primary BOOLEAN DEFAUL
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN primary_prefix TEXT DEFAULT 'my';`); } catch (e) { }
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN route_to_primary BOOLEAN DEFAULT 1;`); } catch (e) { }
 try { db.exec(`ALTER TABLE mailbox_users ADD COLUMN plain_password TEXT;`); } catch (e) { }
+// Dev Admin scope isolation columns
+try { db.exec(`ALTER TABLE attached_domains ADD COLUMN scope TEXT DEFAULT 'admin';`); } catch (e) { }
+try { db.exec(`ALTER TABLE mailbox_users ADD COLUMN scope TEXT DEFAULT 'admin';`); } catch (e) { }
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS attached_domains (
@@ -1010,3 +1013,53 @@ export function getMailboxInbox(email, page = 1, limit = 200, search = "", filte
 
 // Export the db instance for complex queries
 export default db;
+
+// =============================================
+// DEV ADMIN SCOPE-BASED HELPERS
+// =============================================
+
+/**
+ * Get all attached domains filtered by scope ('admin' | 'devadmin')
+ */
+export function getAttachedDomainsByScope(scope = 'admin') {
+  try {
+    return db.prepare("SELECT * FROM attached_domains WHERE scope = ? ORDER BY is_primary DESC, created_at DESC").all(scope);
+  } catch (err) {
+    console.error("DB Error getAttachedDomainsByScope:", err);
+    return [];
+  }
+}
+
+/**
+ * Get primary domain filtered by scope
+ */
+export function getPrimaryDomainByScope(scope = 'admin') {
+  try {
+    const primary = db.prepare("SELECT * FROM attached_domains WHERE scope = ? AND is_primary = 1 LIMIT 1").get(scope);
+    if (primary) return primary;
+    const firstActive = db.prepare("SELECT * FROM attached_domains WHERE scope = ? AND status = 'active' ORDER BY created_at ASC LIMIT 1").get(scope);
+    return firstActive || null;
+  } catch (err) {
+    console.error("DB Error getPrimaryDomainByScope:", err);
+    return null;
+  }
+}
+
+/**
+ * Get mailbox users filtered by scope
+ */
+export function getMailboxUsersByScope(scope = 'admin') {
+  try {
+    return db.prepare(`
+      SELECT w.id, w.email, w.plain_password, w.project_id, w.created_at, w.scope, p.name as project_name,
+             (SELECT COUNT(*) FROM received_emails WHERE recipient = w.email) as received_count
+      FROM mailbox_users w
+      LEFT JOIN projects p ON w.project_id = p.id
+      WHERE w.scope = ?
+      ORDER BY w.created_at DESC
+    `).all(scope);
+  } catch (err) {
+    console.error("DB Error getMailboxUsersByScope:", err);
+    return [];
+  }
+}
