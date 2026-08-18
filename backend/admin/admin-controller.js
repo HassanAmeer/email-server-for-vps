@@ -577,9 +577,9 @@ export class AdminController {
         db.prepare("UPDATE attached_domains SET is_primary = 1, primary_prefix = ? WHERE id = ? AND scope = ?").run(prefix || 'my', id, scope);
 
         const fullEmail = `${(prefix || 'my').trim().toLowerCase()}@${exists.domain.toLowerCase()}`;
-        const existingUser = db.prepare("SELECT id FROM mailbox WHERE LOWER(email) = LOWER(?) OR email LIKE ?").get(fullEmail, `%@${exists.domain.toLowerCase()}`);
+        const existingUser = db.prepare("SELECT id FROM mailbox_table WHERE LOWER(email) = LOWER(?) OR email LIKE ?").get(fullEmail, `%@${exists.domain.toLowerCase()}`);
         if (existingUser) {
-          db.prepare("UPDATE mailbox SET email = ? WHERE id = ?").run(fullEmail, existingUser.id);
+          db.prepare("UPDATE mailbox_table SET email = ? WHERE id = ?").run(fullEmail, existingUser.id);
         } else {
           const defaultPwd = "Admin@" + Math.random().toString(36).slice(-8);
           let hash = defaultPwd;
@@ -588,7 +588,7 @@ export class AdminController {
               hash = Bun.password.hashSync(defaultPwd, { algorithm: "bcrypt", cost: 10 });
             }
           } catch (e) {}
-          db.prepare("INSERT INTO mailbox (email, password_hash, plain_password, project_id, scope) VALUES (?, ?, ?, ?, ?)").run(fullEmail, hash, defaultPwd, 1, scope);
+          db.prepare("INSERT INTO mailbox_table (email, password_hash, plain_password, project_id, scope) VALUES (?, ?, ?, ?, ?)").run(fullEmail, hash, defaultPwd, 1, scope);
         }
       })();
 
@@ -938,7 +938,7 @@ export class AdminController {
       const projectsCount = db.prepare("SELECT COUNT(*) as count FROM projects").get()?.count || 0;
       const domainsCount = db.prepare("SELECT COUNT(*) as count FROM attached_domains WHERE scope = ?").get(scope)?.count || 0;
       const primaryDomainRow = db.prepare("SELECT * FROM attached_domains WHERE is_primary = 1 AND scope = ? LIMIT 1").get(scope);
-      const mailboxUsersCount = db.prepare("SELECT COUNT(*) as count FROM mailbox WHERE scope = ?").get(scope)?.count || 0;
+      const mailboxUsersCount = db.prepare("SELECT COUNT(*) as count FROM mailbox_table WHERE scope = ?").get(scope)?.count || 0;
       const apiHitsCount = db.prepare("SELECT SUM(hits) as sum FROM api_settings").get()?.sum || 0;
 
       // Calculate disk usage
@@ -1030,7 +1030,7 @@ export class AdminController {
 
         // Ensure primary mailbox user in scope
         const adminEmail = `${prefix}@${dom1}`;
-        const userExists = db.prepare("SELECT id FROM mailbox WHERE email = ? AND scope = ?").get(adminEmail, scope);
+        const userExists = db.prepare("SELECT id FROM mailbox_table WHERE email = ? AND scope = ?").get(adminEmail, scope);
         if (!userExists) {
           const defaultPwd = isDev ? "DevPanel@Pass2026!" : "Admin@Pass2026!";
           let hash = defaultPwd;
@@ -1039,7 +1039,7 @@ export class AdminController {
               hash = Bun.password.hashSync(defaultPwd, { algorithm: "bcrypt", cost: 10 });
             }
           } catch(e) {}
-          db.prepare("INSERT INTO mailbox (email, password_hash, plain_password, project_id, scope) VALUES (?, ?, ?, 1, ?)").run(adminEmail, hash, defaultPwd, scope);
+          db.prepare("INSERT INTO mailbox_table (email, password_hash, plain_password, project_id, scope) VALUES (?, ?, ?, 1, ?)").run(adminEmail, hash, defaultPwd, scope);
         }
 
         results.domainsSeeded = 2;
@@ -1375,7 +1375,7 @@ export class AdminController {
       };
 
       const clearMailboxes = () => {
-        db.prepare("DELETE FROM mailbox WHERE scope = ?").run(scope);
+        db.prepare("DELETE FROM mailbox_table WHERE scope = ?").run(scope);
         results.message = `All permanent mailbox accounts cleared for ${scopeLabel}.`;
       };
 

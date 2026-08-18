@@ -94,18 +94,22 @@ try { db.exec(`ALTER TABLE attached_domains ADD COLUMN catch_all BOOLEAN DEFAULT
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN is_primary BOOLEAN DEFAULT 0;`); } catch (e) { }
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN primary_prefix TEXT DEFAULT 'my';`); } catch (e) { }
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN route_to_primary BOOLEAN DEFAULT 1;`); } catch (e) { }
-// Migrate mailbox_users to mailbox if exists
+// Migrate mailbox/mailbox_users to mailbox_table if exists
 try {
   const hasMailboxUsers = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='mailbox_users'").get();
   const hasMailbox = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='mailbox'").get();
-  if (hasMailboxUsers && !hasMailbox) {
-    db.exec("ALTER TABLE mailbox_users RENAME TO mailbox;");
+  const hasMailboxTable = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='mailbox_table'").get();
+  
+  if (hasMailbox && !hasMailboxTable) {
+    db.exec("ALTER TABLE mailbox RENAME TO mailbox_table;");
+  } else if (hasMailboxUsers && !hasMailboxTable) {
+    db.exec("ALTER TABLE mailbox_users RENAME TO mailbox_table;");
   }
 } catch (e) { }
 
-// Ensure mailbox table exists
+// Ensure mailbox_table exists
 db.exec(`
-  CREATE TABLE IF NOT EXISTS mailbox (
+  CREATE TABLE IF NOT EXISTS mailbox_table (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
@@ -116,12 +120,15 @@ db.exec(`
   );
 `);
 
-try { db.exec(`ALTER TABLE mailbox ADD COLUMN plain_password TEXT;`); } catch (e) { }
-try { db.exec(`ALTER TABLE mailbox ADD COLUMN scope TEXT DEFAULT 'admin';`); } catch (e) { }
+try { db.exec(`ALTER TABLE mailbox_table ADD COLUMN plain_password TEXT;`); } catch (e) { }
+try { db.exec(`ALTER TABLE mailbox_table ADD COLUMN scope TEXT DEFAULT 'admin';`); } catch (e) { }
 
-// Backwards-compatibility view so any legacy queries or tools can read mailbox_users
+// Backwards-compatibility views so any legacy queries or tools can read mailbox or mailbox_users
 try {
-  db.exec(`CREATE VIEW IF NOT EXISTS mailbox_users AS SELECT * FROM mailbox;`);
+  db.exec(`DROP VIEW IF EXISTS mailbox;`);
+  db.exec(`DROP VIEW IF EXISTS mailbox_users;`);
+  db.exec(`CREATE VIEW IF NOT EXISTS mailbox AS SELECT * FROM mailbox_table;`);
+  db.exec(`CREATE VIEW IF NOT EXISTS mailbox_users AS SELECT * FROM mailbox_table;`);
 } catch (e) { }
 
 // Key-Value server flags table (persists across restarts)
@@ -707,7 +714,7 @@ try {
     CREATE INDEX IF NOT EXISTS idx_received_emails_has_att ON received_emails(has_attachment);
     CREATE INDEX IF NOT EXISTS idx_system_logs_type_id ON system_logs(log_type, id DESC);
     CREATE INDEX IF NOT EXISTS idx_system_logs_created ON system_logs(created_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_mailbox_email ON mailbox(email);
+    CREATE INDEX IF NOT EXISTS idx_mailbox_table_email ON mailbox_table(email);
     CREATE INDEX IF NOT EXISTS idx_generated_emails_email ON generated_emails(email);
     CREATE INDEX IF NOT EXISTS idx_project_api_logs_proj ON project_api_logs(project_id, created_at);
   `);
@@ -873,7 +880,7 @@ export function resetApiSettingsHits() {
 export function createMailboxUser(email, password, projectId) {
   try {
     const hash = Bun.password.hashSync(password, { algorithm: "bcrypt" });
-    const stmt = db.prepare("INSERT INTO mailbox (email, password_hash, plain_password, project_id) VALUES (?, ?, ?, ?)");
+    const stmt = db.prepare("INSERT INTO mailbox_table (email, password_hash, plain_password, project_id) VALUES (?, ?, ?, ?)");
     stmt.run(email, hash, password, projectId);
     return { success: true };
   } catch (err) {
@@ -887,10 +894,10 @@ export function updateMailboxUser(userId, password, projectId = null) {
     const hash = Bun.password.hashSync(password, { algorithm: "bcrypt" });
     let stmt;
     if (projectId) {
-      stmt = db.prepare("UPDATE mailbox SET password_hash = ?, plain_password = ? WHERE id = ? AND project_id = ?");
+      stmt = db.prepare("UPDATE mailbox_table SET password_hash = ?, plain_password = ? WHERE id = ? AND project_id = ?");
       stmt.run(hash, password, userId, projectId);
     } else {
-      stmt = db.prepare("UPDATE mailbox SET password_hash = ?, plain_password = ? WHERE id = ?");
+      stmt = db.prepare("UPDATE mailbox_table SET password_hash = ?, plain_password = ? WHERE id = ?");
       stmt.run(hash, password, userId);
     }
     return { success: true };
@@ -902,7 +909,7 @@ export function updateMailboxUser(userId, password, projectId = null) {
 
 export function getMailboxUsers(projectId) {
   try {
-    const stmt = db.prepare("SELECT id, email, plain_password, created_at FROM mailbox WHERE project_id = ? ORDER BY id DESC");
+    const stmt = db.prepare("SELECT id, email, plain_password, created_at FROM mailbox_table WHERE project_id = ? ORDER BY id DESC");
     return stmt.all(projectId);
   } catch (err) {
     console.error("DB Error getting mailbox users:", err);
@@ -912,7 +919,7 @@ export function getMailboxUsers(projectId) {
 
 export function deleteMailboxUser(userId, projectId) {
   try {
-    const stmt = db.prepare("DELETE FROM mailbox WHERE id = ? AND project_id = ?");
+    const stmt = db.prepare("DELETE FROM mailbox_table WHERE id = ? AND project_id = ?");
     const info = stmt.run(userId, projectId);
     return info.changes > 0;
   } catch (err) {
@@ -944,7 +951,7 @@ export function isPrimaryMailboxUser(email) {
 
 export function verifyMailboxUser(email, password) {
   try {
-    const stmt = db.prepare("SELECT * FROM mailbox WHERE email = ?");
+    const stmt = db.prepare("SELECT * FROM mailbox_table WHERE email = ?");
     const user = stmt.get(email);
     if (!user) return null;
     
@@ -1075,7 +1082,7 @@ export function getMailboxUsersByScope(scope = 'admin') {
     return db.prepare(`
       SELECT w.id, w.email, w.plain_password, w.project_id, w.created_at, w.scope, p.name as project_name,
              (SELECT COUNT(*) FROM received_emails WHERE recipient = w.email) as received_count
-      FROM mailbox w
+      FROM mailbox_table w
       LEFT JOIN projects p ON w.project_id = p.id
       WHERE w.scope = ?
       ORDER BY w.created_at DESC

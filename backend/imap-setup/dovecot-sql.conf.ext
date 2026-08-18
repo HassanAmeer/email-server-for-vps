@@ -11,11 +11,11 @@ connect = /root/tempmail/backend/storage/email_logs.sqlite
 # Default Password Scheme (PLAIN, BCRYPT, SHA512-CRYPT)
 default_pass_scheme = PLAIN
 
-# Password Query: Authenticate mailbox user against mailbox table
+# Password Query: Authenticate mailbox user against mailbox_table
 password_query = \
   SELECT email AS user, \
          COALESCE(plain_password, password_hash) AS password \
-  FROM mailbox \
+  FROM mailbox_table \
   WHERE LOWER(email) = LOWER('%u')
 
 # User Query: Return user Maildir home directory
@@ -24,8 +24,8 @@ user_query = \
          5000 AS gid, \
          '/root/tempmail/backend/storage/maildir/%d/%n' AS home, \
          'maildir:/root/tempmail/backend/storage/maildir/%d/%n:LAYOUT=fs:DIRNAME=.' AS mail \
-  FROM mailbox \
+  FROM mailbox_table \
   WHERE LOWER(email) = LOWER('%u')
 
 # Iterate query (for doveadm user listing)
-iterate_query = SELECT email AS user FROM mailbox
+iterate_query = SELECT email AS user FROM mailbox_table

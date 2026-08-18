@@ -225,7 +225,7 @@ export default function DataSeedingManager({ apiUrl, apiPrefix = "/api/admin", t
       id: "mailboxes",
       name: "Permanent Mailbox Users",
       icon: "📬",
-      desc: "Permanent registered IMAP user accounts stored in SQLite mailbox table.",
+      desc: "Permanent registered IMAP user accounts stored in SQLite mailbox_table.",
       countKey: `${status.mailboxUsersCount} mailbox users`,
       badge: status.mailboxUsersCount > 0 ? "Active" : "Empty",
       color: "indigo",

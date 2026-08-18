@@ -165,7 +165,7 @@ export class ApiRouter {
 
     // Ensure it doesn't conflict with any Mailbox User account
     try {
-      const existingMailbox = db.prepare("SELECT id FROM mailbox WHERE email = ?").get(email);
+      const existingMailbox = db.prepare("SELECT id FROM mailbox_table WHERE email = ?").get(email);
       if (existingMailbox) {
         // Very rare collision with generated string, but just in case, return error so client retries
         res.writeHead(409, { "Content-Type": "application/json" });
@@ -239,7 +239,7 @@ export class ApiRouter {
 
     // Check if this email was already generated
     try {
-      const existingMailbox = db.prepare("SELECT id FROM mailbox WHERE email = ?").get(email);
+      const existingMailbox = db.prepare("SELECT id FROM mailbox_table WHERE email = ?").get(email);
       if (existingMailbox) {
         res.writeHead(409, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "This email address is reserved for a Mailbox Account. Please choose a different name.", email }));
@@ -961,7 +961,7 @@ export class ApiRouter {
         const idStr = req.url.split("/")[4];
         const id = parseInt(idStr, 10);
         try {
-          const users = db.query("SELECT id, email, created_at FROM mailbox WHERE project_id = ? ORDER BY created_at DESC").all(id);
+          const users = db.query("SELECT id, email, created_at FROM mailbox_table WHERE project_id = ? ORDER BY created_at DESC").all(id);
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ users }));
         } catch (e) {
@@ -982,7 +982,7 @@ export class ApiRouter {
             const { email, password } = JSON.parse(body);
             if (!email || !password) throw new Error("Email and password are required");
             const hash = await Bun.password.hash(password);
-            db.prepare("INSERT INTO mailbox (email, password_hash, project_id) VALUES (?, ?, ?)").run(email, hash, id);
+            db.prepare("INSERT INTO mailbox_table (email, password_hash, project_id) VALUES (?, ?, ?)").run(email, hash, id);
             res.writeHead(201, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ success: true }));
           } catch (e) {
@@ -999,7 +999,7 @@ export class ApiRouter {
         const projectId = parseInt(urlParts[4], 10);
         const userId = parseInt(urlParts[6], 10);
         try {
-          db.prepare("DELETE FROM mailbox WHERE id = ? AND project_id = ?").run(userId, projectId);
+          db.prepare("DELETE FROM mailbox_table WHERE id = ? AND project_id = ?").run(userId, projectId);
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ success: true }));
         } catch (e) {
@@ -1058,7 +1058,7 @@ export class ApiRouter {
   }
 
   // ==========================================
-  // NEW ADMIN WEBMAIL USERS API
+  // NEW ADMIN MAILBOX USERS API
   // ==========================================
 
   static async handleAdminMailboxUsersApi(req, res, defaultScope = "admin") {
@@ -1081,7 +1081,7 @@ export class ApiRouter {
         const users = db.query(`
           SELECT w.id, w.email, w.plain_password, w.project_id, w.created_at, w.scope, p.name as project_name,
                  (SELECT COUNT(*) FROM received_emails WHERE recipient = w.email) as received_count
-          FROM mailbox w
+          FROM mailbox_table w
           LEFT JOIN projects p ON w.project_id = p.id
           WHERE (w.scope = ? OR (? = 'admin' AND (w.scope IS NULL OR w.scope = '')))
           ORDER BY w.created_at DESC
@@ -1111,13 +1111,13 @@ export class ApiRouter {
             });
 
             // Upsert mailbox user
-            const existing = db.prepare("SELECT id FROM mailbox WHERE LOWER(email) = LOWER(?)").get(email);
+            const existing = db.prepare("SELECT id FROM mailbox_table WHERE LOWER(email) = LOWER(?)").get(email);
             let userId;
             if (existing) {
               userId = existing.id;
-              db.prepare("UPDATE mailbox SET password_hash = ?, plain_password = ?, project_id = COALESCE(?, project_id), scope = ? WHERE id = ?").run(hash, password, project_id || null, targetScope, userId);
+              db.prepare("UPDATE mailbox_table SET password_hash = ?, plain_password = ?, project_id = COALESCE(?, project_id), scope = ? WHERE id = ?").run(hash, password, project_id || null, targetScope, userId);
             } else {
-              const stmt = db.prepare("INSERT INTO mailbox (email, password_hash, plain_password, project_id, scope) VALUES (?, ?, ?, ?, ?)");
+              const stmt = db.prepare("INSERT INTO mailbox_table (email, password_hash, plain_password, project_id, scope) VALUES (?, ?, ?, ?, ?)");
               const result = stmt.run(email, hash, password, project_id || 1, targetScope);
               userId = result.lastInsertRowid;
             }
@@ -1168,13 +1168,13 @@ export class ApiRouter {
             });
 
             if (email && project_id) {
-              db.prepare("UPDATE mailbox SET email = ?, password_hash = ?, plain_password = ?, project_id = ? WHERE id = ?").run(email, hash, password, project_id, id);
+              db.prepare("UPDATE mailbox_table SET email = ?, password_hash = ?, plain_password = ?, project_id = ? WHERE id = ?").run(email, hash, password, project_id, id);
             } else if (email) {
-              db.prepare("UPDATE mailbox SET email = ?, password_hash = ?, plain_password = ? WHERE id = ?").run(email, hash, password, id);
+              db.prepare("UPDATE mailbox_table SET email = ?, password_hash = ?, plain_password = ? WHERE id = ?").run(email, hash, password, id);
             } else if (project_id) {
-              db.prepare("UPDATE mailbox SET password_hash = ?, plain_password = ?, project_id = ? WHERE id = ?").run(hash, password, project_id, id);
+              db.prepare("UPDATE mailbox_table SET password_hash = ?, plain_password = ?, project_id = ? WHERE id = ?").run(hash, password, project_id, id);
             } else {
-              db.prepare("UPDATE mailbox SET password_hash = ?, plain_password = ? WHERE id = ?").run(hash, password, id);
+              db.prepare("UPDATE mailbox_table SET password_hash = ?, plain_password = ? WHERE id = ?").run(hash, password, id);
             }
 
             // Sync primary_prefix in attached_domains if this email belongs to primary domain
@@ -1206,7 +1206,7 @@ export class ApiRouter {
           return;
         }
 
-        db.prepare("DELETE FROM mailbox WHERE id = ?").run(id);
+        db.prepare("DELETE FROM mailbox_table WHERE id = ?").run(id);
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ success: true }));
         return;
@@ -1302,7 +1302,7 @@ export class ApiRouter {
         const primaryPrefix = primary?.primary_prefix || "admin";
         const masterEmail = `${primaryPrefix}@${primaryDomain}`;
 
-        const allUsers = dbModule.default.prepare("SELECT email, plain_password FROM mailbox ORDER BY id ASC").all();
+        const allUsers = dbModule.default.prepare("SELECT email, plain_password FROM mailbox_table ORDER BY id ASC").all();
         let defaultCreds = {
           email: masterEmail,
           password: process.env.ADMIN_PASSWORD || "1234"

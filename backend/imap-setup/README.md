@@ -37,5 +37,5 @@ bun backend/imap-setup/test-imap.js
 | **Incoming Server (IMAP)** | Your VPS IP or Domain (e.g. `mailserver10.com`) |
 | **Port** | `143` (STARTTLS/Plain) or `993` (SSL/TLS) |
 | **Username** | Full Email (e.g. `support@yourdomain.com`) |
-| **Password** | Account password in SQLite `mailbox` table |
+| **Password** | Account password in SQLite `mailbox_table` table |
 | **Mail Storage** | Maildir format (`backend/storage/maildir/<domain>/<user>`) |
