@@ -14,7 +14,7 @@ Yeh guide aapke **Linux VPS (Production)** par **SQLite Database** ke sath **Dov
 
 ## 1. Architecture Overview
 
-Hamara email server SMTP se emails receive karta hai aur direct **SQLite** table (`mailbox_users`) se authenticate karwata hai:
+Hamara email server SMTP se emails receive karta hai aur direct **SQLite** table (`mailbox`) se authenticate karwata hai:
 
 ```
 [ Incoming Email (SMTP :25) ] 
@@ -65,7 +65,7 @@ default_pass_scheme = PLAIN
 password_query = \
   SELECT email AS user, \
          COALESCE(plain_password, password_hash) AS password \
-  FROM mailbox_users \
+  FROM mailbox \
   WHERE LOWER(email) = LOWER('%u')
 
 user_query = \
@@ -73,10 +73,10 @@ user_query = \
          5000 AS gid, \
          '/root/tempmail/backend/storage/maildir/%d/%n' AS home, \
          'maildir:/root/tempmail/backend/storage/maildir/%d/%n:LAYOUT=fs:DIRNAME=.' AS mail \
-  FROM mailbox_users \
+  FROM mailbox \
   WHERE LOWER(email) = LOWER('%u')
 
-iterate_query = SELECT email AS user FROM mailbox_users
+iterate_query = SELECT email AS user FROM mailbox
 ```
 
 ---

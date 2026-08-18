@@ -41,17 +41,12 @@ function readEmailJsonFile(fileName, emailRecord = null) {
       from: emailRecord.sender || "Unknown Sender",
       to: emailRecord.recipient || "Unknown Recipient",
       subject: emailRecord.subject || "(No Subject)",
-      text: `Subject: ${emailRecord.subject || '(No Subject)'}\nFrom: ${emailRecord.sender}\nTo: ${emailRecord.recipient}\nDate: ${emailRecord.created_at || new Date().toISOString()}`,
-      html: `<div style="font-family:system-ui,-apple-system,sans-serif;padding:24px;color:#1e293b;line-height:1.6;max-width:680px;margin:0 auto;">
-        <h2 style="margin-top:0;color:#0f172a;border-bottom:1px solid #e2e8f0;padding-bottom:12px;">${emailRecord.subject || '(No Subject)'}</h2>
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;padding:14px;border-radius:10px;margin-bottom:20px;font-size:13px;">
-          <p style="margin:4px 0;"><strong>From:</strong> ${emailRecord.sender}</p>
-          <p style="margin:4px 0;"><strong>To:</strong> ${emailRecord.recipient}</p>
-          <p style="margin:4px 0;"><strong>Date:</strong> ${emailRecord.created_at}</p>
-        </div>
-        <div style="background:#fff;border:1px dashed #cbd5e1;padding:16px;border-radius:8px;color:#64748b;font-size:13px;">
-          <p style="margin:0;">ℹ️ <em>This email record was retrieved from the database logs.</em></p>
-        </div>
+      text: `Hello,\n\nThis is the content for message "${emailRecord.subject || '(No Subject)'}" received for ${emailRecord.recipient}.\n\nBest regards,\n${emailRecord.sender || 'System'}`,
+      html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;line-height:1.6;font-size:14px;">
+        <p style="margin:0 0 16px 0;">Hello,</p>
+        <p style="margin:0 0 16px 0;">This email was delivered to <strong>${emailRecord.recipient}</strong>.</p>
+        <p style="margin:0 0 16px 0;color:inherit;opacity:0.85;">Thank you for using the VPS Mail Server.</p>
+        <p style="margin:24px 0 0 0;font-size:13px;opacity:0.7;">Best regards,<br><strong>${emailRecord.sender}</strong></p>
       </div>`,
       date: emailRecord.created_at || new Date().toISOString(),
       attachments: []
@@ -170,7 +165,7 @@ export class ApiRouter {
 
     // Ensure it doesn't conflict with any Mailbox User account
     try {
-      const existingMailbox = db.prepare("SELECT id FROM mailbox_users WHERE email = ?").get(email);
+      const existingMailbox = db.prepare("SELECT id FROM mailbox WHERE email = ?").get(email);
       if (existingMailbox) {
         // Very rare collision with generated string, but just in case, return error so client retries
         res.writeHead(409, { "Content-Type": "application/json" });
@@ -244,7 +239,7 @@ export class ApiRouter {
 
     // Check if this email was already generated
     try {
-      const existingMailbox = db.prepare("SELECT id FROM mailbox_users WHERE email = ?").get(email);
+      const existingMailbox = db.prepare("SELECT id FROM mailbox WHERE email = ?").get(email);
       if (existingMailbox) {
         res.writeHead(409, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "This email address is reserved for a Mailbox Account. Please choose a different name.", email }));
@@ -966,7 +961,7 @@ export class ApiRouter {
         const idStr = req.url.split("/")[4];
         const id = parseInt(idStr, 10);
         try {
-          const users = db.query("SELECT id, email, created_at FROM mailbox_users WHERE project_id = ? ORDER BY created_at DESC").all(id);
+          const users = db.query("SELECT id, email, created_at FROM mailbox WHERE project_id = ? ORDER BY created_at DESC").all(id);
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ users }));
         } catch (e) {
@@ -987,7 +982,7 @@ export class ApiRouter {
             const { email, password } = JSON.parse(body);
             if (!email || !password) throw new Error("Email and password are required");
             const hash = await Bun.password.hash(password);
-            db.prepare("INSERT INTO mailbox_users (email, password_hash, project_id) VALUES (?, ?, ?)").run(email, hash, id);
+            db.prepare("INSERT INTO mailbox (email, password_hash, project_id) VALUES (?, ?, ?)").run(email, hash, id);
             res.writeHead(201, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ success: true }));
           } catch (e) {
@@ -1004,7 +999,7 @@ export class ApiRouter {
         const projectId = parseInt(urlParts[4], 10);
         const userId = parseInt(urlParts[6], 10);
         try {
-          db.prepare("DELETE FROM mailbox_users WHERE id = ? AND project_id = ?").run(userId, projectId);
+          db.prepare("DELETE FROM mailbox WHERE id = ? AND project_id = ?").run(userId, projectId);
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ success: true }));
         } catch (e) {
@@ -1086,7 +1081,7 @@ export class ApiRouter {
         const users = db.query(`
           SELECT w.id, w.email, w.plain_password, w.project_id, w.created_at, w.scope, p.name as project_name,
                  (SELECT COUNT(*) FROM received_emails WHERE recipient = w.email) as received_count
-          FROM mailbox_users w
+          FROM mailbox w
           LEFT JOIN projects p ON w.project_id = p.id
           WHERE (w.scope = ? OR (? = 'admin' AND (w.scope IS NULL OR w.scope = '')))
           ORDER BY w.created_at DESC
@@ -1116,13 +1111,13 @@ export class ApiRouter {
             });
 
             // Upsert mailbox user
-            const existing = db.prepare("SELECT id FROM mailbox_users WHERE LOWER(email) = LOWER(?)").get(email);
+            const existing = db.prepare("SELECT id FROM mailbox WHERE LOWER(email) = LOWER(?)").get(email);
             let userId;
             if (existing) {
               userId = existing.id;
-              db.prepare("UPDATE mailbox_users SET password_hash = ?, plain_password = ?, project_id = COALESCE(?, project_id), scope = ? WHERE id = ?").run(hash, password, project_id || null, targetScope, userId);
+              db.prepare("UPDATE mailbox SET password_hash = ?, plain_password = ?, project_id = COALESCE(?, project_id), scope = ? WHERE id = ?").run(hash, password, project_id || null, targetScope, userId);
             } else {
-              const stmt = db.prepare("INSERT INTO mailbox_users (email, password_hash, plain_password, project_id, scope) VALUES (?, ?, ?, ?, ?)");
+              const stmt = db.prepare("INSERT INTO mailbox (email, password_hash, plain_password, project_id, scope) VALUES (?, ?, ?, ?, ?)");
               const result = stmt.run(email, hash, password, project_id || 1, targetScope);
               userId = result.lastInsertRowid;
             }
@@ -1173,13 +1168,13 @@ export class ApiRouter {
             });
 
             if (email && project_id) {
-              db.prepare("UPDATE mailbox_users SET email = ?, password_hash = ?, plain_password = ?, project_id = ? WHERE id = ?").run(email, hash, password, project_id, id);
+              db.prepare("UPDATE mailbox SET email = ?, password_hash = ?, plain_password = ?, project_id = ? WHERE id = ?").run(email, hash, password, project_id, id);
             } else if (email) {
-              db.prepare("UPDATE mailbox_users SET email = ?, password_hash = ?, plain_password = ? WHERE id = ?").run(email, hash, password, id);
+              db.prepare("UPDATE mailbox SET email = ?, password_hash = ?, plain_password = ? WHERE id = ?").run(email, hash, password, id);
             } else if (project_id) {
-              db.prepare("UPDATE mailbox_users SET password_hash = ?, plain_password = ?, project_id = ? WHERE id = ?").run(hash, password, project_id, id);
+              db.prepare("UPDATE mailbox SET password_hash = ?, plain_password = ?, project_id = ? WHERE id = ?").run(hash, password, project_id, id);
             } else {
-              db.prepare("UPDATE mailbox_users SET password_hash = ?, plain_password = ? WHERE id = ?").run(hash, password, id);
+              db.prepare("UPDATE mailbox SET password_hash = ?, plain_password = ? WHERE id = ?").run(hash, password, id);
             }
 
             // Sync primary_prefix in attached_domains if this email belongs to primary domain
@@ -1211,7 +1206,7 @@ export class ApiRouter {
           return;
         }
 
-        db.prepare("DELETE FROM mailbox_users WHERE id = ?").run(id);
+        db.prepare("DELETE FROM mailbox WHERE id = ?").run(id);
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ success: true }));
         return;
@@ -1307,7 +1302,7 @@ export class ApiRouter {
         const primaryPrefix = primary?.primary_prefix || "admin";
         const masterEmail = `${primaryPrefix}@${primaryDomain}`;
 
-        const allUsers = dbModule.default.prepare("SELECT email, plain_password FROM mailbox_users ORDER BY id ASC").all();
+        const allUsers = dbModule.default.prepare("SELECT email, plain_password FROM mailbox ORDER BY id ASC").all();
         let defaultCreds = {
           email: masterEmail,
           password: process.env.ADMIN_PASSWORD || "1234"
@@ -1320,15 +1315,30 @@ export class ApiRouter {
           }
         }
 
+        const serverIp = process.env.NEXT_PUBLIC_SERVER_IP || "187.52.117.2";
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
           success: true,
           primaryDomain: primaryDomain,
           catchAll: true,
+          serverIp: serverIp,
           imap: {
             host: `mail.${primaryDomain}`,
             sslPort: 993,
             plainPort: 143,
+            status: "active"
+          },
+          pop3: {
+            host: `mail.${primaryDomain}`,
+            sslPort: 995,
+            plainPort: 110,
+            status: "active"
+          },
+          smtp: {
+            host: `mail.${primaryDomain}`,
+            tlsPort: 587,
+            sslPort: 465,
+            plainPort: 25,
             status: "active"
           },
           defaultCredentials: defaultCreds
@@ -1432,16 +1442,24 @@ export class ApiRouter {
         const filter = parsedUrl.searchParams.get("filter") || "all";
 
         const db = dbModule.default;
+        if (dbModule.purgeExpiredTrashEmails) {
+          try { dbModule.purgeExpiredTrashEmails(24); } catch (e) { }
+        }
         let query = "SELECT id, recipient, sender, subject, has_attachment, attachment_size, created_at, file_name FROM received_emails";
         let countQuery = "SELECT COUNT(*) as count FROM received_emails";
         let whereClauses = [];
         let params = [];
         let countParams = [];
 
-        if (filter === "with_attachments") {
-          whereClauses.push("has_attachment = 1");
-        } else if (filter === "simple") {
-          whereClauses.push("has_attachment = 0");
+        if (filter === "trash") {
+          whereClauses.push("COALESCE(is_deleted, 0) = 1");
+        } else {
+          whereClauses.push("COALESCE(is_deleted, 0) = 0");
+          if (filter === "with_attachments") {
+            whereClauses.push("has_attachment = 1");
+          } else if (filter === "simple") {
+            whereClauses.push("has_attachment = 0");
+          }
         }
 
         if (search) {
@@ -1464,12 +1482,21 @@ export class ApiRouter {
         const totalRecords = db.prepare(countQuery).get(...countParams).count;
         const data = db.prepare(query).all(...params);
 
+        let trashCount = 0;
+        let inboxCount = 0;
+        try {
+          trashCount = db.prepare("SELECT COUNT(*) as count FROM received_emails WHERE COALESCE(is_deleted, 0) = 1").get()?.count || 0;
+          inboxCount = db.prepare("SELECT COUNT(*) as count FROM received_emails WHERE COALESCE(is_deleted, 0) = 0").get()?.count || 0;
+        } catch (e) {}
+
         const primary = getPrimaryDomain();
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
           data,
           isPrimaryMailbox: true,
           primaryDomain: primary?.domain || "mailserver10.com",
+          trashCount,
+          inboxCount,
           pagination: {
             page,
             limit,
@@ -1484,7 +1511,7 @@ export class ApiRouter {
       if (normUrl === "/api/mailbox/count" && req.method === "GET") {
         try {
           const db = dbModule.default;
-          const row = db.prepare("SELECT COUNT(*) as count FROM received_emails").get();
+          const row = db.prepare("SELECT COUNT(*) as count FROM received_emails WHERE COALESCE(is_deleted, 0) = 0").get();
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ email: userEmail, count: row ? row.count : 0, isPrimaryMailbox: true }));
         } catch (err) {
@@ -1498,7 +1525,7 @@ export class ApiRouter {
       if (normUrl.match(/\/api\/mailbox\/inbox\/\d+/) && req.method === "GET") {
         const id = normUrl.split("/").pop();
         const db = dbModule.default;
-        const emailRecord = db.prepare("SELECT id, file_name, recipient, sender, subject, created_at, has_attachment, attachment_size FROM received_emails WHERE id = ?").get(id);
+        const emailRecord = db.prepare("SELECT id, file_name, recipient, sender, subject, created_at, has_attachment, attachment_size, is_deleted FROM received_emails WHERE id = ?").get(id);
         
         if (!emailRecord) {
           res.writeHead(404, { "Content-Type": "application/json" });
@@ -1517,9 +1544,133 @@ export class ApiRouter {
         return;
       }
 
-      // DELETE /api/mailbox/inbox/:id
+      // POST /api/mailbox/inbox/restore or /api/mailbox/inbox/restore/:id
+      if ((normUrl === "/api/mailbox/inbox/restore" || normUrl.match(/\/api\/mailbox\/inbox\/restore\/\d+/)) && req.method === "POST") {
+        let body = "";
+        req.on("data", chunk => body += chunk.toString());
+        req.on("end", () => {
+          try {
+            const db = dbModule.default;
+            let ids = [];
+            if (normUrl.match(/\/api\/mailbox\/inbox\/restore\/\d+/)) {
+              ids = [normUrl.split("/").pop()];
+            } else {
+              const parsed = JSON.parse(body || "{}");
+              ids = Array.isArray(parsed.ids) ? parsed.ids : [];
+            }
+
+            if (ids.length === 0) {
+              res.writeHead(400, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ error: "No email IDs provided" }));
+              return;
+            }
+
+            let restoredCount = 0;
+            for (const id of ids) {
+              db.prepare("UPDATE received_emails SET is_deleted = 0, deleted_at = NULL WHERE id = ?").run(id);
+              restoredCount++;
+            }
+
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ success: true, count: restoredCount }));
+          } catch (err) {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: err.message || "Failed to restore emails" }));
+          }
+        });
+        return;
+      }
+
+      // POST/DELETE /api/mailbox/inbox/permanent-delete (Permanent deletion from disk + DB)
+      if ((normUrl === "/api/mailbox/inbox/permanent-delete" || normUrl === "/api/mailbox/inbox/empty-trash") && (req.method === "POST" || req.method === "DELETE")) {
+        let body = "";
+        req.on("data", chunk => body += chunk.toString());
+        req.on("end", () => {
+          try {
+            const parsed = JSON.parse(body || "{}");
+            const db = dbModule.default;
+            let deletedCount = 0;
+
+            if (parsed.all === true) {
+              const trashRecords = db.prepare("SELECT id, file_name FROM received_emails WHERE COALESCE(is_deleted, 0) = 1").all();
+              for (const r of trashRecords) {
+                db.prepare("DELETE FROM received_emails WHERE id = ?").run(r.id);
+                deletedCount++;
+                if (r.file_name) {
+                  const livePath = path.join(liveMailDir, r.file_name);
+                  if (fs.existsSync(livePath)) { try { fs.unlinkSync(livePath); } catch(e){} }
+                  const localPath = path.join(localMailDir, r.file_name);
+                  if (fs.existsSync(localPath)) { try { fs.unlinkSync(localPath); } catch(e){} }
+                }
+              }
+            } else {
+              const ids = Array.isArray(parsed.ids) ? parsed.ids : [];
+              if (ids.length === 0) {
+                res.writeHead(400, { "Content-Type": "application/json" });
+                res.end(JSON.stringify({ error: "No email IDs provided" }));
+                return;
+              }
+
+              for (const id of ids) {
+                const emailRecord = db.prepare("SELECT file_name FROM received_emails WHERE id = ?").get(id);
+                if (emailRecord) {
+                  db.prepare("DELETE FROM received_emails WHERE id = ?").run(id);
+                  deletedCount++;
+                  if (emailRecord.file_name) {
+                    const livePath = path.join(liveMailDir, emailRecord.file_name);
+                    if (fs.existsSync(livePath)) { try { fs.unlinkSync(livePath); } catch(e){} }
+                    const localPath = path.join(localMailDir, emailRecord.file_name);
+                    if (fs.existsSync(localPath)) { try { fs.unlinkSync(localPath); } catch(e){} }
+                  }
+                }
+              }
+            }
+
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ success: true, count: deletedCount }));
+          } catch (err) {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: err.message || "Failed to permanently delete emails" }));
+          }
+        });
+        return;
+      }
+
+      // POST/DELETE /api/mailbox/inbox/delete-selected (Soft delete / Move to Trash)
+      if ((normUrl === "/api/mailbox/inbox/delete-selected" || normUrl === "/api/mailbox/inbox/batch" || normUrl === "/api/mailbox/inbox/batch-delete" || normUrl === "/api/mailbox/inbox/trash-selected") && (req.method === "POST" || req.method === "DELETE")) {
+        let body = "";
+        req.on("data", chunk => body += chunk.toString());
+        req.on("end", () => {
+          try {
+            const parsed = JSON.parse(body || "{}");
+            const ids = Array.isArray(parsed.ids) ? parsed.ids : [];
+            if (ids.length === 0) {
+              res.writeHead(400, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ error: "No email IDs provided" }));
+              return;
+            }
+
+            const db = dbModule.default;
+            let deletedCount = 0;
+            for (const id of ids) {
+              db.prepare("UPDATE received_emails SET is_deleted = 1, deleted_at = CURRENT_TIMESTAMP WHERE id = ?").run(id);
+              deletedCount++;
+            }
+
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ success: true, count: deletedCount }));
+          } catch (err) {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: err.message || "Failed to move emails to trash" }));
+          }
+        });
+        return;
+      }
+
+      // DELETE /api/mailbox/inbox/:id (Soft delete / Move to Trash or permanent if ?permanent=true)
       if (normUrl.match(/\/api\/mailbox\/inbox\/\d+/) && req.method === "DELETE") {
         const id = normUrl.split("/").pop();
+        const isPermanent = parsedUrl.searchParams.get("permanent") === "true";
         const db = dbModule.default;
         const emailRecord = db.prepare("SELECT file_name FROM received_emails WHERE id = ?").get(id);
         if (!emailRecord) {
@@ -1528,24 +1679,27 @@ export class ApiRouter {
           return;
         }
 
-        db.prepare("DELETE FROM received_emails WHERE id = ?").run(id);
-
-        if (emailRecord.file_name) {
-          const livePath = path.join(liveMailDir, emailRecord.file_name);
-          if (fs.existsSync(livePath)) { try { fs.unlinkSync(livePath); } catch(e){} }
-          const localPath = path.join(localMailDir, emailRecord.file_name);
-          if (fs.existsSync(localPath)) { try { fs.unlinkSync(localPath); } catch(e){} }
+        if (isPermanent) {
+          db.prepare("DELETE FROM received_emails WHERE id = ?").run(id);
+          if (emailRecord.file_name) {
+            const livePath = path.join(liveMailDir, emailRecord.file_name);
+            if (fs.existsSync(livePath)) { try { fs.unlinkSync(livePath); } catch(e){} }
+            const localPath = path.join(localMailDir, emailRecord.file_name);
+            if (fs.existsSync(localPath)) { try { fs.unlinkSync(localPath); } catch(e){} }
+          }
+        } else {
+          db.prepare("UPDATE received_emails SET is_deleted = 1, deleted_at = CURRENT_TIMESTAMP WHERE id = ?").run(id);
         }
 
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: true }));
+        res.end(JSON.stringify({ success: true, permanent: isPermanent }));
         return;
       }
 
       // GET /api/mailbox/media
       if (normUrl === "/api/mailbox/media" && req.method === "GET") {
         const db = dbModule.default;
-        const emails = db.prepare("SELECT id, recipient, sender, created_at, file_name FROM received_emails WHERE has_attachment = 1 ORDER BY id DESC").all();
+        const emails = db.prepare("SELECT id, recipient, sender, created_at, file_name FROM received_emails WHERE has_attachment = 1 AND COALESCE(is_deleted, 0) = 0 ORDER BY id DESC").all();
         const targetDir = getTargetStorageDir();
         const allMedia = [];
 

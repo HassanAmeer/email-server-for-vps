@@ -93,9 +93,9 @@ driver = sqlite
 connect = ${SQLITE_DB_PATH}
 default_pass_scheme = PLAIN
 
-password_query = SELECT email AS user, COALESCE(plain_password, password_hash) AS password FROM mailbox_users WHERE LOWER(email) = LOWER('%u')
-user_query = SELECT 5000 AS uid, 5000 AS gid, '${MAILDIR_PATH}/%d/%n' AS home, 'maildir:${MAILDIR_PATH}/%d/%n:LAYOUT=fs:DIRNAME=.' AS mail FROM mailbox_users WHERE LOWER(email) = LOWER('%u')
-iterate_query = SELECT email AS user FROM mailbox_users
+password_query = SELECT email AS user, COALESCE(plain_password, password_hash) AS password FROM mailbox WHERE LOWER(email) = LOWER('%u')
+user_query = SELECT 5000 AS uid, 5000 AS gid, '${MAILDIR_PATH}/%d/%n' AS home, 'maildir:${MAILDIR_PATH}/%d/%n:LAYOUT=fs:DIRNAME=.' AS mail FROM mailbox WHERE LOWER(email) = LOWER('%u')
+iterate_query = SELECT email AS user FROM mailbox
 EOF
 
 chmod 600 /etc/dovecot/dovecot-sql.conf.ext

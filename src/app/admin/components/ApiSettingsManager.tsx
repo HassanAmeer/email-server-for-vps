@@ -97,10 +97,11 @@ export default function ApiSettingsManager({ apiUrl, apiPrefix = "/api/admin", t
   const handleDownloadPostman = () => {
     const baseUrl = window.location.origin;
     
+    const isDev = apiPrefix.includes("dev");
     const postmanCollection = {
       info: {
-        name: "Llamerada Email Server API",
-        description: "Postman collection for all available endpoints",
+        name: isDev ? "DevPanel & Developer APIs (/api/dev/*)" : "TempMail VPS Email Server API",
+        description: isDev ? "Postman collection for Developer (/api/dev/*) and DevPanel endpoints" : "Postman collection for all available endpoints",
         schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
       },
       item: routes.map(route => {
@@ -113,7 +114,7 @@ export default function ApiSettingsManager({ apiUrl, apiPrefix = "/api/admin", t
             method: route.method === "GET/POST" ? "GET" : route.method.split(",")[0].trim(),
             header: [
               ...(route.auth ? [
-                { key: "Authorization", value: "Bearer {{admin_token}}", type: "text" }
+                { key: "Authorization", value: isDev ? "Bearer {{devpanel_token}}" : "Bearer {{admin_token}}", type: "text" }
               ] : [])
             ],
             url: {
@@ -132,8 +133,8 @@ export default function ApiSettingsManager({ apiUrl, apiPrefix = "/api/admin", t
           type: "string"
         },
         {
-          key: "admin_token",
-          value: "replace_with_your_admin_token",
+          key: isDev ? "devpanel_token" : "admin_token",
+          value: isDev ? "replace_with_your_devpanel_token" : "replace_with_your_admin_token",
           type: "string"
         }
       ]
@@ -142,7 +143,7 @@ export default function ApiSettingsManager({ apiUrl, apiPrefix = "/api/admin", t
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(postmanCollection, null, 2));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "llamerada_api_postman_collection.json");
+    downloadAnchorNode.setAttribute("download", isDev ? "devpanel_postman_collection.json" : "tempmail_api_postman_collection.json");
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
@@ -167,6 +168,23 @@ export default function ApiSettingsManager({ apiUrl, apiPrefix = "/api/admin", t
     r.desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
     r.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const isDev = apiPrefix.includes("dev");
+
+  const apiGroups = [
+    {
+      title: isDev ? "Dev Inbound & Mailbox APIs (/api/dev/*)" : "Receive Email APIs",
+      routes: filteredRoutes.filter(r => r.category.includes("Mailbox") || r.id === "api-domains" || r.id === "dev-domains"),
+    },
+    {
+      title: isDev ? "Dev Outbound & SMTP Relay APIs (/api/dev/*)" : "Send Email APIs",
+      routes: filteredRoutes.filter(r => r.id.startsWith("send-") || r.id.startsWith("dev-send") || r.category.includes("Console")),
+    },
+    {
+      title: isDev ? "DevPanel Management & Server APIs (/api/devpanel/*)" : "Admin, System & Tools APIs",
+      routes: filteredRoutes.filter(r => !r.category.includes("Mailbox") && r.id !== "api-domains" && r.id !== "dev-domains" && !r.id.startsWith("send-") && !r.id.startsWith("dev-send") && !r.category.includes("Console")),
+    },
+  ];
 
   return (
     <div className="flex flex-col gap-6">
@@ -199,18 +217,18 @@ export default function ApiSettingsManager({ apiUrl, apiPrefix = "/api/admin", t
           </div>
           <div className="flex items-center gap-3">
             <a
-              href="/doc"
+              href={isDev ? "/devdoc" : "/doc"}
               target="_blank"
-              className="flex items-center gap-1.5 text-purple-400 hover:text-purple-300 font-semibold text-xs px-3 py-2 border border-purple-500/30 hover:border-purple-500/50 rounded-xl transition-colors"
+              className={`flex items-center gap-1.5 font-semibold text-xs px-3 py-2 border rounded-xl transition-colors ${isDev ? "text-amber-400 hover:text-amber-300 border-amber-500/30 hover:border-amber-500/50" : "text-purple-400 hover:text-purple-300 border-purple-500/30 hover:border-purple-500/50"}`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-3.5 h-3.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
               </svg>
-              API Docs
+              {isDev ? "Dev API Docs" : "API Docs"}
             </a>
             <button
               onClick={handleDownloadPostman}
-              className="flex items-center gap-1.5 text-orange-400 hover:text-orange-300 font-semibold text-xs px-3 py-2 border border-orange-500/30 hover:border-orange-500/50 rounded-xl transition-colors"
+              className="flex items-center gap-1.5 text-orange-400 hover:text-orange-300 font-semibold text-xs px-3 py-2 border border-orange-500/30 hover:border-orange-500/50 rounded-xl transition-colors cursor-pointer"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-3.5 h-3.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -219,7 +237,7 @@ export default function ApiSettingsManager({ apiUrl, apiPrefix = "/api/admin", t
             </button>
             <button
               onClick={handleResetHits}
-              className="text-red-400 hover:text-red-300 font-semibold text-xs px-3 py-2 bg-red-500/10 hover:bg-red-500/20 rounded-xl transition-colors"
+              className="text-red-400 hover:text-red-300 font-semibold text-xs px-3 py-2 bg-red-500/10 hover:bg-red-500/20 rounded-xl transition-colors cursor-pointer"
             >
               Reset All Hits
             </button>
@@ -246,13 +264,11 @@ export default function ApiSettingsManager({ apiUrl, apiPrefix = "/api/admin", t
           <div className="p-16 text-center text-gray-500 text-xs">No matching API endpoints found.</div>
         ) : (
           <div className="flex flex-col p-6 gap-8">
-            {[
-              { title: "Receive Email APIs", routes: filteredRoutes.filter(r => r.category === "Mailbox UI") },
-              { title: "Send Email APIs", routes: filteredRoutes.filter(r => r.id.startsWith("send-")) },
-              { title: "Admin, System & Tools APIs", routes: filteredRoutes.filter(r => r.category !== "Mailbox UI" && !r.id.startsWith("send-")) },
-            ].map(group => group.routes.length > 0 && (
+            {apiGroups.map(group => group.routes.length > 0 && (
               <div key={group.title} className="flex flex-col gap-3">
-                <h3 className="text-sm font-bold text-gray-300 uppercase tracking-wider pl-1 border-l-4 border-emerald-500">{group.title}</h3>
+                <h3 className={`text-sm font-bold text-gray-300 uppercase tracking-wider pl-1 border-l-4 ${isDev ? "border-violet-500" : "border-emerald-500"}`}>
+                  {group.title}
+                </h3>
                 <div className="overflow-x-auto rounded-xl border border-white/[0.05] bg-black/20">
                   <table className="w-full text-left border-collapse">
                     <thead>
@@ -271,7 +287,7 @@ export default function ApiSettingsManager({ apiUrl, apiPrefix = "/api/admin", t
                         <tr key={route.id} className="hover:bg-white/[0.01] transition-colors">
                           <td className="py-4 px-6">
                             <div className="flex flex-col gap-1">
-                              <span className="font-mono text-emerald-300 font-semibold select-all">
+                              <span className={`font-mono font-semibold select-all ${isDev ? "text-violet-300" : "text-emerald-300"}`}>
                                 {route.path}{route.variables && route.variables !== "None" && <span className="text-gray-500">{route.variables.startsWith("?") || route.variables.startsWith("Params") ? "" : " — "}{route.variables}</span>}
                               </span>
                               <span className="text-[11px] text-gray-400">{route.desc}</span>
@@ -280,7 +296,7 @@ export default function ApiSettingsManager({ apiUrl, apiPrefix = "/api/admin", t
                           <td className="py-4 px-4 text-center">
                             {route.auth ? (
                               <span className="inline-flex items-center justify-center w-6 h-6 rounded border border-white/[0.08] bg-white/[0.02]">
-                                <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                                <svg className={`w-3.5 h-3.5 ${isDev ? "text-violet-400" : "text-emerald-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
                               </span>
                             ) : (
                               <span className="inline-flex items-center justify-center w-6 h-6 rounded border border-white/[0.08] bg-white/[0.02]">
@@ -303,8 +319,8 @@ export default function ApiSettingsManager({ apiUrl, apiPrefix = "/api/admin", t
                           </td>
                           <td className="py-4 px-4 text-center">
                             {route.enabled ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                              <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${isDev ? "text-violet-300 bg-violet-500/10 border-violet-500/20" : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${isDev ? "bg-violet-400" : "bg-emerald-400"}`}></span>
                                 Active
                               </span>
                             ) : (
@@ -322,7 +338,7 @@ export default function ApiSettingsManager({ apiUrl, apiPrefix = "/api/admin", t
                                 onChange={() => handleToggle(route.id, route.enabled)}
                                 className="sr-only peer"
                               />
-                              <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-white"></div>
+                              <div className={`w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${isDev ? "peer-checked:bg-violet-500 peer-checked:after:bg-white" : "peer-checked:bg-emerald-500 peer-checked:after:bg-white"}`}></div>
                             </label>
                           </td>
                         </tr>

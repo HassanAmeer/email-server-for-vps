@@ -6,11 +6,16 @@ console.log("Opening db at", dbPath);
 const db = new Database(dbPath);
 
 try {
-  db.exec("ALTER TABLE webmail_users RENAME TO mailbox_users;");
-  console.log("Successfully renamed table webmail_users to mailbox_users.");
+  db.exec("ALTER TABLE mailbox_users RENAME TO mailbox;");
+  console.log("Successfully renamed table mailbox_users to mailbox.");
 } catch (e) {
   if (e.message.includes("no such table")) {
-    console.log("Table webmail_users does not exist. It may have already been renamed, or db was just recreated.");
+    try {
+      db.exec("ALTER TABLE webmail_users RENAME TO mailbox;");
+      console.log("Successfully renamed table webmail_users to mailbox.");
+    } catch (e2) {
+      console.log("Tables already renamed to mailbox.");
+    }
   } else {
     console.error("Migration error:", e.message);
   }

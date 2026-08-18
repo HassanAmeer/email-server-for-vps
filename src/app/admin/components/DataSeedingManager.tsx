@@ -225,7 +225,7 @@ export default function DataSeedingManager({ apiUrl, apiPrefix = "/api/admin", t
       id: "mailboxes",
       name: "Permanent Mailbox Users",
       icon: "📬",
-      desc: "Permanent registered IMAP user accounts stored in SQLite mailbox_users.",
+      desc: "Permanent registered IMAP user accounts stored in SQLite mailbox table.",
       countKey: `${status.mailboxUsersCount} mailbox users`,
       badge: status.mailboxUsersCount > 0 ? "Active" : "Empty",
       color: "indigo",
@@ -344,7 +344,7 @@ export default function DataSeedingManager({ apiUrl, apiPrefix = "/api/admin", t
         <div className="space-y-2 relative z-10">
           <div className="flex items-center gap-2.5">
             <div className={`p-2 rounded-xl border shadow-inner ${
-              targetScope === "devadmin"
+              targetScope === "devpanel" || targetScope === "devadmin"
                 ? "bg-violet-500/10 border-violet-500/20 text-violet-400"
                 : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
             }`}>
@@ -458,7 +458,7 @@ export default function DataSeedingManager({ apiUrl, apiPrefix = "/api/admin", t
 
       {/* Quick Master Seed (One-Click Banner) */}
       <div className={`border p-6 md:p-8 rounded-3xl backdrop-blur-xl relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-2xl transition-all ${
-        targetScope === "devadmin"
+        targetScope === "devpanel" || targetScope === "devadmin"
           ? "bg-gradient-to-r from-violet-950/40 via-slate-900/60 to-purple-950/40 border-violet-500/30"
           : "bg-gradient-to-r from-emerald-950/40 via-slate-900/60 to-cyan-950/40 border-emerald-500/30"
       }`}>

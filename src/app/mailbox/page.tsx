@@ -364,21 +364,20 @@ export default function MailboxLogin() {
                   <span>Sign in to Mailbox</span>
                 )}
               </button>
+              
+              {/* Bottom Card Footer */}
+              <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs text-gray-500 font-mono">
+                <a href="/admin/primary-domain" className="hover:text-emerald-400 transition-colors flex items-center gap-1">
+                  <span>← Admin Panel</span>
+                </a>
+                <a href="/doc" className="hover:text-emerald-400 transition-colors">
+                  API Docs →
+                </a>
+              </div>
+
             </form>
-
-            {/* Bottom Card Footer */}
-            <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs text-gray-500 font-mono">
-              <a href="/admin/primary-domain" className="hover:text-emerald-400 transition-colors flex items-center gap-1">
-                <span>← Admin Panel</span>
-              </a>
-              <a href="/doc" className="hover:text-emerald-400 transition-colors">
-                API Docs →
-              </a>
-            </div>
-
           </div>
         </div>
-
       </div>
     </div>
   );

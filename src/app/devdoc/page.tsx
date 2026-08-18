@@ -1067,7 +1067,7 @@ export default function DevApiDocumentation() {
                   Auth: <span className={ep.auth ? "text-amber-400 font-semibold" : "text-emerald-400 font-semibold"}>{ep.auth ? "Bearer Dev Token Required" : "Public (No Auth)"}</span>
                 </div>
                 <div className="inline-flex items-center gap-2 text-[11px] font-mono bg-white/[0.02] border border-white/[0.06] text-gray-400 px-3 py-1.5 rounded-lg">
-                  <span>Scope: <strong className="text-white font-mono">{ep.category.includes("Admin") ? "devadmin" : "developer"}</strong></span>
+                  <span>Scope: <strong className="text-white font-mono">{ep.category.includes("Panel") || ep.category.includes("Admin") ? "devpanel" : "developer"}</strong></span>
                 </div>
               </div>
             </div>

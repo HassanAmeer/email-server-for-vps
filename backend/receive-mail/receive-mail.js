@@ -8,7 +8,7 @@ import nodemailer from "nodemailer";
 import { sendOutboundEmail as sendOutboundEmailLive } from "../send-mail-simple/send-mail-from-generated-mail-from-live.js";
 import { sendOutboundEmail as sendOutboundEmailLocal } from "../send-mail-simple/send-mail-from-generated-mail-from-local.js";
 import { ApiRouter } from "../../apis/api-router.js";
-import { logReceivedEmail, getProjectByEmail, logSystemEvent, runDataRetentionCleanupJob, validateRecipientCatchAll, getProjectAllowedFiles, getActiveDomainsWithPlan, getSetting, setSetting, getAllFlags, getPrimaryDomain, getDomainRoutingRule } from "../database/db.js";
+import { logReceivedEmail, getProjectByEmail, logSystemEvent, runDataRetentionCleanupJob, purgeExpiredTrashEmails, validateRecipientCatchAll, getProjectAllowedFiles, getActiveDomainsWithPlan, getSetting, setSetting, getAllFlags, getPrimaryDomain, getDomainRoutingRule } from "../database/db.js";
 
 // Load .env file manually if it exists
 const envPath = path.join(process.cwd(), ".env");
@@ -813,7 +813,7 @@ const httpServer = http.createServer((req, res) => {
     return ApiRouter.handleProjectsApi(req, res);
   }
 
-  if (cleanUrl.startsWith("/api/admin/mailbox-users")) {
+  if (cleanUrl.startsWith("/api/admin/mailbox-users") || cleanUrl.startsWith("/api/admin/mailboxes") || cleanUrl.startsWith("/api/admin/mailbox-accounts")) {
     return ApiRouter.handleAdminMailboxUsersApi(req, res);
   }
 
@@ -930,7 +930,7 @@ const httpServer = http.createServer((req, res) => {
     }
 
     // Mailbox users — scope=devpanel
-    if (normDevUrl.startsWith("/api/dev-admin/mailbox-users")) {
+    if (normDevUrl.startsWith("/api/dev-admin/mailbox-users") || normDevUrl.startsWith("/api/dev-admin/mailboxes") || normDevUrl.startsWith("/api/dev-admin/mailbox-accounts")) {
       const proxiedReq = Object.create(req);
       proxiedReq.url = req.url.replace("/api/devpanel/", "/api/admin/").replace("/api/dev-admin/", "/api/admin/");
       proxiedReq.headers = { ...req.headers, authorization: `Bearer ${AdminController.adminToken}`, "x-scope": "devpanel" };
@@ -1490,6 +1490,15 @@ setTimeout(autoStartDovecot, 1500);
 setInterval(() => {
   runDataRetentionCleanupJob();
 }, 24 * 60 * 60 * 1000);
+
+// Auto-purge trash emails older than 24 hours (Runs every 30 minutes)
+setInterval(() => {
+  purgeExpiredTrashEmails(24);
+}, 30 * 60 * 1000);
+
 // Also run once on startup
-setTimeout(runDataRetentionCleanupJob, 5000);
+setTimeout(() => {
+  runDataRetentionCleanupJob();
+  purgeExpiredTrashEmails(24);
+}, 5000);
 

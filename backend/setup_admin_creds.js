@@ -44,15 +44,15 @@ for (const email of usersToSet) {
     hash = password;
   }
 
-  const existing = db.prepare("SELECT id FROM mailbox_users WHERE email = ?").get(email);
+  const existing = db.prepare("SELECT id FROM mailbox WHERE email = ?").get(email);
   if (existing) {
-    db.prepare("UPDATE mailbox_users SET password_hash = ?, plain_password = ? WHERE id = ?").run(hash, password, existing.id);
+    db.prepare("UPDATE mailbox SET password_hash = ?, plain_password = ? WHERE id = ?").run(hash, password, existing.id);
     console.log(`Updated user ${email} with password 12345678`);
   } else {
-    db.prepare("INSERT INTO mailbox_users (email, password_hash, plain_password) VALUES (?, ?, ?)").run(email, hash, password);
+    db.prepare("INSERT INTO mailbox (email, password_hash, plain_password) VALUES (?, ?, ?)").run(email, hash, password);
     console.log(`Created user ${email} with password 12345678`);
   }
 }
 
-console.log("All configured users:", db.prepare("SELECT id, email, plain_password FROM mailbox_users").all());
+console.log("All configured users:", db.prepare("SELECT id, email, plain_password FROM mailbox").all());
 console.log("All domains:", db.prepare("SELECT id, domain, is_primary FROM attached_domains").all());

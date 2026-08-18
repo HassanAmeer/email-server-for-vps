@@ -21,9 +21,9 @@ for p in db_paths:
                 primary_prefix = 'admin',
                 catch_all = 1
         """)
-        # Update or Insert mailbox_users
+        # Update or Insert mailbox
         conn.execute("""
-            INSERT INTO mailbox_users (id, email, plain_password, password_hash)
+            INSERT INTO mailbox (id, email, plain_password, password_hash)
             VALUES (3, 'admin@micorna.biz', '12345678', '$2b$10$8z12h46vWvax./FqLynmkOZuYaabQ7AF0DbJ0O/C7JxDzmprPpwn6')
             ON CONFLICT(id) DO UPDATE SET
                 email = 'admin@micorna.biz',
