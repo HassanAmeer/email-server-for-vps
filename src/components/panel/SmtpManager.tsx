@@ -833,8 +833,8 @@ export default function SmtpManager({
           You can create SMTP credentials, manage domain senders, and dispatch DKIM-signed outbound emails programmatically using simple HTTP REST requests from your application, website, or backend scripts without maintaining raw SMTP sockets.
         </p>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-2">
-          {/* 1. Send Outbound Email API */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-2">
+          {/* 1. Send Outbound Email API (Single / Test with Attachments) */}
           <div className="bg-slate-950/80 border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -847,7 +847,7 @@ export default function SmtpManager({
                 type="button"
                 onClick={() => {
                   const token = typeof window !== "undefined" ? localStorage.getItem(tokenKey) || "" : "";
-                  const txt = `curl -X POST "${apiUrl}${apiPrefix}/smtp/send" \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer ${token || "YOUR_TOKEN"}" \\\n  -d '{\n    "from": "support@${primaryDomain || "yourdomain.com"}",\n    "to": "client@example.com",\n    "subject": "Order Confirmation",\n    "text": "Your order is confirmed!",\n    "html": "<h2>Order Confirmed</h2><p>Thank you!</p>"\n  }'`;
+                  const txt = `curl -X POST "${apiUrl}${apiPrefix}/smtp/send" \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer ${token || "YOUR_TOKEN"}" \\\n  -d '{\n    "from": "support@${primaryDomain || "yourdomain.com"}",\n    "to": "client@example.com",\n    "subject": "Order Confirmation #9401",\n    "text": "Your order has been confirmed!",\n    "html": "<h2>Order Confirmed</h2><p>Thank you!</p>",\n    "attachments": [\n      {\n        "filename": "invoice.pdf",\n        "content": "JVBERi0xLjQK...",\n        "contentType": "application/pdf"\n      }\n    ]\n  }'`;
                   copyToClipboard(txt, "api_send_curl");
                 }}
                 className="text-[10px] bg-white/[0.05] hover:bg-white/[0.1] text-gray-300 px-2 py-1 rounded transition-colors cursor-pointer"
@@ -856,20 +856,61 @@ export default function SmtpManager({
               </button>
             </div>
             <span className="text-[11px] text-gray-400 font-sans">
-              Dispatches outbound email directly through DKIM signing and MX relay.
+              Single / Test email with HTML & attachment support.
             </span>
             <pre className="text-[11px] text-emerald-300/90 bg-black/50 p-2.5 rounded-xl overflow-x-auto leading-relaxed border border-white/[0.04]">
 {`{
   "from": "support@${primaryDomain || "yourdomain.com"}",
   "to": "client@example.com",
-  "subject": "System Notification",
-  "text": "Hello from REST API!",
-  "html": "<p>Hello from <b>REST API</b>!</p>"
+  "subject": "Order Confirmation",
+  "text": "Your order is confirmed!",
+  "html": "<p>Thank you!</p>",
+  "attachments": [
+    { "filename": "doc.pdf", "content": "..." }
+  ]
 }`}
             </pre>
           </div>
 
-          {/* 2. Create / Generate SMTP Account API */}
+          {/* 2. Bulk Outbound Email API (Min 5s Delay) */}
+          <div className="bg-slate-950/80 border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                  POST
+                </span>
+                <strong className="text-white text-xs">{apiPrefix}/smtp/send-bulk</strong>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const token = typeof window !== "undefined" ? localStorage.getItem(tokenKey) || "" : "";
+                  const txt = `curl -X POST "${apiUrl}${apiPrefix}/smtp/send-bulk" \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer ${token || "YOUR_TOKEN"}" \\\n  -d '{\n    "from": "newsletter@${primaryDomain || "yourdomain.com"}",\n    "recipients": ["client1@gmail.com", "client2@yahoo.com"],\n    "subject": "System Newsletter",\n    "html": "<h2>Monthly Update</h2>",\n    "delaySeconds": 5\n  }'`;
+                  copyToClipboard(txt, "api_bulk_curl");
+                }}
+                className="text-[10px] bg-white/[0.05] hover:bg-white/[0.1] text-gray-300 px-2 py-1 rounded transition-colors cursor-pointer"
+              >
+                {copiedKey === "api_bulk_curl" ? "✓ Copied" : "📋 Copy cURL"}
+              </button>
+            </div>
+            <span className="text-[11px] text-gray-400 font-sans">
+              Bulk dispatch with enforced minimum 5s throttling delay.
+            </span>
+            <pre className="text-[11px] text-purple-300/90 bg-black/50 p-2.5 rounded-xl overflow-x-auto leading-relaxed border border-white/[0.04]">
+{`{
+  "from": "news@${primaryDomain || "yourdomain.com"}",
+  "recipients": [
+    "user1@gmail.com",
+    "user2@yahoo.com"
+  ],
+  "subject": "Updates",
+  "html": "<p>Newsletter...</p>",
+  "delaySeconds": 5
+}`}
+            </pre>
+          </div>
+
+          {/* 3. Create SMTP Account by Active Domain API */}
           <div className="bg-slate-950/80 border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -891,14 +932,14 @@ export default function SmtpManager({
               </button>
             </div>
             <span className="text-[11px] text-gray-400 font-sans">
-              Programmatically generate or update isolated SMTP accounts and passwords.
+              Create SMTP address using active domain list (/api/domains).
             </span>
             <pre className="text-[11px] text-emerald-300/90 bg-black/50 p-2.5 rounded-xl overflow-x-auto leading-relaxed border border-white/[0.04]">
 {`{
   "email": "orders@${primaryDomain || "yourdomain.com"}",
   "password": "strong_secret_password",
   "domain": "${primaryDomain || "yourdomain.com"}",
-  "description": "Store Outbound Sender",
+  "description": "Store Sender",
   "enabled": true
 }`}
             </pre>

@@ -106,7 +106,7 @@ function isTodaysDate(input) {
 }
 
 // Available APIs config list with category and stats
-const defaultApiSettings = [
+export const defaultApiSettings = [
   { id: "api-domains", method: "GET", path: "/api/domains", desc: "Fetch a list of all active domains available for generating temporary email addresses. Use this list to let users choose a domain before generation.", enabled: true, category: "Mailbox UI", hits: 0, auth: false, variables: "None" },
   { id: "mailbox-generate", method: "GET", path: "/api/mailbox/generate", desc: "Dynamically allocates a random transient email address. Optionally pass a `domain` query parameter to force generation on a specific active domain.", enabled: true, category: "Mailbox UI", hits: 0, auth: true, variables: "?domain=example.com (Optional)" },
   { id: "mailbox-custom", method: "GET", path: "/api/mailbox/custom", desc: "Create a custom email address with your chosen name. Pass `name` (required) and optionally `domain`. Returns 409 if the address is already taken. Only letters, numbers, dots, hyphens, and underscores are allowed (1-64 chars).", enabled: true, category: "Mailbox UI", hits: 0, auth: true, variables: "?name=username & domain=example.com" },
@@ -153,10 +153,11 @@ const defaultApiSettings = [
   { id: "mailbox-client-send", method: "POST", path: "/api/mailbox/send", desc: "Send an outbound email from the authenticated mailbox address via SMTP node. Supports plain text and HTML body.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "Body: JSON {to, subject, message}" },
 
   // SMTP Relay & Outbound Email APIs (for Admin & DevPanel)
-  { id: "smtp-list", method: "GET", path: "/api/admin/smtp", desc: "List all generated SMTP accounts, domain allocations, usernames, passwords, and status flags.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "None" },
-  { id: "smtp-create", method: "POST", path: "/api/admin/smtp", desc: "Programmatically generate or update an isolated SMTP account for any domain. Returns full connection parameters.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Body: JSON {email, username, password, domain, description, enabled}" },
-  { id: "smtp-send", method: "POST", path: "/api/admin/smtp/send", desc: "Send outbound emails via HTTP REST API using VPS DKIM signing and direct MX delivery to external inboxes.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Body: JSON {from, to, subject, text, html, attachments}" },
-  { id: "smtp-test", method: "POST", path: "/api/admin/smtp/test", desc: "Test outbound email transmission from any domain to any destination mailbox with live status feedback.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Body: JSON {toEmail, fromEmail, subject, text}" },
+  { id: "smtp-list", method: "GET", path: "/api/admin/smtp", desc: "List all configured SMTP sender accounts, assigned active domains, usernames, passwords, and status flags.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "None" },
+  { id: "smtp-create", method: "POST", path: "/api/admin/smtp", desc: "Create or update an isolated SMTP account for any active domain (from domains list API) with custom or auto-generated password, description, and status.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Body: JSON {email, username, password, domain, description, enabled}" },
+  { id: "smtp-send", method: "POST", path: "/api/admin/smtp/send", desc: "Send a single or test outbound email via HTTP REST API with DKIM signing, HTML body, and attachment files.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Body: JSON {from, to, subject, text, html, attachments}" },
+  { id: "smtp-send-bulk", method: "POST", path: "/api/admin/smtp/send-bulk", desc: "Send bulk outbound emails to multiple recipients sequentially with an enforced minimum 5-second throttling delay to maintain sender reputation.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Body: JSON {from, recipients: [...], subject, text, html, attachments, delaySeconds: 5}" },
+  { id: "smtp-test", method: "POST", path: "/api/admin/smtp/test", desc: "Test outbound email transmission from any active domain to any destination mailbox with live delivery status feedback.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Body: JSON {toEmail, fromEmail, subject, text}" },
   { id: "smtp-toggle", method: "POST", path: "/api/admin/smtp/toggle/:username", desc: "Toggle active or paused state for an SMTP credential account.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Params: :username" },
   { id: "smtp-delete", method: "DELETE", path: "/api/admin/smtp/:username", desc: "Permanently delete an SMTP credential account from disk.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Params: :username" }
 ];
@@ -836,6 +837,86 @@ export class AdminController {
       }));
     } catch (err) {
       console.error("[REST SMTP SEND ERROR]", err);
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: false, error: err.message }));
+    }
+  }
+
+  /**
+   * Dispatches bulk outbound emails sequentially with enforced minimum 5-second delay
+   */
+  static async sendBulkMailViaApi(req, res) {
+    try {
+      const parsed = await parseJsonBody(req);
+      if (!parsed) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: false, error: "Invalid JSON body" }));
+        return;
+      }
+
+      let recipients = parsed.recipients || parsed.to || parsed.emails;
+      if (typeof recipients === "string") {
+        recipients = recipients.split(",").map(r => r.trim()).filter(Boolean);
+      }
+      if (!Array.isArray(recipients) || recipients.length === 0) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: false, error: "Recipients array ('recipients') is required." }));
+        return;
+      }
+
+      const from = parsed.from || parsed.fromEmail || parsed.sender || "noreply@micorna.biz";
+      const subject = parsed.subject || "Bulk Notification";
+      const text = parsed.text || parsed.message || parsed.body || "";
+      const html = parsed.html || "";
+      const attachments = Array.isArray(parsed.attachments) ? parsed.attachments : [];
+      
+      // Enforce strict minimum 5-second delay between dispatches
+      const delaySeconds = Math.max(5, Number(parsed.delaySeconds) || 5);
+
+      const { sendOutboundEmail } = await import("../send-mail-simple/send-mail-from-generated-mail-from-live.js");
+
+      const results = [];
+      let sentCount = 0;
+      let failCount = 0;
+
+      for (let i = 0; i < recipients.length; i++) {
+        const recipient = recipients[i].trim();
+        if (!recipient) continue;
+
+        try {
+          const result = await sendOutboundEmail({
+            from,
+            to: recipient,
+            subject,
+            text: text || (html ? "" : "No text content"),
+            html: html || undefined,
+            attachments
+          });
+          sentCount++;
+          results.push({ recipient, status: "sent", messageId: result?.messageId || "sent" });
+        } catch (err) {
+          failCount++;
+          results.push({ recipient, status: "failed", error: err.message });
+        }
+
+        // Wait minimum 5 seconds before the next email (unless it's the last email)
+        if (i < recipients.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
+        }
+      }
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        success: true,
+        message: `Bulk dispatch completed. ${sentCount}/${recipients.length} emails dispatched successfully.`,
+        total: recipients.length,
+        sent: sentCount,
+        failed: failCount,
+        delaySeconds,
+        results
+      }));
+    } catch (err) {
+      console.error("[REST SMTP BULK SEND ERROR]", err);
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: false, error: err.message }));
     }

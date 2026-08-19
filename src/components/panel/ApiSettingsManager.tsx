@@ -182,16 +182,20 @@ export default function ApiSettingsManager({ apiUrl, apiPrefix = "/api/admin", t
 
   const apiGroups = [
     {
-      title: isDev ? "Dev Inbound & Mailbox APIs (/api/dev/*)" : "Receive Email APIs",
-      routes: filteredRoutes.filter(r => r.category.includes("Mailbox") || r.id === "api-domains" || r.id === "dev-domains"),
+      title: isDev ? "Dev Inbound & Mailbox APIs (/api/dev/*)" : "Receive Email & Mailbox APIs",
+      routes: filteredRoutes.filter(r => r.category.includes("Mailbox") || r.id === "api-domains" || r.id === "dev-domains" || r.category.includes("Temporary")),
     },
     {
-      title: isDev ? "Dev Outbound & SMTP Relay APIs (/api/dev/*)" : "Send Email APIs",
-      routes: filteredRoutes.filter(r => r.id.startsWith("send-") || r.id.startsWith("dev-send") || r.category.includes("Console")),
+      title: isDev ? "Dev SMTP Relay & Outbound Accounts APIs (/api/devpanel/smtp/*)" : "SMTP Relay & Outbound Accounts APIs (/api/admin/smtp/*)",
+      routes: filteredRoutes.filter(r => r.id.startsWith("smtp-") || r.id.startsWith("dev-smtp") || r.category.includes("SMTP")),
     },
     {
-      title: isDev ? "DevPanel Management & Server APIs (/api/devpanel/*)" : "Admin, System & Tools APIs",
-      routes: filteredRoutes.filter(r => !r.category.includes("Mailbox") && r.id !== "api-domains" && r.id !== "dev-domains" && !r.id.startsWith("send-") && !r.id.startsWith("dev-send") && !r.category.includes("Console")),
+      title: isDev ? "Dev Outbound Sending Console APIs (/api/dev/*)" : "Direct Send Email APIs (/api/*)",
+      routes: filteredRoutes.filter(r => (r.id.startsWith("send-") || r.id.startsWith("dev-send") || r.category.includes("Console")) && !r.id.startsWith("smtp-") && !r.category.includes("SMTP")),
+    },
+    {
+      title: isDev ? "DevPanel Management & Server APIs (/api/devpanel/*)" : "Admin, Projects & System APIs (/api/admin/*)",
+      routes: filteredRoutes.filter(r => !r.category.includes("Mailbox") && r.id !== "api-domains" && r.id !== "dev-domains" && !r.category.includes("Temporary") && !r.id.startsWith("smtp-") && !r.id.startsWith("dev-smtp") && !r.category.includes("SMTP") && !r.id.startsWith("send-") && !r.id.startsWith("dev-send") && !r.category.includes("Console")),
     },
   ];
 

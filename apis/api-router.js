@@ -538,6 +538,10 @@ export class ApiRouter {
     return AdminController.sendMailViaApi(req, res);
   }
 
+  static sendBulkMailViaApi(req, res) {
+    return AdminController.sendBulkMailViaApi(req, res);
+  }
+
   static getDkimKey(req, res) {
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;

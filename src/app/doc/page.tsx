@@ -694,9 +694,9 @@ const endpoints = [
     id: "smtp-get-credentials",
     method: "GET",
     path: "/api/admin/smtp",
-    title: "List SMTP Accounts",
+    title: "List SMTP Email Addresses",
     category: "Send Mail",
-    desc: "Retrieves the full list of generated SMTP user accounts, assigned domains, and active/paused status flags.",
+    desc: "Retrieves the full list of configured SMTP sender addresses, assigned active domains, usernames, passwords, and status flags.",
     payload: null,
     response: `[
   {
@@ -716,12 +716,12 @@ const endpoints = [
     id: "smtp-create-credential",
     method: "POST",
     path: "/api/admin/smtp",
-    title: "Create / Generate SMTP Account",
+    title: "Create SMTP Address by Active Domain",
     category: "Send Mail",
-    desc: "Programmatically generate or update an isolated SMTP account for any attached domain with dedicated password and sender restriction.",
+    desc: "Programmatically generate an isolated SMTP address for any domain from your active domains list (/api/domains) with custom or auto-generated password.",
     payload: `{
   "email": "support@micorna.biz",
-  "password": "strong_secret_password",
+  "password": "strong_secret_password_or_leave_blank_for_auto_generate",
   "domain": "micorna.biz",
   "description": "Customer Support Desk",
   "enabled": true
@@ -732,6 +732,7 @@ const endpoints = [
   "credential": {
     "email": "support@micorna.biz",
     "username": "support@micorna.biz",
+    "password": "...",
     "domain": "micorna.biz",
     "enabled": true
   }
@@ -744,15 +745,22 @@ const endpoints = [
     id: "smtp-send-email-api",
     method: "POST",
     path: "/api/admin/smtp/send",
-    title: "Send Email via HTTP REST API",
+    title: "Send Single / Test Email (Text + HTML + Attachments)",
     category: "Send Mail",
-    desc: "Dispatches an outbound email via HTTP POST without requiring an SMTP connection socket. Automatically signed with DKIM and delivered directly to the recipient's MX server.",
+    desc: "Dispatches a single or test outbound email via HTTP POST with automatic DKIM signing, HTML markup, and file attachment support.",
     payload: `{
   "from": "support@micorna.biz",
   "to": "client@gmail.com",
   "subject": "Order Confirmation #9401",
   "text": "Your order has been confirmed and is now being prepared.",
-  "html": "<div style='font-family:sans-serif;'><h2>Order Confirmed!</h2><p>Your order has been dispatched.</p></div>"
+  "html": "<div style='font-family:sans-serif;'><h2>Order Confirmed!</h2><p>Your order has been dispatched.</p></div>",
+  "attachments": [
+    {
+      "filename": "invoice_9401.pdf",
+      "content": "JVBERi0xLjQKJcTl8uXr...",
+      "contentType": "application/pdf"
+    }
+  ]
 }`,
     response: `{
   "success": true,
@@ -768,12 +776,48 @@ const endpoints = [
     auth: true,
   },
   {
+    id: "smtp-send-bulk-email-api",
+    method: "POST",
+    path: "/api/admin/smtp/send-bulk",
+    title: "Bulk Outbound Email Dispatch (Min 5s Delay Throttling)",
+    category: "Send Mail",
+    desc: "Dispatches emails to multiple recipients sequentially with a strict minimum 5-second throttling delay between messages to safeguard IP reputation and prevent spam filters.",
+    payload: `{
+  "from": "newsletter@micorna.biz",
+  "recipients": [
+    "customer1@gmail.com",
+    "customer2@yahoo.com",
+    "client3@outlook.com"
+  ],
+  "subject": "Weekly Newsletter & Updates",
+  "text": "Check out our latest releases this week!",
+  "html": "<h2>Weekly Updates</h2><p>Check out our latest releases!</p>",
+  "delaySeconds": 5
+}`,
+    response: `{
+  "success": true,
+  "message": "Bulk dispatch completed. 3/3 emails dispatched successfully.",
+  "total": 3,
+  "sent": 3,
+  "failed": 0,
+  "delaySeconds": 5,
+  "results": [
+    { "recipient": "customer1@gmail.com", "status": "sent", "messageId": "<...>" },
+    { "recipient": "customer2@yahoo.com", "status": "sent", "messageId": "<...>" },
+    { "recipient": "client3@outlook.com", "status": "sent", "messageId": "<...>" }
+  ]
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/admin/smtp/send-bulk",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
     id: "smtp-toggle-credential",
     method: "POST",
     path: "/api/admin/smtp/toggle/:username",
-    title: "Toggle SMTP Account Status",
+    title: "Toggle SMTP Address Status",
     category: "Send Mail",
-    desc: "Pause or reactivate an SMTP account by its username.",
+    desc: "Pause or reactivate an SMTP address by its username.",
     payload: null,
     response: `{
   "success": true,
@@ -787,9 +831,9 @@ const endpoints = [
     id: "smtp-delete-credential",
     method: "DELETE",
     path: "/api/admin/smtp/:username",
-    title: "Delete SMTP Account",
+    title: "Delete SMTP Address",
     category: "Send Mail",
-    desc: "Permanently delete an isolated SMTP account from the server.",
+    desc: "Permanently delete an isolated SMTP address from the server.",
     payload: null,
     response: `{
   "success": true

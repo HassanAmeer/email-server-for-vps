@@ -647,6 +647,7 @@ const httpServer = http.createServer((req, res) => {
       }
       if (devSubPath.startsWith("credentials") || devSubPath.startsWith("smtp")) {
         if (devSubPath === "smtp/send" && req.method === "POST") return ApiRouter.sendMailViaApi(req, res);
+        if (devSubPath === "smtp/send-bulk" && req.method === "POST") return ApiRouter.sendBulkMailViaApi(req, res);
         if (devSubPath === "smtp/test" && req.method === "POST") return ApiRouter.testSmtpRelay(req, res);
         if (devSubPath.startsWith("smtp/toggle/") && req.method === "POST") {
           const username = decodeURIComponent(cleanUrl.split("/api/dev/smtp/toggle/")[1]);
@@ -872,6 +873,10 @@ const httpServer = http.createServer((req, res) => {
     return ApiRouter.sendMailViaApi(req, res);
   }
 
+  if (cleanUrl === "/api/admin/smtp/send-bulk" && req.method === "POST") {
+    return ApiRouter.sendBulkMailViaApi(req, res);
+  }
+
   if (cleanUrl === "/api/admin/smtp/test" && req.method === "POST") {
     return ApiRouter.testSmtpRelay(req, res);
   }
@@ -897,6 +902,10 @@ const httpServer = http.createServer((req, res) => {
   // Public & Programmatic SMTP Outbound REST API
   if ((cleanUrl === "/api/smtp/send" || cleanUrl === "/api/v1/send-mail" || cleanUrl === "/api/v1/smtp/send") && req.method === "POST") {
     return ApiRouter.sendMailViaApi(req, res);
+  }
+
+  if ((cleanUrl === "/api/smtp/send-bulk" || cleanUrl === "/api/v1/send-bulk" || cleanUrl === "/api/v1/smtp/send-bulk") && req.method === "POST") {
+    return ApiRouter.sendBulkMailViaApi(req, res);
   }
 
   // Admin Sidebar Menu configuration
@@ -1064,6 +1073,9 @@ const httpServer = http.createServer((req, res) => {
     }
     if (normDevUrl === "/api/dev-admin/smtp/send" && req.method === "POST") {
       return ApiRouter.sendMailViaApi(req, res);
+    }
+    if (normDevUrl === "/api/dev-admin/smtp/send-bulk" && req.method === "POST") {
+      return ApiRouter.sendBulkMailViaApi(req, res);
     }
     if (normDevUrl === "/api/dev-admin/smtp/test" && req.method === "POST") {
       return ApiRouter.testSmtpRelay(req, res);
