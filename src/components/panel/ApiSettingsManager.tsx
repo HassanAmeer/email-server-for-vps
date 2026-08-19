@@ -299,11 +299,31 @@ export default function ApiSettingsManager({ apiUrl, apiPrefix = "/api/admin", t
                       {group.routes.map((route) => (
                         <tr key={route.id} className="hover:bg-white/[0.01] transition-colors">
                           <td className="py-4 px-6">
-                            <div className="flex flex-col gap-1">
-                              <span className={`font-mono font-semibold select-all ${isDev ? "text-violet-300" : "text-emerald-300"}`}>
-                                {route.path}{route.variables && route.variables !== "None" && <span className="text-gray-500">{route.variables.startsWith("?") || route.variables.startsWith("Params") ? "" : " — "}{route.variables}</span>}
-                              </span>
-                              <span className="text-[11px] text-gray-400">{route.desc}</span>
+                            <div className="flex flex-col gap-1.5">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className={`font-mono font-bold select-all text-[13px] ${isDev ? "text-violet-300" : "text-emerald-300"}`}>
+                                  {route.path}
+                                </span>
+                                {route.variables && route.variables !== "None" && (
+                                  <span className="text-[10px] font-mono text-gray-400 bg-white/[0.04] border border-white/[0.08] px-1.5 py-0.5 rounded">
+                                    {route.variables}
+                                  </span>
+                                )}
+                              </div>
+                              {(() => {
+                                const parts = (route.desc || "").split(":");
+                                if (parts.length > 1) {
+                                  const title = parts[0].trim();
+                                  const detail = parts.slice(1).join(":").trim();
+                                  return (
+                                    <div className="text-[12px] text-gray-300 flex flex-wrap items-center gap-1">
+                                      <span className="font-bold text-white">{title}:</span>
+                                      <span className="text-gray-400">{detail}</span>
+                                    </div>
+                                  );
+                                }
+                                return <span className="text-[12px] text-gray-400">{route.desc}</span>;
+                              })()}
                             </div>
                           </td>
                           <td className="py-4 px-4 text-center">
