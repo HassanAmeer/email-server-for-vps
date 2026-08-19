@@ -522,8 +522,16 @@ export class ApiRouter {
     return AdminController.addCredential(req, res);
   }
 
+  static toggleCredential(req, res, username) {
+    return AdminController.toggleCredential(req, res, username);
+  }
+
   static deleteCredential(req, res, username) {
     return AdminController.deleteCredential(req, res, username);
+  }
+
+  static testSmtpRelay(req, res) {
+    return AdminController.testSmtpRelay(req, res);
   }
 
   static getDkimKey(req, res) {

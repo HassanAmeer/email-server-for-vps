@@ -853,16 +853,26 @@ const httpServer = http.createServer((req, res) => {
     return ApiRouter.resetApiSettingsHits(req, res);
   }
 
-  if (cleanUrl === "/api/admin/credentials" && req.method === "GET") {
+  // SMTP Relay Credentials & Testing
+  if ((cleanUrl === "/api/admin/smtp" || cleanUrl === "/api/admin/credentials") && req.method === "GET") {
     return ApiRouter.getCredentials(req, res);
   }
 
-  if (cleanUrl === "/api/admin/credentials" && req.method === "POST") {
+  if ((cleanUrl === "/api/admin/smtp" || cleanUrl === "/api/admin/credentials") && req.method === "POST") {
     return ApiRouter.addCredential(req, res);
   }
 
-  if (cleanUrl.startsWith("/api/admin/credentials/") && req.method === "DELETE") {
-    const username = decodeURIComponent(cleanUrl.split("/api/admin/credentials/")[1]);
+  if (cleanUrl === "/api/admin/smtp/test" && req.method === "POST") {
+    return ApiRouter.testSmtpRelay(req, res);
+  }
+
+  if (cleanUrl.startsWith("/api/admin/smtp/toggle/") && req.method === "POST") {
+    const username = decodeURIComponent(cleanUrl.split("/api/admin/smtp/toggle/")[1]);
+    return ApiRouter.toggleCredential(req, res, username);
+  }
+
+  if ((cleanUrl.startsWith("/api/admin/smtp/") || cleanUrl.startsWith("/api/admin/credentials/")) && req.method === "DELETE") {
+    const username = decodeURIComponent(cleanUrl.split("/api/admin/smtp/")[1] || cleanUrl.split("/api/admin/credentials/")[1]);
     return ApiRouter.deleteCredential(req, res, username);
   }
 
@@ -1030,15 +1040,22 @@ const httpServer = http.createServer((req, res) => {
       return ApiRouter.generateDkimKey(req, res);
     }
 
-    // Credentials
-    if (normDevUrl === "/api/dev-admin/credentials" && req.method === "GET") {
+    // SMTP Relay Credentials & Testing for DevPanel
+    if ((normDevUrl === "/api/dev-admin/smtp" || normDevUrl === "/api/dev-admin/credentials") && req.method === "GET") {
       return ApiRouter.getCredentials(req, res);
     }
-    if (normDevUrl === "/api/dev-admin/credentials" && req.method === "POST") {
+    if ((normDevUrl === "/api/dev-admin/smtp" || normDevUrl === "/api/dev-admin/credentials") && req.method === "POST") {
       return ApiRouter.addCredential(req, res);
     }
-    if (normDevUrl.startsWith("/api/dev-admin/credentials/") && req.method === "DELETE") {
-      const username = decodeURIComponent(normDevUrl.split("/api/dev-admin/credentials/")[1]);
+    if (normDevUrl === "/api/dev-admin/smtp/test" && req.method === "POST") {
+      return ApiRouter.testSmtpRelay(req, res);
+    }
+    if (normDevUrl.startsWith("/api/dev-admin/smtp/toggle/") && req.method === "POST") {
+      const username = decodeURIComponent(normDevUrl.split("/api/dev-admin/smtp/toggle/")[1]);
+      return ApiRouter.toggleCredential(req, res, username);
+    }
+    if ((normDevUrl.startsWith("/api/dev-admin/smtp/") || normDevUrl.startsWith("/api/dev-admin/credentials/")) && req.method === "DELETE") {
+      const username = decodeURIComponent(normDevUrl.split("/api/dev-admin/smtp/")[1] || normDevUrl.split("/api/dev-admin/credentials/")[1]);
       return ApiRouter.deleteCredential(req, res, username);
     }
 

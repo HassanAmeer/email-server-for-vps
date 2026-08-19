@@ -192,22 +192,13 @@ export const DEFAULT_ADMIN_MENU = [
     enabled: true,
   },
   {
-    id: "credentials-tab",
-    tab: "credentials-tab",
-    path: "credentials",
-    label: "SMTP / IMAP Auth",
-    desc: "Manage custom SMTP/IMAP credentials for direct client connections.",
-    category: "Tools",
-    enabled: false,
-  },
-  {
-    id: "explorer-tab",
-    tab: "explorer-tab",
-    path: "explorer",
-    label: "Mail Explorer",
-    desc: "Deep raw email inspection, headers inspector, and attachment downloader.",
-    category: "Tools",
-    enabled: false,
+    id: "smtp-tab",
+    tab: "smtp-tab",
+    path: "smtp",
+    label: "SMTP Relay",
+    desc: "Configure outbound SMTP credentials, domain routing, and app integration keys.",
+    category: "Core",
+    enabled: true,
   },
   {
     id: "api-tab",
@@ -740,7 +731,7 @@ export class AdminController {
         res.end(JSON.stringify({ error: "Invalid JSON body" }));
         return;
       }
-      const { username, password } = parsed;
+      const { username, password, domain, fromEmail, email, description, enabled } = parsed;
       if (!username || !password) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Username and password are required" }));
@@ -749,17 +740,69 @@ export class AdminController {
 
       let creds = { users: [] };
       if (fs.existsSync(credsPath)) {
-        creds = JSON.parse(fs.readFileSync(credsPath, "utf-8"));
+        try {
+          creds = JSON.parse(fs.readFileSync(credsPath, "utf-8"));
+        } catch (e) {
+          creds = { users: [] };
+        }
       }
+      if (!Array.isArray(creds.users)) creds.users = [];
 
-      // Delete if username exists to prevent duplicates
-      creds.users = creds.users.filter(u => u.username !== username);
-      creds.users.push({ username, password });
+      const finalEmail = email?.trim() || fromEmail?.trim() || username.trim();
+      const existingUser = creds.users.find(u => u.username === username.trim());
+
+      // Delete if username exists to update
+      creds.users = creds.users.filter(u => u.username !== username.trim());
+      creds.users.push({
+        email: finalEmail,
+        username: username.trim(),
+        password: password.trim(),
+        domain: domain?.trim() || (finalEmail.includes("@") ? finalEmail.split("@")[1] : "*"),
+        fromEmail: fromEmail?.trim() || finalEmail,
+        description: description?.trim() || "Web App / Website SMTP Relay",
+        enabled: typeof enabled === "boolean" ? enabled : true,
+        created_at: existingUser?.created_at || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
 
       fs.writeFileSync(credsPath, JSON.stringify(creds, null, 2), "utf-8");
 
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: true }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  }
+
+  /**
+   * Toggles active/paused status of an SMTP Relay credential
+   */
+  static async toggleCredential(req, res, username) {
+    try {
+      if (!username) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Username parameter is required" }));
+        return;
+      }
+      if (!fs.existsSync(credsPath)) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Credentials file not found" }));
+        return;
+      }
+      const creds = JSON.parse(fs.readFileSync(credsPath, "utf-8"));
+      const user = (creds.users || []).find(u => u.username === username);
+      if (!user) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Username not found" }));
+        return;
+      }
+      user.enabled = user.enabled === false ? true : false;
+      user.updated_at = new Date().toISOString();
+      fs.writeFileSync(credsPath, JSON.stringify(creds, null, 2), "utf-8");
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true, enabled: user.enabled }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
@@ -800,6 +843,44 @@ export class AdminController {
     } catch (error) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: error.message }));
+    }
+  }
+
+  /**
+   * Sends a live test email via SMTP Relay
+   */
+  static async testSmtpRelay(req, res) {
+    try {
+      const parsed = await parseJsonBody(req);
+      const { toEmail, fromEmail, subject, text } = parsed || {};
+      if (!toEmail) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Recipient email is required" }));
+        return;
+      }
+      const { sendOutboundEmail } = await import("../send-mail-simple/send-mail-from-generated-mail-from-live.js");
+      const result = await sendOutboundEmail({
+        from: fromEmail || "noreply@micorna.biz",
+        to: toEmail,
+        subject: subject || "⚡ Test Email via VPS SMTP Relay",
+        text: text || "Hello! This test email was successfully dispatched through your VPS SMTP Relay Server.",
+        html: `<div style="font-family:sans-serif;padding:24px;background:#0d1117;color:#fff;border-radius:12px;max-width:550px;margin:0 auto;border:1px solid #30363d;">
+          <h2 style="color:#10b981;margin-top:0;">⚡ SMTP Relay Connected!</h2>
+          <p style="color:#c9d1d9;line-height:1.6;">Your website/application has successfully connected to the VPS SMTP server and dispatched this message.</p>
+          <div style="background:#161b22;padding:12px;border-radius:8px;font-family:monospace;font-size:12px;color:#58a6ff;margin:16px 0;">
+            Host: VPS Server<br/>
+            From: ${fromEmail || "noreply@micorna.biz"}<br/>
+            To: ${toEmail}<br/>
+            Timestamp: ${new Date().toISOString()}
+          </div>
+          <p style="font-size:12px;color:#8b949e;margin-bottom:0;">DKIM signed & direct MX delivery verified.</p>
+        </div>`
+      });
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true, result }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
     }
   }
 

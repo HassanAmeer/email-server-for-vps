@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { DevPanelPageClient } from "./DevPanelPageClient";
 
 interface PageProps {
@@ -6,6 +7,9 @@ interface PageProps {
 
 export default async function Page({ params }: PageProps) {
   const resolvedParams = await params;
+  if (resolvedParams.tab === "credentials") {
+    redirect("/devpanel/smtp");
+  }
   return <DevPanelPageClient tabSegment={resolvedParams.tab} />;
 }
 
@@ -32,8 +36,6 @@ export function generateStaticParams() {
     { tab: "data-seeding" },
     { tab: "credentials" },
     { tab: "smtp" },
-    { tab: "explorer" },
-    { tab: "mails" },
     { tab: "menu-set" },
     { tab: "menu-settings" },
   ];

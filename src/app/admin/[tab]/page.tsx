@@ -8,8 +8,17 @@ interface PageProps {
 
 export default async function Page({ params }: PageProps) {
   const resolvedParams = await params;
-  if (resolvedParams.tab === "seeding" || resolvedParams.tab === "data-seeding" || resolvedParams.tab === "seeding-data") {
+  if (
+    resolvedParams.tab === "seeding" ||
+    resolvedParams.tab === "data-seeding" ||
+    resolvedParams.tab === "seeding-data" ||
+    resolvedParams.tab === "explorer" ||
+    resolvedParams.tab === "mails"
+  ) {
     redirect("/admin/overview");
+  }
+  if (resolvedParams.tab === "credentials") {
+    redirect("/admin/smtp");
   }
   return <AdminPageClient tabSegment={resolvedParams.tab} />;
 }
@@ -33,7 +42,5 @@ export function generateStaticParams() {
     { tab: "setup" },
     { tab: "credentials" },
     { tab: "smtp" },
-    { tab: "explorer" },
-    { tab: "mails" }
   ];
 }

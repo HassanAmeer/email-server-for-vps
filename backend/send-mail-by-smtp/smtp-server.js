@@ -27,13 +27,13 @@ const envText = IS_LIVE ? "LIVE Environment" : "LOCAL Environment";
 // Helper to check credentials
 function authenticateUser(username, password) {
   try {
-    if (!fs.existsSync(credsPath)) return false;
+    if (!fs.existsSync(credsPath)) return null;
     const data = JSON.parse(fs.readFileSync(credsPath, 'utf8'));
-    const user = data.users.find(u => u.username === username && u.password === password);
-    return !!user;
+    const user = (data.users || []).find(u => u.username === username && u.password === password && u.enabled !== false);
+    return user || null;
   } catch (error) {
     console.error('[SMTP AUTH ERROR] Failed to read credentials.json', error);
-    return false;
+    return null;
   }
 }
 
@@ -45,13 +45,28 @@ const server = new SMTPServer({
   
   // onAuth is called when a client tries to login
   onAuth(auth, session, callback) {
-    if (authenticateUser(auth.username, auth.password)) {
+    const userObj = authenticateUser(auth.username, auth.password);
+    if (userObj) {
       console.log(`[SMTP AUTH] User '${auth.username}' logged in successfully.`);
-      return callback(null, { user: auth.username });
+      return callback(null, { user: userObj });
     } else {
       console.log(`[SMTP AUTH] Failed login attempt for user '${auth.username}'.`);
       return callback(new Error('Invalid username or password'));
     }
+  },
+
+  // Enforce separate address restriction per user
+  onMailFrom(address, session, callback) {
+    const sender = address.address;
+    const authUser = session.user;
+    if (authUser && typeof authUser === 'object') {
+      const allowedFrom = authUser.fromEmail || authUser.email || authUser.username;
+      if (allowedFrom && allowedFrom !== '*' && allowedFrom.toLowerCase() !== sender.toLowerCase()) {
+        console.warn(`[SMTP AUTH BLOCKED] User '${authUser.username}' attempted to send as '${sender}', but is restricted to '${allowedFrom}'`);
+        return callback(new Error(`Unauthorized sender address. This account is dedicated to send from ${allowedFrom}`));
+      }
+    }
+    return callback();
   },
 
   // onData is called when the email body is streamed

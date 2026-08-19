@@ -4,13 +4,13 @@ import { useState, useEffect, ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import LoginOverlay from "./LoginOverlay";
 import LiveLogs from "./LiveLogs";
-import MailExplorer from "./MailExplorer";
 import ApiSettingsManager from "./ApiSettingsManager";
 import Overview from "./Overview";
 import ProjectsManager from "./ProjectsManager";
 import DomainsManager from "./DomainsManager";
 import PrimaryDomainManager from "./PrimaryDomainManager";
 import DataSeedingManager from "./DataSeedingManager";
+import SmtpManager from "./SmtpManager";
 import CredentialsManager from "./CredentialsManager";
 import MenuSetManager from "./MenuSetManager";
 import { APP_VERSION } from "@/lib/version";
@@ -75,10 +75,11 @@ export function PanelDashboardShell({
     seeding: "seeding-tab",
     "data-seeding": "seeding-tab",
     "seeding-data": "seeding-tab",
-    credentials: "credentials-tab",
-    smtp: "credentials-tab",
-    explorer: "explorer-tab",
-    mails: "explorer-tab",
+    smtp: "smtp-tab",
+    credentials: "smtp-tab",
+    relay: "smtp-tab",
+    explorer: "overview-tab",
+    mails: "overview-tab",
     setup: "domains-tab",
     "menu-set": "menu-set-tab",
     "menu-settings": "menu-set-tab",
@@ -94,13 +95,13 @@ export function PanelDashboardShell({
     "projects-tab": "projects",
     "api-tab": "apisetting",
     "seeding-tab": "seeding",
-    "credentials-tab": "credentials",
-    "explorer-tab": "explorer",
+    "smtp-tab": "smtp",
+    "credentials-tab": "smtp",
     "menu-set-tab": "menu-set",
   };
 
   const rawActiveTab = tabPathMap[currentSegment] || "overview-tab";
-  const activeTab = (mode === "admin" && (rawActiveTab === "explorer-tab" || rawActiveTab === "menu-set-tab" || rawActiveTab === "seeding-tab")) ? "overview-tab" : rawActiveTab;
+  const activeTab = (mode === "admin" && (rawActiveTab === "menu-set-tab" || rawActiveTab === "seeding-tab")) ? "overview-tab" : rawActiveTab;
 
   // Admin Sidebar Menu Visibility Config (Synced from DevPanel)
   const [adminMenuConfig, setAdminMenuConfig] = useState<Array<{ id: string; tab: string; path: string; enabled: boolean }>>([]);
@@ -334,22 +335,12 @@ export function PanelDashboardShell({
       ),
     },
     {
-      tab: "credentials-tab",
-      id: "credentials-tab",
-      label: "SMTP / IMAP Auth",
+      tab: "smtp-tab",
+      id: "smtp-tab",
+      label: "SMTP Relay",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
-        </svg>
-      ),
-    },
-    {
-      tab: "explorer-tab",
-      id: "explorer-tab",
-      label: "Mail Explorer",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
         </svg>
       ),
     },
@@ -380,7 +371,7 @@ export function PanelDashboardShell({
   const adminNavItems = allAdminNavItems.filter((item) => {
     if (adminMenuConfig.length === 0) {
       // Default: show standard tabs
-      return !["credentials-tab", "explorer-tab"].includes(item.tab);
+      return true;
     }
     const found = adminMenuConfig.find((m) => m.id === item.id || m.tab === item.tab || m.path === item.tab.replace("-tab", ""));
     return found ? Boolean(found.enabled) : true;
@@ -447,6 +438,15 @@ export function PanelDashboardShell({
       ),
     },
     {
+      tab: "smtp-tab",
+      label: "SMTP Relay & App Keys",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+        </svg>
+      ),
+    },
+    {
       tab: "api-tab",
       label: "Dev API Settings",
       icon: (
@@ -456,29 +456,11 @@ export function PanelDashboardShell({
       ),
     },
     {
-      tab: "credentials-tab",
-      label: "SMTP / IMAP Auth",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
-        </svg>
-      ),
-    },
-    {
       tab: "logs-tab",
       label: "Live Logs Stream",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
           <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-        </svg>
-      ),
-    },
-    {
-      tab: "explorer-tab",
-      label: "Mail Explorer",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
         </svg>
       ),
     },
@@ -725,11 +707,8 @@ export function PanelDashboardShell({
           {activeTab === "seeding-tab" && mode === "dev" && (
             <DataSeedingManager apiUrl={apiUrl} apiPrefix={apiPrefix} tokenKey={tokenKey} />
           )}
-          {activeTab === "credentials-tab" && (
-            <CredentialsManager apiUrl={apiUrl} apiPrefix={apiPrefix} tokenKey={tokenKey} />
-          )}
-          {activeTab === "explorer-tab" && (
-            <MailExplorer apiUrl={apiUrl} />
+          {(activeTab === "smtp-tab" || activeTab === "credentials-tab") && (
+            <SmtpManager apiUrl={apiUrl} apiPrefix={apiPrefix} tokenKey={tokenKey} isViolet={isViolet} />
           )}
           {activeTab === "menu-set-tab" && mode === "dev" && (
             <MenuSetManager apiUrl={apiUrl} apiPrefix={apiPrefix} tokenKey={tokenKey} />

@@ -185,12 +185,16 @@ export default function Overview({
       ? []
       : safeTrafficStats.map((stat, i) => {
           const receivedCount = Number(stat?.received ?? stat?.total ?? 0);
-          const heightPercent = maxReceivedTraffic > 0 ? receivedCount / maxReceivedTraffic : 0;
+          const heightPercent =
+            maxReceivedTraffic > 0 ? receivedCount / maxReceivedTraffic : 0;
           const y = startY - chartHeight * heightPercent;
           const dateObj = new Date(stat?.day || Date.now());
           const shortDate = isNaN(dateObj.getTime())
             ? "N/A"
-            : dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+            : dateObj.toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              });
           const weekday = isNaN(dateObj.getTime())
             ? ""
             : dateObj.toLocaleDateString("en-US", { weekday: "short" });
@@ -217,7 +221,7 @@ export default function Overview({
       : "";
 
   return (
-    <div className="flex flex-col gap-8 w-full animate-fade-in">
+    <div className="flex flex-col gap-8 w-full animate-fade-in relative">
       {/* Dynamic 4 Dashboard Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
 
@@ -269,7 +273,6 @@ export default function Overview({
                   : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.15)]"
               } border rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300`}
             >
-              {/* Inbound / Download Inbox Icon */}
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
@@ -353,7 +356,6 @@ export default function Overview({
                   : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.15)]"
               } border rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300`}
             >
-              {/* Globe / DNS Network Icon */}
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
@@ -413,7 +415,6 @@ export default function Overview({
                   : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.15)]"
               } border rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300`}
             >
-              {/* Storage / Database Stack Icon */}
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
@@ -473,7 +474,6 @@ export default function Overview({
                   : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.15)]"
               } border rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300`}
             >
-              {/* Outbound Send / Paper Airplane Icon */}
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
@@ -539,7 +539,7 @@ export default function Overview({
               </p>
             </div>
 
-            {/* Date Selection Filter (Dropdown / Segmented Controls) */}
+            {/* Date Selection Filter */}
             <div className="flex items-center gap-1.5 bg-black/40 border border-white/[0.06] p-1 rounded-xl shrink-0 self-start sm:self-auto">
               <button
                 type="button"
@@ -600,7 +600,6 @@ export default function Overview({
               onMouseLeave={() => setHoveredPoint(null)}
             >
               <defs>
-                {/* Neon Area Fill Gradient */}
                 <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop
                     offset="0%"
@@ -667,7 +666,6 @@ export default function Overview({
 
               {/* Glow spots for coordinates */}
               {points.map((p, i) => {
-                // Handle label decimation for 14d and 30d to avoid label clutter
                 const showLabel =
                   timeframe === "7d"
                     ? true
@@ -689,10 +687,8 @@ export default function Overview({
                       })
                     }
                   >
-                    {/* Invisible hover area */}
                     <circle cx={p.x} cy={p.y} r="12" fill="transparent" />
 
-                    {/* Subtle vertical indicator line */}
                     <line
                       x1={p.x}
                       y1={p.y}
@@ -709,7 +705,6 @@ export default function Overview({
                       strokeDasharray="2 2"
                     />
 
-                    {/* Pulsing coordinate circle */}
                     <circle
                       cx={p.x}
                       cy={p.y}
@@ -719,7 +714,6 @@ export default function Overview({
                     />
                     <circle cx={p.x} cy={p.y} r="2" fill="#ffffff" />
 
-                    {/* Count Tag above circle if count > 0 */}
                     {p.count > 0 && (
                       <g>
                         <rect
@@ -745,7 +739,6 @@ export default function Overview({
                       </g>
                     )}
 
-                    {/* Date label at bottom */}
                     {showLabel && (
                       <g>
                         <text
@@ -822,83 +815,48 @@ export default function Overview({
             </svg>
           </div>
 
-          {/* Daily Received Emails Breakdown by Date for Selected Timeframe */}
+          {/* Hit stats per active controller path */}
           <div className="flex flex-col gap-3">
-            <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider flex items-center justify-between">
-              <span>
-                Recent Inbound Activity ({timeframe === "7d" ? "7 Days" : timeframe === "14d" ? "14 Days" : "Monthly"})
-              </span>
-              <span className="text-[9px] text-gray-600 font-mono">Date · Received Count</span>
+            <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">
+              Hit stats per active controller path
             </span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {loading ? (
-                <div className="col-span-4 py-4 text-center text-xs text-gray-500 font-mono">
-                  Loading received email trends...
+                <div className="col-span-2 py-4 text-center text-xs text-gray-500 font-mono">
+                  Fetching routing logs...
                 </div>
-              ) : safeTrafficStats.length === 0 ? (
-                <div className="col-span-4 py-4 text-center text-xs text-gray-500 font-mono">
-                  No email history recorded yet.
+              ) : apiRoutes.length === 0 ? (
+                <div className="col-span-2 py-4 text-center text-xs text-gray-500 font-mono">
+                  No stats logged.
                 </div>
               ) : (
-                safeTrafficStats
-                  .slice(-4)
-                  .reverse()
-                  .map((stat, idx) => {
-                    const dateObj = new Date(stat.day);
-                    const formattedDate = !isNaN(dateObj.getTime())
-                      ? dateObj.toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          weekday: "short",
-                        })
-                      : stat.day;
-                    const count = Number(stat.received ?? stat.total ?? 0);
-                    return (
-                      <div
-                        key={stat.day || idx}
-                        className={`bg-black/30 border ${
-                          count > 0
+                apiRoutes.slice(0, 4).map((route) => (
+                  <div
+                    key={route.id}
+                    className="bg-black/25 border border-white/[0.03] p-3 rounded-2xl flex justify-between items-center hover:bg-white/[0.01] transition-colors"
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[10px] text-gray-400 font-mono font-semibold truncate max-w-[130px]">
+                        {route.path}
+                      </span>
+                      <span
+                        className={`text-[8px] uppercase font-bold tracking-wider ${
+                          route.enabled
                             ? isViolet
-                              ? "border-violet-500/20 bg-violet-500/[0.02]"
-                              : "border-emerald-500/20 bg-emerald-500/[0.02]"
-                            : "border-white/[0.03]"
-                        } p-3 rounded-2xl flex flex-col gap-1.5 hover:bg-white/[0.02] transition-colors`}
+                              ? "text-violet-400"
+                              : "text-emerald-400"
+                            : "text-rose-400"
+                        }`}
                       >
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] text-gray-300 font-mono font-bold truncate">
-                            {formattedDate}
-                          </span>
-                          <span
-                            className={`text-[8px] uppercase font-mono font-bold tracking-wider px-1.5 py-0.5 rounded ${
-                              count > 0
-                                ? isViolet
-                                  ? "text-violet-300 bg-violet-500/15 border border-violet-500/30"
-                                  : "text-emerald-300 bg-emerald-500/15 border border-emerald-500/30"
-                                : "text-gray-500 bg-white/[0.02]"
-                            }`}
-                          >
-                            {count > 0 ? "Active" : "0 Msgs"}
-                          </span>
-                        </div>
-                        <div className="flex items-baseline gap-1 mt-0.5">
-                          <strong
-                            className={`text-base font-mono font-extrabold ${
-                              count > 0
-                                ? isViolet
-                                  ? "text-violet-300"
-                                  : "text-emerald-300"
-                                : "text-white"
-                            }`}
-                          >
-                            {count}
-                          </strong>
-                          <span className="text-[9px] text-gray-500">
-                            {count === 1 ? "email received" : "emails received"}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })
+                        {route.enabled ? "Route Active" : "Blocked"}
+                      </span>
+                    </div>
+                    <strong className="text-xs text-white font-mono bg-white/[0.03] border border-white/[0.05] px-2.5 py-1 rounded-lg">
+                      {route.hits}{" "}
+                      <span className="text-[9px] text-gray-400">hits</span>
+                    </strong>
+                  </div>
+                ))
               )}
             </div>
           </div>
