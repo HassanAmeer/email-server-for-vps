@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 
 interface SMTPUser {
+  id?: string;
   email?: string;
   username: string;
   password?: string;

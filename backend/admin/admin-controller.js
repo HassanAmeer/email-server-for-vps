@@ -158,8 +158,8 @@ export const defaultApiSettings = [
   { id: "smtp-send", method: "POST", path: "/api/admin/smtp/send", desc: "Send a single or test outbound email via HTTP REST API with DKIM signing, HTML body, and attachment files.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Body: JSON {from, to, subject, text, html, attachments}" },
   { id: "smtp-send-bulk", method: "POST", path: "/api/admin/smtp/send-bulk", desc: "Send bulk outbound emails to multiple recipients sequentially with an enforced minimum 5-second throttling delay to maintain sender reputation.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Body: JSON {from, recipients: [...], subject, text, html, attachments, delaySeconds: 5}" },
   { id: "smtp-test", method: "POST", path: "/api/admin/smtp/test", desc: "Test outbound email transmission from any active domain to any destination mailbox with live delivery status feedback.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Body: JSON {toEmail, fromEmail, subject, text}" },
-  { id: "smtp-toggle", method: "POST", path: "/api/admin/smtp/toggle/:username", desc: "Toggle active or paused state for an SMTP credential account.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Params: :username" },
-  { id: "smtp-delete", method: "DELETE", path: "/api/admin/smtp/:username", desc: "Permanently delete an SMTP credential account from disk.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Params: :username" }
+  { id: "smtp-toggle", method: "POST", path: "/api/admin/smtp/toggle/:identifier", desc: "Toggle active or paused state for an SMTP account by ID, email, or username.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Params: :identifier (ID or Email)" },
+  { id: "smtp-delete", method: "DELETE", path: "/api/admin/smtp/:identifier", desc: "Permanently delete an SMTP account by account ID, email address, or username.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Params: :identifier (ID or Email)" }
 ];
 
 // Default Admin Sidebar Menu Tabs configuration
@@ -721,8 +721,12 @@ export class AdminController {
       }
 
       const creds = JSON.parse(fs.readFileSync(credsPath, "utf-8"));
+      const enrichedUsers = (creds.users || []).map((u, idx) => ({
+        id: u.id || `smtp_${Buffer.from(u.username || `user_${idx}`).toString("hex").substring(0, 8)}`,
+        ...u
+      }));
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(creds.users || []));
+      res.end(JSON.stringify(enrichedUsers));
     } catch (error) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: error.message }));
@@ -740,7 +744,7 @@ export class AdminController {
         res.end(JSON.stringify({ error: "Invalid JSON body" }));
         return;
       }
-      let { username, password, domain, fromEmail, email, description, enabled } = parsed;
+      let { id, username, password, domain, fromEmail, email, description, enabled } = parsed;
       
       const finalEmail = email?.trim() || fromEmail?.trim() || username?.trim() || "";
       if (!finalEmail && !username) {
@@ -767,9 +771,14 @@ export class AdminController {
       }
       if (!Array.isArray(creds.users)) creds.users = [];
 
-      const existingUser = creds.users.find(u => u.username === username.trim());
+      const existingUser = creds.users.find(u => 
+        (id && u.id === id) || 
+        u.username === username.trim() || 
+        (u.email && u.email.toLowerCase() === finalEmail.toLowerCase())
+      );
 
       const userObj = {
+        id: id || existingUser?.id || `smtp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         email: finalEmail || username.trim(),
         username: username.trim(),
         password: password.trim(),
@@ -781,8 +790,12 @@ export class AdminController {
         updated_at: new Date().toISOString(),
       };
 
-      // Delete if username exists to update
-      creds.users = creds.users.filter(u => u.username !== username.trim());
+      // Filter out previous version by id OR username OR email
+      creds.users = creds.users.filter(u => 
+        u.username !== username.trim() && 
+        (!u.id || u.id !== userObj.id) &&
+        (!u.email || u.email.toLowerCase() !== userObj.email.toLowerCase())
+      );
       creds.users.push(userObj);
 
       fs.writeFileSync(credsPath, JSON.stringify(creds, null, 2), "utf-8");
@@ -923,73 +936,129 @@ export class AdminController {
   }
 
   /**
-   * Toggles active/paused status of an SMTP Relay credential
+   * Toggles active/paused status of an SMTP Relay credential by ID, email, or username
    */
-  static async toggleCredential(req, res, username) {
+  static async toggleCredential(req, res, identifier) {
     try {
-      if (!username) {
+      let target = identifier;
+
+      if (!target && req.url && req.url.includes("?")) {
+        const urlObj = new URL(req.url, "http://localhost");
+        target = urlObj.searchParams.get("id") || urlObj.searchParams.get("email") || urlObj.searchParams.get("username");
+      }
+
+      if (!target) {
+        const parsed = await parseJsonBody(req);
+        if (parsed) {
+          target = parsed.id || parsed.email || parsed.username;
+        }
+      }
+
+      if (!target) {
         res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Username parameter is required" }));
+        res.end(JSON.stringify({ success: false, error: "ID, email, or username parameter is required" }));
         return;
       }
+
       if (!fs.existsSync(credsPath)) {
         res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Credentials file not found" }));
+        res.end(JSON.stringify({ success: false, error: "Credentials file not found" }));
         return;
       }
+
       const creds = JSON.parse(fs.readFileSync(credsPath, "utf-8"));
-      const user = (creds.users || []).find(u => u.username === username);
+      const cleanTarget = decodeURIComponent(String(target).trim().toLowerCase());
+
+      const user = (creds.users || []).find(u => {
+        const uId = String(u.id || "").trim().toLowerCase();
+        const uUser = String(u.username || "").trim().toLowerCase();
+        const uEmail = String(u.email || "").trim().toLowerCase();
+        const uFrom = String(u.fromEmail || "").trim().toLowerCase();
+        return uId === cleanTarget || uUser === cleanTarget || uEmail === cleanTarget || uFrom === cleanTarget;
+      });
+
       if (!user) {
         res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Username not found" }));
+        res.end(JSON.stringify({ success: false, error: `SMTP account '${target}' not found.` }));
         return;
       }
+
       user.enabled = user.enabled === false ? true : false;
       user.updated_at = new Date().toISOString();
       fs.writeFileSync(credsPath, JSON.stringify(creds, null, 2), "utf-8");
 
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ success: true, enabled: user.enabled }));
+      res.end(JSON.stringify({
+        success: true,
+        enabled: user.enabled,
+        message: `SMTP account status toggled to ${user.enabled ? "Active" : "Paused"}`
+      }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: err.message }));
+      res.end(JSON.stringify({ success: false, error: err.message }));
     }
   }
 
   /**
-   * Removes SMTP Relay user credentials
+   * Removes SMTP Relay user credentials by ID, email, or username
    */
-  static deleteCredential(req, res, username) {
-    if (!username) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Username parameter is required" }));
-      return;
-    }
-
+  static async deleteCredential(req, res, identifier) {
     try {
+      let target = identifier;
+
+      // 1. Check query parameters (?id=... or ?email=... or ?username=...)
+      if (!target && req.url && req.url.includes("?")) {
+        const urlObj = new URL(req.url, "http://localhost");
+        target = urlObj.searchParams.get("id") || urlObj.searchParams.get("email") || urlObj.searchParams.get("username");
+      }
+
+      // 2. Check JSON request body if present
+      if (!target) {
+        const parsed = await parseJsonBody(req);
+        if (parsed) {
+          target = parsed.id || parsed.email || parsed.username;
+        }
+      }
+
+      if (!target) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: false, error: "ID, email, or username parameter is required to delete SMTP account." }));
+        return;
+      }
+
       if (!fs.existsSync(credsPath)) {
         res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Credentials file not found" }));
+        res.end(JSON.stringify({ success: false, error: "Credentials file not found" }));
         return;
       }
 
       const creds = JSON.parse(fs.readFileSync(credsPath, "utf-8"));
-      const originalCount = creds.users.length;
-      creds.users = creds.users.filter(u => u.username !== username);
+      const originalCount = (creds.users || []).length;
+      const cleanTarget = decodeURIComponent(String(target).trim().toLowerCase());
+
+      // Match by ID, username, email, or fromEmail
+      creds.users = (creds.users || []).filter(u => {
+        const uId = String(u.id || "").trim().toLowerCase();
+        const uUser = String(u.username || "").trim().toLowerCase();
+        const uEmail = String(u.email || "").trim().toLowerCase();
+        const uFrom = String(u.fromEmail || "").trim().toLowerCase();
+
+        return uId !== cleanTarget && uUser !== cleanTarget && uEmail !== cleanTarget && uFrom !== cleanTarget;
+      });
 
       if (creds.users.length === originalCount) {
         res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Username not found" }));
+        res.end(JSON.stringify({ success: false, error: `SMTP account '${target}' not found.` }));
         return;
       }
 
       fs.writeFileSync(credsPath, JSON.stringify(creds, null, 2), "utf-8");
 
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ success: true }));
+      res.end(JSON.stringify({ success: true, message: `SMTP account '${target}' deleted successfully.` }));
     } catch (error) {
       res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: error.message }));
+      res.end(JSON.stringify({ success: false, error: error.message }));
     }
   }
 

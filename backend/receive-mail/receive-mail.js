@@ -886,8 +886,10 @@ const httpServer = http.createServer((req, res) => {
     return ApiRouter.toggleCredential(req, res, username);
   }
 
-  if ((cleanUrl.startsWith("/api/admin/smtp/") || cleanUrl.startsWith("/api/admin/credentials/")) && req.method === "DELETE") {
-    const username = decodeURIComponent(cleanUrl.split("/api/admin/smtp/")[1] || cleanUrl.split("/api/admin/credentials/")[1]);
+  if ((cleanUrl === "/api/admin/smtp" || cleanUrl.startsWith("/api/admin/smtp/") || cleanUrl === "/api/admin/credentials" || cleanUrl.startsWith("/api/admin/credentials/")) && req.method === "DELETE") {
+    let username = null;
+    if (cleanUrl.includes("/api/admin/smtp/")) username = decodeURIComponent(cleanUrl.split("/api/admin/smtp/")[1]);
+    else if (cleanUrl.includes("/api/admin/credentials/")) username = decodeURIComponent(cleanUrl.split("/api/admin/credentials/")[1]);
     return ApiRouter.deleteCredential(req, res, username);
   }
 
@@ -1084,8 +1086,10 @@ const httpServer = http.createServer((req, res) => {
       const username = decodeURIComponent(normDevUrl.split("/api/dev-admin/smtp/toggle/")[1]);
       return ApiRouter.toggleCredential(req, res, username);
     }
-    if ((normDevUrl.startsWith("/api/dev-admin/smtp/") || normDevUrl.startsWith("/api/dev-admin/credentials/")) && req.method === "DELETE") {
-      const username = decodeURIComponent(normDevUrl.split("/api/dev-admin/smtp/")[1] || normDevUrl.split("/api/dev-admin/credentials/")[1]);
+    if ((normDevUrl === "/api/dev-admin/smtp" || normDevUrl.startsWith("/api/dev-admin/smtp/") || normDevUrl === "/api/dev-admin/credentials" || normDevUrl.startsWith("/api/dev-admin/credentials/")) && req.method === "DELETE") {
+      let username = null;
+      if (normDevUrl.includes("/api/dev-admin/smtp/")) username = decodeURIComponent(normDevUrl.split("/api/dev-admin/smtp/")[1]);
+      else if (normDevUrl.includes("/api/dev-admin/credentials/")) username = decodeURIComponent(normDevUrl.split("/api/dev-admin/credentials/")[1]);
       return ApiRouter.deleteCredential(req, res, username);
     }
 
