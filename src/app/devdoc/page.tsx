@@ -478,6 +478,115 @@ const endpoints = [
     returns: "JSON Array",
     auth: true,
   },
+  // ─── Dev SMTP Server & REST Outbound Email APIs ───
+  {
+    id: "dev-smtp-get-credentials",
+    method: "GET",
+    path: "/api/dev/smtp",
+    title: "List SMTP Accounts (Dev)",
+    category: "Dev Live & Local SMTP",
+    desc: "Retrieves the full list of generated SMTP user accounts, assigned domains, and active/paused status flags.",
+    payload: null,
+    response: `[
+  {
+    "email": "orders@micorna.biz",
+    "username": "orders@micorna.biz",
+    "domain": "micorna.biz",
+    "description": "Store Order Confirmations",
+    "enabled": true,
+    "created_at": "2026-08-19T10:00:00.000Z"
+  }
+]`,
+    exampleUrl: "http://your-vps-ip:8081/api/dev/smtp",
+    returns: "JSON Array",
+    auth: true,
+  },
+  {
+    id: "dev-smtp-create-credential",
+    method: "POST",
+    path: "/api/dev/smtp",
+    title: "Create / Generate SMTP Account (Dev)",
+    category: "Dev Live & Local SMTP",
+    desc: "Programmatically generate or update an isolated SMTP account for any attached domain with dedicated password and sender restriction.",
+    payload: `{
+  "email": "support@micorna.biz",
+  "password": "strong_secret_password",
+  "domain": "micorna.biz",
+  "description": "Customer Support Desk",
+  "enabled": true
+}`,
+    response: `{
+  "success": true,
+  "message": "SMTP credential saved successfully",
+  "credential": {
+    "email": "support@micorna.biz",
+    "username": "support@micorna.biz",
+    "domain": "micorna.biz",
+    "enabled": true
+  }
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/dev/smtp",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
+    id: "dev-smtp-send-email-api",
+    method: "POST",
+    path: "/api/dev/smtp/send",
+    title: "Send Email via HTTP REST API (Dev)",
+    category: "Dev Live & Local SMTP",
+    desc: "Dispatches an outbound email via HTTP POST without requiring an SMTP connection socket. Automatically signed with DKIM and delivered directly to the recipient's MX server.",
+    payload: `{
+  "from": "support@micorna.biz",
+  "to": "client@gmail.com",
+  "subject": "Order Confirmation #9401",
+  "text": "Your order has been confirmed and is now being prepared.",
+  "html": "<div style='font-family:sans-serif;'><h2>Order Confirmed!</h2><p>Your order has been dispatched.</p></div>"
+}`,
+    response: `{
+  "success": true,
+  "message": "Email dispatched successfully from support@micorna.biz to client@gmail.com",
+  "result": {
+    "accepted": ["client@gmail.com"],
+    "response": "250 2.0.0 OK",
+    "messageId": "<9401-vps-mail@micorna.biz>"
+  }
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/dev/smtp/send",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
+    id: "dev-smtp-toggle-credential",
+    method: "POST",
+    path: "/api/dev/smtp/toggle/:username",
+    title: "Toggle SMTP Account Status (Dev)",
+    category: "Dev Live & Local SMTP",
+    desc: "Pause or reactivate an SMTP account by its username.",
+    payload: null,
+    response: `{
+  "success": true,
+  "enabled": false
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/dev/smtp/toggle/support@micorna.biz",
+    returns: "JSON Object",
+    auth: true,
+  },
+  {
+    id: "dev-smtp-delete-credential",
+    method: "DELETE",
+    path: "/api/dev/smtp/:username",
+    title: "Delete SMTP Account (Dev)",
+    category: "Dev Live & Local SMTP",
+    desc: "Permanently delete an isolated SMTP account from the server.",
+    payload: null,
+    response: `{
+  "success": true
+}`,
+    exampleUrl: "http://your-vps-ip:8081/api/dev/smtp/support@micorna.biz",
+    returns: "JSON Object",
+    auth: true,
+  },
 
   // ─── DevPanel Management & Infrastructure ───
   {

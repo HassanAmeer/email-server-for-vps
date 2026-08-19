@@ -645,11 +645,17 @@ const httpServer = http.createServer((req, res) => {
         if (req.method === "PUT") return AdminController.updateAttachedDomain(req, res, parts[3]);
         if (req.method === "DELETE") return AdminController.deleteAttachedDomain(req, res, parts[3]);
       }
-      if (devSubPath.startsWith("credentials")) {
+      if (devSubPath.startsWith("credentials") || devSubPath.startsWith("smtp")) {
+        if (devSubPath === "smtp/send" && req.method === "POST") return ApiRouter.sendMailViaApi(req, res);
+        if (devSubPath === "smtp/test" && req.method === "POST") return ApiRouter.testSmtpRelay(req, res);
+        if (devSubPath.startsWith("smtp/toggle/") && req.method === "POST") {
+          const username = decodeURIComponent(cleanUrl.split("/api/dev/smtp/toggle/")[1]);
+          return ApiRouter.toggleCredential(req, res, username);
+        }
         if (req.method === "GET") return ApiRouter.getCredentials(req, res);
         if (req.method === "POST") return ApiRouter.addCredential(req, res);
         if (req.method === "DELETE") {
-          const username = decodeURIComponent(cleanUrl.split("/api/dev/credentials/")[1]);
+          const username = decodeURIComponent(cleanUrl.split("/api/dev/credentials/")[1] || cleanUrl.split("/api/dev/smtp/")[1]);
           return ApiRouter.deleteCredential(req, res, username);
         }
       }
@@ -862,6 +868,10 @@ const httpServer = http.createServer((req, res) => {
     return ApiRouter.addCredential(req, res);
   }
 
+  if (cleanUrl === "/api/admin/smtp/send" && req.method === "POST") {
+    return ApiRouter.sendMailViaApi(req, res);
+  }
+
   if (cleanUrl === "/api/admin/smtp/test" && req.method === "POST") {
     return ApiRouter.testSmtpRelay(req, res);
   }
@@ -882,6 +892,11 @@ const httpServer = http.createServer((req, res) => {
 
   if (cleanUrl === "/api/admin/dkim/generate" && req.method === "POST") {
     return ApiRouter.generateDkimKey(req, res);
+  }
+
+  // Public & Programmatic SMTP Outbound REST API
+  if ((cleanUrl === "/api/smtp/send" || cleanUrl === "/api/v1/send-mail" || cleanUrl === "/api/v1/smtp/send") && req.method === "POST") {
+    return ApiRouter.sendMailViaApi(req, res);
   }
 
   // Admin Sidebar Menu configuration
@@ -1046,6 +1061,9 @@ const httpServer = http.createServer((req, res) => {
     }
     if ((normDevUrl === "/api/dev-admin/smtp" || normDevUrl === "/api/dev-admin/credentials") && req.method === "POST") {
       return ApiRouter.addCredential(req, res);
+    }
+    if (normDevUrl === "/api/dev-admin/smtp/send" && req.method === "POST") {
+      return ApiRouter.sendMailViaApi(req, res);
     }
     if (normDevUrl === "/api/dev-admin/smtp/test" && req.method === "POST") {
       return ApiRouter.testSmtpRelay(req, res);

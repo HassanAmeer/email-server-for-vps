@@ -57,7 +57,7 @@ export default function SmtpManager({
 
   // Right-Side Slide-Over Sheet State
   const [selectedAccountForSheet, setSelectedAccountForSheet] = useState<SMTPUser | null>(null);
-  const [activeCodeTab, setActiveCodeTab] = useState<"wordpress" | "laravel" | "node" | "python">("wordpress");
+  const [activeCodeTab, setActiveCodeTab] = useState<"wordpress" | "laravel" | "node" | "python" | "rest_api">("wordpress");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [alert, setAlert] = useState<{ type: "success" | "error"; msg: string } | null>(null);
@@ -803,6 +803,134 @@ export default function SmtpManager({
         </div>
       </div>
 
+      {/* REST API & Developer Integration Reference Card */}
+      <div className="glass-panel border border-white/[0.05] p-6 rounded-3xl flex flex-col gap-4 font-mono text-xs shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/[0.06] pb-4">
+          <div className="flex items-center gap-2.5">
+            <span className={`w-2.5 h-2.5 rounded-full ${isViolet ? "bg-violet-400" : "bg-emerald-400"} animate-pulse`}></span>
+            <h3 className="text-sm font-extrabold text-white uppercase tracking-wider">
+              SMTP REST API & Developer Endpoints
+            </h3>
+            <span className="text-[10px] bg-white/[0.05] border border-white/[0.08] text-gray-300 px-2 py-0.5 rounded-md">
+              HTTP REST Interface
+            </span>
+          </div>
+          <a
+            href={isViolet ? "/devdoc" : "/doc"}
+            target="_blank"
+            className={`text-[11px] font-bold transition-colors flex items-center gap-1.5 ${
+              isViolet ? "text-violet-400 hover:text-violet-300" : "text-emerald-400 hover:text-emerald-300"
+            }`}
+          >
+            <span>Open Interactive API Playground</span>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3 h-3">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+            </svg>
+          </a>
+        </div>
+
+        <p className="text-xs text-gray-400 font-sans leading-relaxed">
+          You can create SMTP credentials, manage domain senders, and dispatch DKIM-signed outbound emails programmatically using simple HTTP REST requests from your application, website, or backend scripts without maintaining raw SMTP sockets.
+        </p>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-2">
+          {/* 1. Send Outbound Email API */}
+          <div className="bg-slate-950/80 border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                  POST
+                </span>
+                <strong className="text-white text-xs">{apiPrefix}/smtp/send</strong>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const token = typeof window !== "undefined" ? localStorage.getItem(tokenKey) || "" : "";
+                  const txt = `curl -X POST "${apiUrl}${apiPrefix}/smtp/send" \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer ${token || "YOUR_TOKEN"}" \\\n  -d '{\n    "from": "support@${primaryDomain || "yourdomain.com"}",\n    "to": "client@example.com",\n    "subject": "Order Confirmation",\n    "text": "Your order is confirmed!",\n    "html": "<h2>Order Confirmed</h2><p>Thank you!</p>"\n  }'`;
+                  copyToClipboard(txt, "api_send_curl");
+                }}
+                className="text-[10px] bg-white/[0.05] hover:bg-white/[0.1] text-gray-300 px-2 py-1 rounded transition-colors cursor-pointer"
+              >
+                {copiedKey === "api_send_curl" ? "✓ Copied" : "📋 Copy cURL"}
+              </button>
+            </div>
+            <span className="text-[11px] text-gray-400 font-sans">
+              Dispatches outbound email directly through DKIM signing and MX relay.
+            </span>
+            <pre className="text-[11px] text-emerald-300/90 bg-black/50 p-2.5 rounded-xl overflow-x-auto leading-relaxed border border-white/[0.04]">
+{`{
+  "from": "support@${primaryDomain || "yourdomain.com"}",
+  "to": "client@example.com",
+  "subject": "System Notification",
+  "text": "Hello from REST API!",
+  "html": "<p>Hello from <b>REST API</b>!</p>"
+}`}
+            </pre>
+          </div>
+
+          {/* 2. Create / Generate SMTP Account API */}
+          <div className="bg-slate-950/80 border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                  POST
+                </span>
+                <strong className="text-white text-xs">{apiPrefix}/smtp</strong>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const token = typeof window !== "undefined" ? localStorage.getItem(tokenKey) || "" : "";
+                  const txt = `curl -X POST "${apiUrl}${apiPrefix}/smtp" \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer ${token || "YOUR_TOKEN"}" \\\n  -d '{\n    "email": "orders@${primaryDomain || "yourdomain.com"}",\n    "password": "your_secure_password",\n    "domain": "${primaryDomain || "yourdomain.com"}",\n    "description": "E-commerce Orders",\n    "enabled": true\n  }'`;
+                  copyToClipboard(txt, "api_create_curl");
+                }}
+                className="text-[10px] bg-white/[0.05] hover:bg-white/[0.1] text-gray-300 px-2 py-1 rounded transition-colors cursor-pointer"
+              >
+                {copiedKey === "api_create_curl" ? "✓ Copied" : "📋 Copy cURL"}
+              </button>
+            </div>
+            <span className="text-[11px] text-gray-400 font-sans">
+              Programmatically generate or update isolated SMTP accounts and passwords.
+            </span>
+            <pre className="text-[11px] text-emerald-300/90 bg-black/50 p-2.5 rounded-xl overflow-x-auto leading-relaxed border border-white/[0.04]">
+{`{
+  "email": "orders@${primaryDomain || "yourdomain.com"}",
+  "password": "strong_secret_password",
+  "domain": "${primaryDomain || "yourdomain.com"}",
+  "description": "Store Outbound Sender",
+  "enabled": true
+}`}
+            </pre>
+          </div>
+        </div>
+
+        {/* Quick Route Summary Table */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-1 text-[11px]">
+          <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-between">
+            <div>
+              <span className="text-sky-400 font-bold mr-1.5">GET</span>
+              <span className="text-gray-300">{apiPrefix}/smtp</span>
+            </div>
+            <span className="text-gray-400 text-[10px]">List Accounts</span>
+          </div>
+          <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-between">
+            <div>
+              <span className="text-amber-400 font-bold mr-1.5">POST</span>
+              <span className="text-gray-300">{apiPrefix}/smtp/toggle/:user</span>
+            </div>
+            <span className="text-gray-400 text-[10px]">Pause / Resume</span>
+          </div>
+          <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-between">
+            <div>
+              <span className="text-rose-400 font-bold mr-1.5">DELETE</span>
+              <span className="text-gray-300">{apiPrefix}/smtp/:user</span>
+            </div>
+            <span className="text-gray-400 text-[10px]">Remove Account</span>
+          </div>
+        </div>
+      </div>
+
       {/* RIGHT SIDE SLIDE-OVER SHEET (DRAWER) */}
       {selectedAccountForSheet && (
         <div className="fixed inset-0 z-50 flex justify-end animate-fade-in font-sans">
@@ -927,7 +1055,7 @@ export default function SmtpManager({
                   </span>
 
                   {/* Pills */}
-                  <div className="flex items-center gap-1 bg-black/40 border border-white/[0.06] p-1 rounded-xl">
+                  <div className="flex items-center gap-1 bg-black/40 border border-white/[0.06] p-1 rounded-xl flex-wrap">
                     <button
                       type="button"
                       onClick={() => setActiveCodeTab("wordpress")}
@@ -972,6 +1100,17 @@ export default function SmtpManager({
                     >
                       Python
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveCodeTab("rest_api")}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold transition-all cursor-pointer ${
+                        activeCodeTab === "rest_api"
+                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                          : "text-gray-400 hover:text-white"
+                      }`}
+                    >
+                      REST API (cURL / HTTP)
+                    </button>
                   </div>
                 </div>
 
@@ -985,6 +1124,7 @@ export default function SmtpManager({
                         const user = selectedAccountForSheet.username;
                         const pass = selectedAccountForSheet.password || "";
                         const from = selectedAccountForSheet.email || selectedAccountForSheet.fromEmail || user;
+                        const token = typeof window !== "undefined" ? localStorage.getItem(tokenKey) || "" : "";
 
                         let txt = "";
                         if (activeCodeTab === "wordpress") {
@@ -995,6 +1135,8 @@ export default function SmtpManager({
                           txt = `import nodemailer from "nodemailer";\n\nconst transporter = nodemailer.createTransport({\n  host: "${host}",\n  port: 587,\n  secure: false,\n  auth: {\n    user: "${user}",\n    pass: "${pass}",\n  },\n});\n\nawait transporter.sendMail({\n  from: '"App" <${from}>',\n  to: "recipient@example.com",\n  subject: "Notification",\n  html: "<b>Hello World!</b>",\n});`;
                         } else if (activeCodeTab === "python") {
                           txt = `import smtplib\nfrom email.mime.text import MIMEText\n\nmsg = MIMEText("Hello from Python!")\nmsg['Subject'] = "System Alert"\nmsg['From'] = "${from}"\nmsg['To'] = "recipient@example.com"\n\nwith smtplib.SMTP("${host}", 587) as server:\n    server.starttls()\n    server.login("${user}", "${pass}")\n    server.send_message(msg)`;
+                        } else if (activeCodeTab === "rest_api") {
+                          txt = `curl -X POST "${apiUrl}${apiPrefix}/smtp/send" \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer ${token || "YOUR_TOKEN"}" \\\n  -d '{\n    "from": "${from}",\n    "to": "recipient@gmail.com",\n    "subject": "Hello via REST API",\n    "text": "Sent directly via HTTP POST!"\n  }'`;
                         }
                         copyToClipboard(txt, "drawer_code");
                       }}
@@ -1073,6 +1215,22 @@ with smtplib.SMTP("${getAccountHost(selectedAccountForSheet)}", 587) as server:
     server.send_message(msg)
 
 print("Email sent successfully!")`}
+                      </code>
+                    )}
+
+                    {activeCodeTab === "rest_api" && (
+                      <code>
+{`# Send email via HTTP POST (No SMTP socket needed):
+curl -X POST "${apiUrl}${apiPrefix}/smtp/send" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_TOKEN" \\
+  -d '{
+    "from": "${selectedAccountForSheet.email || selectedAccountForSheet.fromEmail || selectedAccountForSheet.username}",
+    "to": "client@gmail.com",
+    "subject": "Order Confirmation",
+    "text": "Your order #1049 is confirmed!",
+    "html": "<h2>Order Confirmed!</h2><p>Thank you for your purchase.</p>"
+  }'`}
                       </code>
                     )}
                   </pre>

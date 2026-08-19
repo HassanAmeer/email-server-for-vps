@@ -534,6 +534,10 @@ export class ApiRouter {
     return AdminController.testSmtpRelay(req, res);
   }
 
+  static sendMailViaApi(req, res) {
+    return AdminController.sendMailViaApi(req, res);
+  }
+
   static getDkimKey(req, res) {
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;

@@ -150,7 +150,15 @@ const defaultApiSettings = [
   { id: "mailbox-client-read", method: "GET", path: "/api/mailbox/inbox/:id", desc: "Fetch the full parsed content, HTML preview sandbox, text body, and attachment metadata of a specific email by its database ID.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "Params: :id" },
   { id: "mailbox-client-delete", method: "DELETE", path: "/api/mailbox/inbox/:id", desc: "Permanently delete a specific email from the mailbox database and file storage.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "Params: :id" },
   { id: "mailbox-client-media", method: "GET", path: "/api/mailbox/media", desc: "List all media files and attachments received across captured emails (filename, MIME type, file size, public URL).", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "None" },
-  { id: "mailbox-client-send", method: "POST", path: "/api/mailbox/send", desc: "Send an outbound email from the authenticated mailbox address via SMTP node. Supports plain text and HTML body.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "Body: JSON {to, subject, message}" }
+  { id: "mailbox-client-send", method: "POST", path: "/api/mailbox/send", desc: "Send an outbound email from the authenticated mailbox address via SMTP node. Supports plain text and HTML body.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "Body: JSON {to, subject, message}" },
+
+  // SMTP Relay & Outbound Email APIs (for Admin & DevPanel)
+  { id: "smtp-list", method: "GET", path: "/api/admin/smtp", desc: "List all generated SMTP accounts, domain allocations, usernames, passwords, and status flags.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "None" },
+  { id: "smtp-create", method: "POST", path: "/api/admin/smtp", desc: "Programmatically generate or update an isolated SMTP account for any domain. Returns full connection parameters.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Body: JSON {email, username, password, domain, description, enabled}" },
+  { id: "smtp-send", method: "POST", path: "/api/admin/smtp/send", desc: "Send outbound emails via HTTP REST API using VPS DKIM signing and direct MX delivery to external inboxes.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Body: JSON {from, to, subject, text, html, attachments}" },
+  { id: "smtp-test", method: "POST", path: "/api/admin/smtp/test", desc: "Test outbound email transmission from any domain to any destination mailbox with live status feedback.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Body: JSON {toEmail, fromEmail, subject, text}" },
+  { id: "smtp-toggle", method: "POST", path: "/api/admin/smtp/toggle/:username", desc: "Toggle active or paused state for an SMTP credential account.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Params: :username" },
+  { id: "smtp-delete", method: "DELETE", path: "/api/admin/smtp/:username", desc: "Permanently delete an SMTP credential account from disk.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Params: :username" }
 ];
 
 // Default Admin Sidebar Menu Tabs configuration
@@ -731,11 +739,21 @@ export class AdminController {
         res.end(JSON.stringify({ error: "Invalid JSON body" }));
         return;
       }
-      const { username, password, domain, fromEmail, email, description, enabled } = parsed;
-      if (!username || !password) {
+      let { username, password, domain, fromEmail, email, description, enabled } = parsed;
+      
+      const finalEmail = email?.trim() || fromEmail?.trim() || username?.trim() || "";
+      if (!finalEmail && !username) {
         res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Username and password are required" }));
+        res.end(JSON.stringify({ error: "Email or username is required" }));
         return;
+      }
+
+      if (!username) {
+        username = finalEmail;
+      }
+      if (!password) {
+        // Generate random secure password if omitted
+        password = "smtp_" + Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 6);
       }
 
       let creds = { users: [] };
@@ -748,30 +766,78 @@ export class AdminController {
       }
       if (!Array.isArray(creds.users)) creds.users = [];
 
-      const finalEmail = email?.trim() || fromEmail?.trim() || username.trim();
       const existingUser = creds.users.find(u => u.username === username.trim());
 
-      // Delete if username exists to update
-      creds.users = creds.users.filter(u => u.username !== username.trim());
-      creds.users.push({
-        email: finalEmail,
+      const userObj = {
+        email: finalEmail || username.trim(),
         username: username.trim(),
         password: password.trim(),
         domain: domain?.trim() || (finalEmail.includes("@") ? finalEmail.split("@")[1] : "*"),
-        fromEmail: fromEmail?.trim() || finalEmail,
+        fromEmail: fromEmail?.trim() || finalEmail || username.trim(),
         description: description?.trim() || "Web App / Website SMTP Relay",
         enabled: typeof enabled === "boolean" ? enabled : true,
         created_at: existingUser?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      });
+      };
+
+      // Delete if username exists to update
+      creds.users = creds.users.filter(u => u.username !== username.trim());
+      creds.users.push(userObj);
 
       fs.writeFileSync(credsPath, JSON.stringify(creds, null, 2), "utf-8");
 
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ success: true }));
+      res.end(JSON.stringify({ success: true, message: "SMTP credential saved successfully", credential: userObj }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
+    }
+  }
+
+  /**
+   * Dispatches an outbound email via REST API using SMTP/DKIM pipeline
+   */
+  static async sendMailViaApi(req, res) {
+    try {
+      const parsed = await parseJsonBody(req);
+      if (!parsed) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: false, error: "Invalid JSON body" }));
+        return;
+      }
+      const to = parsed.to || parsed.toEmail || parsed.recipient;
+      const from = parsed.from || parsed.fromEmail || parsed.sender || "noreply@micorna.biz";
+      const subject = parsed.subject || "Notification";
+      const text = parsed.text || parsed.message || parsed.body || "";
+      const html = parsed.html || "";
+      const attachments = parsed.attachments || [];
+
+      if (!to) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: false, error: "Recipient email ('to' or 'toEmail') is required." }));
+        return;
+      }
+
+      const { sendOutboundEmail } = await import("../send-mail-simple/send-mail-from-generated-mail-from-live.js");
+      const result = await sendOutboundEmail({
+        from,
+        to,
+        subject,
+        text: text || (html ? "" : "No text content"),
+        html: html || undefined,
+        attachments: Array.isArray(attachments) ? attachments : []
+      });
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        success: true,
+        message: `Email dispatched successfully from ${from} to ${to}`,
+        result
+      }));
+    } catch (err) {
+      console.error("[REST SMTP SEND ERROR]", err);
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: false, error: err.message }));
     }
   }
 
