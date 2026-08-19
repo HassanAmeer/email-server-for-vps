@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { AdminPageClient } from "./AdminPageClient";
 
 // Next.js App Router server components receive dynamic params as props
@@ -7,6 +8,9 @@ interface PageProps {
 
 export default async function Page({ params }: PageProps) {
   const resolvedParams = await params;
+  if (resolvedParams.tab === "seeding" || resolvedParams.tab === "data-seeding" || resolvedParams.tab === "seeding-data") {
+    redirect("/admin/overview");
+  }
   return <AdminPageClient tabSegment={resolvedParams.tab} />;
 }
 
@@ -14,10 +18,12 @@ export default async function Page({ params }: PageProps) {
 export function generateStaticParams() {
   return [
     { tab: "overview" },
+    { tab: "apisetting" },
+    { tab: "apisettings" },
+    { tab: "api-setting" },
+    { tab: "api-settings" },
     { tab: "settings" },
     { tab: "api" },
-    { tab: "credentials" },
-    { tab: "explorer" },
     { tab: "logs" },
     { tab: "projects" },
     { tab: "mailbox" },
@@ -25,7 +31,9 @@ export function generateStaticParams() {
     { tab: "primary-domain" },
     { tab: "primary-domains" },
     { tab: "setup" },
-    { tab: "seeding" },
-    { tab: "data-seeding" }
+    { tab: "credentials" },
+    { tab: "smtp" },
+    { tab: "explorer" },
+    { tab: "mails" }
   ];
 }

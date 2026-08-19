@@ -29,7 +29,10 @@ export default function ApiSettingsManager({ apiUrl, apiPrefix = "/api/admin", t
   const fetchSettings = async () => {
     if (!apiUrl) return;
     try {
-      const res = await fetch(`${apiUrl}${apiPrefix}/api-settings`);
+      const token = localStorage.getItem(tokenKey) || localStorage.getItem("devpanel_token") || localStorage.getItem("dev_admin_token") || localStorage.getItem("admin_token") || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/api-settings`, {
+        headers: token ? { "Authorization": `Bearer ${token}` } : {},
+      });
       if (res.ok) {
         const data = await res.json();
         setRoutes(data);
@@ -57,9 +60,13 @@ export default function ApiSettingsManager({ apiUrl, apiPrefix = "/api/admin", t
     );
 
     try {
+      const token = localStorage.getItem(tokenKey) || localStorage.getItem("devpanel_token") || localStorage.getItem("dev_admin_token") || localStorage.getItem("admin_token") || "";
       const res = await fetch(`${apiUrl}${apiPrefix}/api-settings/toggle`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ id, enabled: !currentStatus }),
       });
 
@@ -81,8 +88,10 @@ export default function ApiSettingsManager({ apiUrl, apiPrefix = "/api/admin", t
     if (!window.confirm("Are you sure you want to reset all API hits to 0?")) return;
 
     try {
-      const res = await fetch(`${apiUrl}/api/admin/api-settings/reset-hits`, {
+      const token = localStorage.getItem(tokenKey) || localStorage.getItem("devpanel_token") || localStorage.getItem("dev_admin_token") || localStorage.getItem("admin_token") || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/api-settings/reset-hits`, {
         method: "POST",
+        headers: token ? { "Authorization": `Bearer ${token}` } : {},
       });
 
       if (!res.ok) {

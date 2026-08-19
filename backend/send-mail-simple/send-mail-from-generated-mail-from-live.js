@@ -13,6 +13,7 @@ import dns from "dns";
 import util from "util";
 import fs from "fs";
 import path from "path";
+import { logSentEmail, logSystemEvent } from "../database/db.js";
 
 const resolveMx = util.promisify(dns.resolveMx);
 
@@ -106,9 +107,34 @@ export async function sendOutboundEmail({ from, to, subject, text, html, attachm
   try {
     const info = await transporter.sendMail(mailOptions);
     log(`[OUTBOUND] Email sent successfully to ${to}. Message ID: ${info.messageId}`);
+    try {
+      logSentEmail({
+        sender: from,
+        recipient: to,
+        subject: subject || "(No Subject)",
+        message: text || html || "",
+        hasAttachment: attachments && attachments.length > 0,
+        status: "SENT",
+        scope: "admin"
+      });
+      logSystemEvent({
+        log_type: "SEND",
+        status: "SUCCESS",
+        message: `SMTP_OUTBOUND: Email delivered to ${to} (Subject: ${subject || "(No Subject)"})`,
+        details: { from, to, messageId: info.messageId }
+      });
+    } catch (e) {}
     return info;
   } catch (error) {
     log(`[OUTBOUND ERROR] Failed to send email to ${to}: ${error.message}`);
+    try {
+      logSystemEvent({
+        log_type: "SEND",
+        status: "ERROR",
+        message: `SMTP_OUTBOUND_FAIL: Failed to deliver to ${to}: ${error.message}`,
+        details: { from, to, error: error.message }
+      });
+    } catch (e) {}
     throw error;
   }
 }

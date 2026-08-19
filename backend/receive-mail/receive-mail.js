@@ -8,6 +8,7 @@ import nodemailer from "nodemailer";
 import { sendOutboundEmail as sendOutboundEmailLive } from "../send-mail-simple/send-mail-from-generated-mail-from-live.js";
 import { sendOutboundEmail as sendOutboundEmailLocal } from "../send-mail-simple/send-mail-from-generated-mail-from-local.js";
 import { ApiRouter } from "../../apis/api-router.js";
+import { AdminController } from "../admin/admin-controller.js";
 import { logReceivedEmail, getProjectByEmail, logSystemEvent, runDataRetentionCleanupJob, purgeExpiredTrashEmails, validateRecipientCatchAll, getProjectAllowedFiles, getActiveDomainsWithPlan, getSetting, setSetting, getAllFlags, getPrimaryDomain, getDomainRoutingRule } from "../database/db.js";
 
 // Load .env file manually if it exists
@@ -873,12 +874,22 @@ const httpServer = http.createServer((req, res) => {
     return ApiRouter.generateDkimKey(req, res);
   }
 
+  // Admin Sidebar Menu configuration
+  if (cleanUrl === "/api/admin-menu/config" && req.method === "GET") {
+    return AdminController.getAdminMenuConfig(req, res);
+  }
+
   // ==========================================
   // DEVPANEL ROUTES (/api/devpanel/* & /api/dev-admin/*)
   // ==========================================
 
   if ((cleanUrl === "/api/devpanel/login" || cleanUrl === "/api/dev-admin/login") && req.method === "POST") {
     return AdminController.devPanelLogin(req, res);
+  }
+
+  // Dev API Settings read
+  if ((cleanUrl === "/api/devpanel/api-settings" || cleanUrl === "/api/dev-admin/api-settings") && req.method === "GET") {
+    return AdminController.getApiSettings(req, res);
   }
 
   if (cleanUrl.startsWith("/api/devpanel/") || cleanUrl.startsWith("/api/dev-admin/")) {
@@ -980,6 +991,17 @@ const httpServer = http.createServer((req, res) => {
     }
     if (normDevUrl === "/api/dev-admin/api-settings/reset-hits" && req.method === "POST") {
       return ApiRouter.resetApiSettingsHits(req, res);
+    }
+
+    // Admin Sidebar Menu Settings (DevPanel SuperAdmin Control)
+    if ((normDevUrl === "/api/dev-admin/admin-menu/config" || normDevUrl === "/api/dev-admin/menu-settings") && req.method === "GET") {
+      return AdminController.getAdminMenuConfig(req, res);
+    }
+    if ((normDevUrl === "/api/dev-admin/admin-menu/toggle" || normDevUrl === "/api/dev-admin/menu-settings/toggle") && req.method === "POST") {
+      return AdminController.toggleAdminMenuItem(req, res);
+    }
+    if ((normDevUrl === "/api/dev-admin/admin-menu/reset" || normDevUrl === "/api/dev-admin/menu-settings/reset") && req.method === "POST") {
+      return AdminController.resetAdminMenuConfig(req, res);
     }
 
     // Data Seeding

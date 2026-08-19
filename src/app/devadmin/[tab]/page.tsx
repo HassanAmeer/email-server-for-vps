@@ -22,6 +22,10 @@ export function generateStaticParams() {
     { tab: "user-mailbox" },
     { tab: "webmail" },
     { tab: "projects" },
+    { tab: "apisetting" },
+    { tab: "apisettings" },
+    { tab: "api-setting" },
+    { tab: "api-settings" },
     { tab: "settings" },
     { tab: "api" },
     { tab: "seeding" },
@@ -30,5 +34,7 @@ export function generateStaticParams() {
     { tab: "smtp" },
     { tab: "explorer" },
     { tab: "mails" },
+    { tab: "menu-set" },
+    { tab: "menu-settings" },
   ];
 }

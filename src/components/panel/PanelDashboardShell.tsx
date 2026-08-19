@@ -12,6 +12,7 @@ import DomainsManager from "./DomainsManager";
 import PrimaryDomainManager from "./PrimaryDomainManager";
 import DataSeedingManager from "./DataSeedingManager";
 import CredentialsManager from "./CredentialsManager";
+import MenuSetManager from "./MenuSetManager";
 import { APP_VERSION } from "@/lib/version";
 
 export interface PanelDashboardShellProps {
@@ -65,6 +66,10 @@ export function PanelDashboardShell({
     "user-mailbox": "primary-domain-tab",
     webmail: "primary-domain-tab",
     projects: "projects-tab",
+    apisetting: "api-tab",
+    apisettings: "api-tab",
+    "api-setting": "api-tab",
+    "api-settings": "api-tab",
     settings: "api-tab",
     api: "api-tab",
     seeding: "seeding-tab",
@@ -75,6 +80,9 @@ export function PanelDashboardShell({
     explorer: "explorer-tab",
     mails: "explorer-tab",
     setup: "domains-tab",
+    "menu-set": "menu-set-tab",
+    "menu-settings": "menu-set-tab",
+    "admin-menu": "menu-set-tab",
   };
 
   // Map active tab string to default URL path segment
@@ -84,19 +92,35 @@ export function PanelDashboardShell({
     "domains-tab": "domains",
     "primary-domain-tab": "primary-domain",
     "projects-tab": "projects",
-    "api-tab": "settings",
+    "api-tab": "apisetting",
     "seeding-tab": "seeding",
     "credentials-tab": "credentials",
     "explorer-tab": "explorer",
+    "menu-set-tab": "menu-set",
   };
 
-  const activeTab = tabPathMap[currentSegment] || "overview-tab";
+  const rawActiveTab = tabPathMap[currentSegment] || "overview-tab";
+  const activeTab = (mode === "admin" && (rawActiveTab === "explorer-tab" || rawActiveTab === "menu-set-tab" || rawActiveTab === "seeding-tab")) ? "overview-tab" : rawActiveTab;
+
+  // Admin Sidebar Menu Visibility Config (Synced from DevPanel)
+  const [adminMenuConfig, setAdminMenuConfig] = useState<Array<{ id: string; tab: string; path: string; enabled: boolean }>>([]);
 
   // Stats State
   const [stats, setStats] = useState({
     totalEmails: 0,
-    activeMailboxesCount: 0,
+    totalReceivedEmails: 0,
+    localEmailsCount: 0,
+    liveEmailsCount: 0,
+    domainsCount: 0,
+    attachedDomainsCount: 0,
+    primaryDomain: "",
+    primaryDomainsCount: 0,
+    activeDomainsCount: 0,
+    pausedDomainsCount: 0,
     diskUsageBytes: 0,
+    totalSentEmails: 0,
+    sentEmailsCount: 0,
+    activeMailboxesCount: 0,
     liveModeActive: false,
   });
 
@@ -175,6 +199,32 @@ export function PanelDashboardShell({
     };
   }, [isAuthenticated, apiUrl, tokenKey, statsEndpoint, mode]);
 
+  // Fetch Admin Sidebar Menu configuration (for live sidebar visibility sync)
+  useEffect(() => {
+    if (!apiUrl) return;
+    let isMounted = true;
+    const fetchMenu = async () => {
+      try {
+        const res = await fetch(`${apiUrl}/api/admin-menu/config`);
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.menu)) {
+            setAdminMenuConfig(data.menu);
+          }
+        }
+      } catch (e) {}
+    };
+    fetchMenu();
+    return () => { isMounted = false; };
+  }, [apiUrl]);
+
+  // Ensure Admin panel immediately redirects if someone navigates to a dev-only route
+  useEffect(() => {
+    if (mode === "admin" && (currentSegment === "seeding" || currentSegment === "data-seeding" || currentSegment === "seeding-data" || currentSegment === "menu-set" || currentSegment === "menu-settings" || currentSegment === "admin-menu")) {
+      router.replace(`${basePath}/overview/`);
+    }
+  }, [mode, currentSegment, basePath, router]);
+
   const handleTabClick = (tabState: string) => {
     const path = tabStateToPath[tabState] || "overview";
     router.push(`${basePath}/${path}/`);
@@ -240,10 +290,11 @@ export function PanelDashboardShell({
     );
   }
 
-  // Navigation items for Admin mode
-  const adminNavItems = [
+  // Complete Navigation Items definition for Admin mode
+  const allAdminNavItems = [
     {
       tab: "overview-tab",
+      id: "overview-tab",
       label: "Overview",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
@@ -253,44 +304,8 @@ export function PanelDashboardShell({
       ),
     },
     {
-      tab: "api-tab",
-      label: "Settings",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-      ),
-    },
-    {
-      tab: "explorer-tab",
-      label: "Mail Explorer",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-        </svg>
-      ),
-    },
-    {
-      tab: "logs-tab",
-      label: "Live Logs",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-        </svg>
-      ),
-    },
-    {
-      tab: "projects-tab",
-      label: "Projects",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
-        </svg>
-      ),
-    },
-    {
       tab: "domains-tab",
+      id: "domains-tab",
       label: "Domains",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
@@ -300,6 +315,7 @@ export function PanelDashboardShell({
     },
     {
       tab: "primary-domain-tab",
+      id: "primary-domain-tab",
       label: "Primary Domain",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
@@ -308,15 +324,67 @@ export function PanelDashboardShell({
       ),
     },
     {
-      tab: "seeding-tab",
-      label: "Data Seeding",
+      tab: "projects-tab",
+      id: "projects-tab",
+      label: "Projects",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 5.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+        </svg>
+      ),
+    },
+    {
+      tab: "credentials-tab",
+      id: "credentials-tab",
+      label: "SMTP / IMAP Auth",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
+        </svg>
+      ),
+    },
+    {
+      tab: "explorer-tab",
+      id: "explorer-tab",
+      label: "Mail Explorer",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+        </svg>
+      ),
+    },
+    {
+      tab: "api-tab",
+      id: "api-tab",
+      label: "API Settings",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      ),
+    },
+    {
+      tab: "logs-tab",
+      id: "logs-tab",
+      label: "Live Logs",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
         </svg>
       ),
     },
   ];
+
+  // Dynamically filter admin tabs based on DevPanel SuperAdmin toggle configuration
+  const adminNavItems = allAdminNavItems.filter((item) => {
+    if (adminMenuConfig.length === 0) {
+      // Default: show standard tabs
+      return !["credentials-tab", "explorer-tab"].includes(item.tab);
+    }
+    const found = adminMenuConfig.find((m) => m.id === item.id || m.tab === item.tab || m.path === item.tab.replace("-tab", ""));
+    return found ? Boolean(found.enabled) : true;
+  });
 
   // Navigation items for Dev mode
   const devCoreNavItems = [
@@ -351,6 +419,15 @@ export function PanelDashboardShell({
   ];
 
   const devToolsNavItems = [
+    {
+      tab: "menu-set-tab",
+      label: "Menu Set",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4.5 h-4.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+        </svg>
+      ),
+    },
     {
       tab: "projects-tab",
       label: "Projects & Webhooks",
@@ -548,39 +625,37 @@ export function PanelDashboardShell({
           <div className="grid grid-cols-3 gap-1.5">
             <div className="bg-white/[0.02] border border-white/[0.04] rounded-lg p-2 text-center">
               <div className={`text-[10px] font-bold font-mono ${isViolet ? "text-violet-400" : "text-emerald-400"}`}>
-                {stats.totalEmails}
+                {stats.totalReceivedEmails ?? stats.totalEmails ?? 0}
               </div>
-              <div className="text-[9px] text-gray-600 uppercase tracking-wider">Emails</div>
+              <div className="text-[9px] text-gray-600 uppercase tracking-wider">Recv</div>
             </div>
             <div className="bg-white/[0.02] border border-white/[0.04] rounded-lg p-2 text-center">
               <div className={`text-[10px] font-bold font-mono ${isViolet ? "text-violet-400" : "text-emerald-400"}`}>
-                {stats.activeMailboxesCount}
+                {stats.domainsCount ?? 0}
               </div>
-              <div className="text-[9px] text-gray-600 uppercase tracking-wider">Boxes</div>
+              <div className="text-[9px] text-gray-600 uppercase tracking-wider">Domains</div>
             </div>
             <div className="bg-white/[0.02] border border-white/[0.04] rounded-lg p-2 text-center">
               <div className={`text-[10px] font-bold font-mono ${isViolet ? "text-violet-400" : "text-emerald-400"}`}>
-                {formatBytes(stats.diskUsageBytes).split(" ")[0]}
+                {stats.totalSentEmails ?? stats.sentEmailsCount ?? 0}
               </div>
-              <div className="text-[9px] text-gray-600 uppercase tracking-wider">{formatBytes(stats.diskUsageBytes).split(" ")[1] || "KB"}</div>
+              <div className="text-[9px] text-gray-600 uppercase tracking-wider">Sent</div>
             </div>
           </div>
 
-          <a
-            href={isViolet ? "/devdoc" : "/doc"}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg text-center no-underline ${
-              isViolet
-                ? "bg-amber-500/10 border border-amber-500/25 text-amber-300 hover:bg-amber-500/20 shadow-amber-500/5"
-                : "bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/20 shadow-emerald-500/5"
-            }`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className={`w-4 h-4 ${isViolet ? "text-amber-400" : "text-emerald-400"}`}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
-            </svg>
-            <span>{isViolet ? "Developer API Docs ↗" : "Interactive API Docs ↗"}</span>
-          </a>
+          {isViolet && (
+            <a
+              href="/devdoc"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg text-center no-underline bg-amber-500/10 border border-amber-500/25 text-amber-300 hover:bg-amber-500/20 shadow-amber-500/5"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-amber-400">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
+              </svg>
+              <span>Developer API Docs ↗</span>
+            </a>
+          )}
 
           <button
             onClick={handleLogout}
@@ -630,7 +705,7 @@ export function PanelDashboardShell({
         {/* Dynamic Page Content Rendered Based on Active Tab */}
         <div className="p-8 flex-grow relative z-10">
           {activeTab === "overview-tab" && (
-            <Overview apiUrl={apiUrl} stats={stats} apiPrefix={apiPrefix} tokenKey={tokenKey} />
+            <Overview apiUrl={apiUrl} stats={stats} apiPrefix={apiPrefix} tokenKey={tokenKey} isViolet={isViolet} />
           )}
           {activeTab === "logs-tab" && (
             <LiveLogs apiUrl={apiUrl} systemMode={stats.liveModeActive ? "Live" : "Local"} apiPrefix={apiPrefix} tokenKey={tokenKey} />
@@ -647,7 +722,7 @@ export function PanelDashboardShell({
           {activeTab === "api-tab" && (
             <ApiSettingsManager apiUrl={apiUrl} apiPrefix={apiPrefix} tokenKey={tokenKey} />
           )}
-          {activeTab === "seeding-tab" && (
+          {activeTab === "seeding-tab" && mode === "dev" && (
             <DataSeedingManager apiUrl={apiUrl} apiPrefix={apiPrefix} tokenKey={tokenKey} />
           )}
           {activeTab === "credentials-tab" && (
@@ -655,6 +730,9 @@ export function PanelDashboardShell({
           )}
           {activeTab === "explorer-tab" && (
             <MailExplorer apiUrl={apiUrl} />
+          )}
+          {activeTab === "menu-set-tab" && mode === "dev" && (
+            <MenuSetManager apiUrl={apiUrl} apiPrefix={apiPrefix} tokenKey={tokenKey} />
           )}
         </div>
       </div>

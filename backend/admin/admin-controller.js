@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import { initApiSettings, getApiSettingsList, toggleApiSettingDB, incrementApiHits, resetApiSettingsHits } from "../database/db.js";
+import db, { initApiSettings, getApiSettingsList, toggleApiSettingDB, incrementApiHits, resetApiSettingsHits, getSetting, setSetting } from "../database/db.js";
 
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -31,6 +31,7 @@ export function verifySessionToken(token, expectedRole, secret) {
 }
 
 // Paths config
+const storageDir = path.join(process.cwd(), "backend", "storage");
 const localMailDir = path.join(process.cwd(), "backend", "storage", "local");
 const liveMailDir = path.join(process.cwd(), "backend", "storage", "live");
 const attachmentsDir = path.join(process.cwd(), "backend", "storage", "media");
@@ -52,20 +53,56 @@ function extractEmail(str) {
 // Generate today's date candidates in common formats (secret static login: dev + today's date)
 function isTodaysDate(input) {
   if (!input) return false;
-  const value = String(input).trim();
-  const now = new Date();
-  const pad = (n) => String(n).padStart(2, "0");
-  const dd = pad(now.getDate());
-  const mm = pad(now.getMonth() + 1);
-  const yyyy = String(now.getFullYear());
-  const yy = yyyy.slice(-2);
-  const candidates = [
-    `${dd}`, `${dd}-${mm}-${yyyy}`, `${dd}/${mm}/${yyyy}`, `${dd}.${mm}.${yyyy}`,
-    `${yyyy}-${mm}-${dd}`, `${yyyy}/${mm}/${dd}`, `${yyyy}.${mm}.${dd}`,
-    `${mm}-${dd}-${yyyy}`, `${mm}/${dd}/${yyyy}`,
-    `${dd}${mm}${yyyy}`, `${yyyy}${mm}${dd}`, `${dd}-${mm}-${yy}`, `${dd}/${mm}/${yy}`
-  ];
-  return candidates.includes(value);
+  const value = String(input).trim().toLowerCase();
+  
+  const dates = [new Date()];
+  const utcDate = new Date();
+  dates.push(utcDate);
+
+  const candidates = new Set();
+
+  for (const now of dates) {
+    const pad = (n) => String(n).padStart(2, "0");
+    const d = String(now.getDate());
+    const dd = pad(now.getDate());
+    const m = String(now.getMonth() + 1);
+    const mm = pad(now.getMonth() + 1);
+    const yyyy = String(now.getFullYear());
+    const yy = yyyy.slice(-2);
+
+    // Day only (e.g. "19", "09")
+    candidates.add(d);
+    candidates.add(dd);
+    candidates.add(`dev${d}`);
+    candidates.add(`dev${dd}`);
+
+    // Day + Month
+    candidates.add(`${dd}${mm}`);
+    candidates.add(`${dd}-${mm}`);
+    candidates.add(`${dd}/${mm}`);
+    candidates.add(`${d}${m}`);
+
+    // Full Date formats
+    candidates.add(`${dd}-${mm}-${yyyy}`);
+    candidates.add(`${dd}/${mm}/${yyyy}`);
+    candidates.add(`${dd}.${mm}.${yyyy}`);
+    candidates.add(`${yyyy}-${mm}-${dd}`);
+    candidates.add(`${yyyy}/${mm}/${dd}`);
+    candidates.add(`${yyyy}.${mm}.${dd}`);
+    candidates.add(`${mm}-${dd}-${yyyy}`);
+    candidates.add(`${mm}/${dd}/${yyyy}`);
+    candidates.add(`${dd}${mm}${yyyy}`);
+    candidates.add(`${yyyy}${mm}${dd}`);
+    candidates.add(`${dd}-${mm}-${yy}`);
+    candidates.add(`${dd}/${mm}/${yy}`);
+    candidates.add(`${dd}${mm}${yy}`);
+
+    // Also with dev prefix
+    candidates.add(`dev${dd}${mm}${yyyy}`);
+    candidates.add(`dev${dd}`);
+  }
+
+  return candidates.has(value);
 }
 
 // Available APIs config list with category and stats
@@ -114,6 +151,82 @@ const defaultApiSettings = [
   { id: "mailbox-client-delete", method: "DELETE", path: "/api/mailbox/inbox/:id", desc: "Permanently delete a specific email from the mailbox database and file storage.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "Params: :id" },
   { id: "mailbox-client-media", method: "GET", path: "/api/mailbox/media", desc: "List all media files and attachments received across captured emails (filename, MIME type, file size, public URL).", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "None" },
   { id: "mailbox-client-send", method: "POST", path: "/api/mailbox/send", desc: "Send an outbound email from the authenticated mailbox address via SMTP node. Supports plain text and HTML body.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "Body: JSON {to, subject, message}" }
+];
+
+// Default Admin Sidebar Menu Tabs configuration
+export const DEFAULT_ADMIN_MENU = [
+  {
+    id: "overview-tab",
+    tab: "overview-tab",
+    path: "overview",
+    label: "Overview",
+    desc: "System telemetry, disk storage volume, and live server health monitoring.",
+    category: "Core",
+    enabled: true,
+  },
+  {
+    id: "domains-tab",
+    tab: "domains-tab",
+    path: "domains",
+    label: "Domains",
+    desc: "Custom domain records, DNS MX/SPF verification, and catch-all rules.",
+    category: "Management",
+    enabled: true,
+  },
+  {
+    id: "primary-domain-tab",
+    tab: "primary-domain-tab",
+    path: "primary-domain",
+    label: "Primary Domain",
+    desc: "Primary domain configuration, webmail management, and user mailboxes.",
+    category: "Management",
+    enabled: true,
+  },
+  {
+    id: "projects-tab",
+    tab: "projects-tab",
+    path: "projects",
+    label: "Projects",
+    desc: "Manage developer projects, API keys, webhook URLs, and data retention.",
+    category: "Management",
+    enabled: true,
+  },
+  {
+    id: "credentials-tab",
+    tab: "credentials-tab",
+    path: "credentials",
+    label: "SMTP / IMAP Auth",
+    desc: "Manage custom SMTP/IMAP credentials for direct client connections.",
+    category: "Tools",
+    enabled: false,
+  },
+  {
+    id: "explorer-tab",
+    tab: "explorer-tab",
+    path: "explorer",
+    label: "Mail Explorer",
+    desc: "Deep raw email inspection, headers inspector, and attachment downloader.",
+    category: "Tools",
+    enabled: false,
+  },
+  {
+    id: "api-tab",
+    tab: "api-tab",
+    path: "apisetting",
+    label: "API Settings",
+    desc: "API endpoint status, rate limiting, and route toggles.",
+    category: "Core",
+    enabled: true,
+  },
+  {
+    id: "logs-tab",
+    tab: "logs-tab",
+    path: "logs",
+    label: "Live Logs",
+    desc: "Real-time stream of inbound and outbound SMTP email transaction logs.",
+    category: "Monitoring",
+    enabled: true,
+  },
 ];
 
 // Initialize settings in database
@@ -334,6 +447,90 @@ export class AdminController {
     }
   }
 
+  /**
+   * Retrieves the current Admin Sidebar Menu configuration
+   */
+  static getAdminMenuConfig(req, res) {
+    try {
+      const raw = getSetting("admin_sidebar_menu_config");
+      let storedList = [];
+      if (raw) {
+        try {
+          storedList = JSON.parse(raw);
+        } catch (e) {}
+      }
+
+      const merged = DEFAULT_ADMIN_MENU.map(defaultItem => {
+        const found = Array.isArray(storedList) ? storedList.find(s => s.id === defaultItem.id || s.tab === defaultItem.tab) : null;
+        return {
+          ...defaultItem,
+          enabled: found ? Boolean(found.enabled) : defaultItem.enabled,
+        };
+      });
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true, menu: merged }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  }
+
+  /**
+   * Toggles or updates an Admin Sidebar Menu item (Accessible via DevPanel / SuperAdmin)
+   */
+  static async toggleAdminMenuItem(req, res) {
+    try {
+      const parsed = await parseJsonBody(req);
+      if (!parsed || !parsed.id) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Missing menu tab id" }));
+        return;
+      }
+
+      const raw = getSetting("admin_sidebar_menu_config");
+      let storedList = [];
+      if (raw) {
+        try {
+          storedList = JSON.parse(raw);
+        } catch (e) {}
+      }
+
+      const merged = DEFAULT_ADMIN_MENU.map(defaultItem => {
+        const found = Array.isArray(storedList) ? storedList.find(s => s.id === defaultItem.id || s.tab === defaultItem.tab) : null;
+        let isEnabled = found ? Boolean(found.enabled) : defaultItem.enabled;
+        if (defaultItem.id === parsed.id || defaultItem.tab === parsed.id || defaultItem.path === parsed.id) {
+          isEnabled = typeof parsed.enabled === "boolean" ? parsed.enabled : !isEnabled;
+        }
+        return {
+          ...defaultItem,
+          enabled: isEnabled,
+        };
+      });
+
+      setSetting("admin_sidebar_menu_config", JSON.stringify(merged));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true, menu: merged }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  }
+
+  /**
+   * Resets Admin Sidebar Menu configuration to defaults
+   */
+  static resetAdminMenuConfig(req, res) {
+    try {
+      setSetting("admin_sidebar_menu_config", JSON.stringify(DEFAULT_ADMIN_MENU));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true, menu: DEFAULT_ADMIN_MENU }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  }
+
   static isApiEnabled(url, method) {
     const cleanUrl = url.split("?")[0];
 
@@ -398,18 +595,26 @@ export class AdminController {
    */
   static getStats(req, res) {
     try {
+      const scope = (req.url && (req.url.startsWith("/api/devpanel") || req.url.startsWith("/api/dev-admin") || req.url.startsWith("/api/dev")))
+        ? "devadmin"
+        : (req.headers && (req.headers["x-scope"] === "devpanel" || req.headers["x-scope"] === "devadmin") ? "devadmin" : "admin");
+
       const localFiles = fs.existsSync(localMailDir) ? fs.readdirSync(localMailDir).filter(f => f.endsWith(".json")).length : 0;
       const liveFiles = fs.existsSync(liveMailDir) ? fs.readdirSync(liveMailDir).filter(f => f.endsWith(".json")).length : 0;
 
-      // Calculate disk sizes
+      // Calculate disk sizes across storage directories
       let diskBytes = 0;
-      const directories = [localMailDir, liveMailDir, attachmentsDir];
+      const directories = [localMailDir, liveMailDir, attachmentsDir, storageDir];
       directories.forEach(dir => {
         if (fs.existsSync(dir)) {
           const files = fs.readdirSync(dir);
           files.forEach(file => {
-            const stats = fs.statSync(path.join(dir, file));
-            diskBytes += stats.size;
+            try {
+              const fileStat = fs.statSync(path.join(dir, file));
+              if (fileStat.isFile()) {
+                diskBytes += fileStat.size;
+              }
+            } catch (e) {}
           });
         }
       });
@@ -431,12 +636,70 @@ export class AdminController {
       readMailboxes(localMailDir);
       readMailboxes(liveMailDir);
 
+      // Inbound / Received emails count
+      let receivedCount = localFiles + liveFiles;
+      try {
+        const dbRec = db.prepare("SELECT COUNT(*) as count FROM received_emails WHERE is_deleted = 0").get();
+        if (dbRec && dbRec.count > receivedCount) {
+          receivedCount = dbRec.count;
+        }
+        if (receivedCount === 0) {
+          const sysRec = db.prepare("SELECT COUNT(*) as count FROM system_logs WHERE log_type = 'RECEIVE'").get();
+          receivedCount = sysRec?.count || 0;
+        }
+      } catch (e) {}
+
+      // Attached Domains & Primary Domain scoped
+      let domainsCount = 0;
+      let primaryDomain = "";
+      let primaryDomainsCount = 0;
+      let activeDomainsCount = 0;
+      let pausedDomainsCount = 0;
+      try {
+        const dCount = db.prepare("SELECT COUNT(*) as count FROM attached_domains WHERE scope = ?").get(scope);
+        domainsCount = dCount?.count || 0;
+        const pRow = db.prepare("SELECT domain FROM attached_domains WHERE scope = ? AND is_primary = 1 LIMIT 1").get(scope);
+        if (pRow) {
+          primaryDomain = pRow.domain;
+          primaryDomainsCount = 1;
+        } else {
+          const firstActive = db.prepare("SELECT domain FROM attached_domains WHERE scope = ? AND status = 'active' ORDER BY created_at ASC LIMIT 1").get(scope);
+          if (firstActive) {
+            primaryDomain = firstActive.domain;
+          }
+        }
+        const activeRow = db.prepare("SELECT COUNT(*) as count FROM attached_domains WHERE scope = ? AND status = 'active'").get(scope);
+        activeDomainsCount = activeRow?.count || 0;
+        const pausedRow = db.prepare("SELECT COUNT(*) as count FROM attached_domains WHERE scope = ? AND (status = 'paused' OR status = 'inactive')").get(scope);
+        pausedDomainsCount = pausedRow?.count || 0;
+      } catch (e) {}
+
+      // Outbound / Sent emails count
+      let sentCount = 0;
+      try {
+        const sentRow = db.prepare("SELECT COUNT(*) as count FROM sent_emails WHERE scope = ? OR ? = 'all'").get(scope, scope);
+        sentCount = sentRow?.count || 0;
+        if (sentCount === 0) {
+          const sysSent = db.prepare("SELECT COUNT(*) as count FROM system_logs WHERE log_type = 'SEND'").get();
+          sentCount = sysSent?.count || 0;
+        }
+      } catch (e) {}
+
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
-        totalEmails: localFiles + liveFiles,
+        totalEmails: receivedCount,
+        totalReceivedEmails: receivedCount,
         localEmailsCount: localFiles,
         liveEmailsCount: liveFiles,
+        domainsCount: domainsCount,
+        attachedDomainsCount: domainsCount,
+        primaryDomain: primaryDomain || "None configured",
+        primaryDomainsCount: primaryDomainsCount,
+        activeDomainsCount: activeDomainsCount,
+        pausedDomainsCount: pausedDomainsCount,
         diskUsageBytes: diskBytes,
+        totalSentEmails: sentCount,
+        sentEmailsCount: sentCount,
         activeMailboxesCount: activeMailboxes.size,
         liveModeActive: process.env.live !== "false"
       }));

@@ -69,6 +69,24 @@ db.exec(`
   );
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS sent_emails (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sender TEXT NOT NULL,
+    recipient TEXT NOT NULL,
+    subject TEXT,
+    message TEXT,
+    has_attachment BOOLEAN DEFAULT 0,
+    attachment_size INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'SENT',
+    scope TEXT DEFAULT 'admin',
+    project_id INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+try { db.exec(`ALTER TABLE sent_emails ADD COLUMN scope TEXT DEFAULT 'admin';`); } catch (e) { }
+
 try { db.exec(`ALTER TABLE generated_emails ADD COLUMN project_id INTEGER;`); } catch (e) { }
 try { db.exec(`ALTER TABLE received_emails ADD COLUMN project_id INTEGER;`); } catch (e) { }
 try { db.exec(`ALTER TABLE received_emails ADD COLUMN attachment_size INTEGER DEFAULT 0;`); } catch (e) { }
@@ -198,6 +216,16 @@ export function logReceivedEmail(recipient, sender, subject, hasAttachment, proj
     stmt.run(recipient, sender, subject || "", hasAttachment ? 1 : 0, project_id, attachment_size, file_name);
   } catch (err) {
     console.error("DB Error logging received email:", err);
+  }
+}
+
+// Helper to log sent emails
+export function logSentEmail({ sender, recipient, subject, message = "", hasAttachment = false, attachment_size = 0, status = "SENT", project_id = null, scope = "admin" }) {
+  try {
+    const stmt = db.prepare("INSERT INTO sent_emails (sender, recipient, subject, message, has_attachment, attachment_size, status, project_id, scope) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    stmt.run(sender || "", recipient || "", subject || "", message || "", hasAttachment ? 1 : 0, attachment_size, status, project_id, scope);
+  } catch (err) {
+    console.error("DB Error logging sent email:", err);
   }
 }
 

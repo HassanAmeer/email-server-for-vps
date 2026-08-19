@@ -1235,7 +1235,7 @@ export class ApiRouter {
     // Basic auth check
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
-    if (!AdminController.isValidAdminToken(token)) {
+    if (!AdminController.isValidAdminToken(token) && !AdminController.isValidDevToken(token)) {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Unauthorized" }));
       return;
@@ -1244,37 +1244,74 @@ export class ApiRouter {
     try {
       const dbModule = await import("../backend/database/db.js");
       const db = dbModule.default;
+      const fs = await import("fs");
+      const path = await import("path");
 
-      // Group last 7 days of emails by day
-      const query = `
-        WITH RECURSIVE dates(date) AS (
-          SELECT date('now', '-6 days')
-          UNION ALL
-          SELECT date(date, '+1 day')
-          FROM dates
-          WHERE date < date('now')
-        )
-        SELECT 
-          d.date as day,
-          COALESCE(SUM(CASE WHEN src = 'generated' THEN count ELSE 0 END), 0) as generated,
-          COALESCE(SUM(CASE WHEN src = 'received' THEN count ELSE 0 END), 0) as received
-        FROM dates d
-        LEFT JOIN (
-          SELECT date(created_at) as day, COUNT(*) as count, 'generated' as src
-          FROM generated_emails
-          WHERE created_at >= date('now', '-6 days')
-          GROUP BY date(created_at)
-          UNION ALL
-          SELECT date(created_at) as day, COUNT(*) as count, 'received' as src
-          FROM received_emails
-          WHERE created_at >= date('now', '-6 days')
-          GROUP BY date(created_at)
-        ) data ON d.date = data.day
-        GROUP BY d.date
-        ORDER BY d.date ASC;
-      `;
+      const localMailDir = path.join(process.cwd(), "backend", "storage", "local");
+      const liveMailDir = path.join(process.cwd(), "backend", "storage", "live");
 
-      const stats = db.query(query).all();
+      const dailyCounts = {};
+
+      // 1. Scan filesystem json files
+      [localMailDir, liveMailDir].forEach(dir => {
+        if (fs.existsSync(dir)) {
+          fs.readdirSync(dir).filter(f => f.endsWith(".json")).forEach(f => {
+            try {
+              const content = JSON.parse(fs.readFileSync(path.join(dir, f), "utf-8"));
+              const dateStr = content.date || fs.statSync(path.join(dir, f)).mtime.toISOString();
+              const day = dateStr.slice(0, 10);
+              dailyCounts[day] = (dailyCounts[day] || 0) + 1;
+            } catch(e) {}
+          });
+        }
+      });
+
+      // 2. Scan DB received_emails
+      try {
+        const rows = db.prepare("SELECT date(created_at) as day, count(*) as count FROM received_emails WHERE is_deleted = 0 GROUP BY date(created_at)").all();
+        rows.forEach(r => {
+          if (r.day) {
+            dailyCounts[r.day] = Math.max(dailyCounts[r.day] || 0, r.count);
+          }
+        });
+      } catch(e){}
+
+      // 3. Scan system_logs for receive events
+      try {
+        const sysRows = db.prepare("SELECT date(created_at) as day, count(*) as count FROM system_logs WHERE log_type = 'RECEIVE' GROUP BY date(created_at)").all();
+        sysRows.forEach(r => {
+          if (r.day) {
+            dailyCounts[r.day] = Math.max(dailyCounts[r.day] || 0, r.count);
+          }
+        });
+      } catch(e){}
+
+      // Determine days count from range param (default 30 days)
+      let daysCount = 30;
+      try {
+        const urlObj = new URL(req.url, "http://localhost");
+        const rangeParam = urlObj.searchParams.get("range")?.toLowerCase();
+        if (rangeParam === "7d" || rangeParam === "7" || rangeParam === "weekly") daysCount = 7;
+        else if (rangeParam === "14d" || rangeParam === "14") daysCount = 14;
+        else if (rangeParam === "30d" || rangeParam === "30" || rangeParam === "monthly") daysCount = 30;
+        else if (rangeParam === "90d" || rangeParam === "90" || rangeParam === "quarterly") daysCount = 90;
+      } catch (e) {}
+
+      // Build continuous calendar array
+      const stats = [];
+      const today = new Date();
+      for (let i = daysCount - 1; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        const dayStr = d.toISOString().slice(0, 10);
+        const count = dailyCounts[dayStr] || 0;
+        stats.push({
+          day: dayStr,
+          received: count,
+          generated: 0,
+          total: count
+        });
+      }
 
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(stats));
