@@ -9,7 +9,7 @@ if (!fs.existsSync(storageDir)) {
 }
 
 const dbPath = path.join(storageDir, "email_logs.sqlite");
-const db = new Database(dbPath);
+export const db = new Database(dbPath);
 
 // Enable high-performance production PRAGMAs
 try {

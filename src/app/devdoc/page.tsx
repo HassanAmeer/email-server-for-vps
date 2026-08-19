@@ -601,28 +601,12 @@ const endpoints = [
     auth: true,
   },
   {
-    id: "dev-smtp-toggle-credential",
-    method: "POST",
-    path: "/api/dev/smtp/toggle/:username",
-    title: "Toggle SMTP Address Status (Dev)",
-    category: "Dev Live & Local SMTP",
-    desc: "Pause or reactivate an SMTP address by its username.",
-    payload: null,
-    response: `{
-  "success": true,
-  "enabled": false
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/dev/smtp/toggle/support@micorna.biz",
-    returns: "JSON Object",
-    auth: true,
-  },
-  {
     id: "dev-smtp-delete-credential",
     method: "DELETE",
-    path: "/api/dev/smtp/:username",
+    path: "/api/dev/smtp/:identifier",
     title: "Delete SMTP Address (Dev)",
     category: "Dev Live & Local SMTP",
-    desc: "Permanently delete an isolated SMTP address from the server.",
+    desc: "Permanently delete an SMTP address from the server by Account ID or Email.",
     payload: null,
     response: `{
   "success": true

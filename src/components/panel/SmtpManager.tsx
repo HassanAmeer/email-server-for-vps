@@ -281,25 +281,6 @@ export default function SmtpManager({
     }
   };
 
-  const handleToggleStatus = async (username: string) => {
-    if (!apiUrl) return;
-    try {
-      const headers = getAuthHeaders();
-      const res = await fetch(`${apiUrl}${apiPrefix}/smtp/toggle/${encodeURIComponent(username)}`, {
-        method: "POST",
-        headers,
-      });
-      if (res.ok) {
-        fetchSmtpData();
-        if (selectedAccountForSheet && selectedAccountForSheet.username === username) {
-          setSelectedAccountForSheet((prev) => (prev ? { ...prev, enabled: !prev.enabled } : null));
-        }
-      }
-    } catch (err) {
-      console.error("Error toggling account status:", err);
-    }
-  };
-
   const handleDelete = async (username: string) => {
     if (!confirm(`Are you sure you want to delete SMTP address "${username}"? Connected websites and apps will lose outbound access.`)) {
       return;
@@ -634,20 +615,19 @@ export default function SmtpManager({
                 <th className="py-3 px-3">Email Address & Purpose</th>
                 <th className="py-3 px-3">Domain</th>
                 <th className="py-3 px-3">Password / Secret</th>
-                <th className="py-3 px-3 text-center">Status</th>
                 <th className="py-3 px-3 text-right">Connection & Setup</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.03] text-xs font-mono">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-gray-500">
+                  <td colSpan={4} className="py-12 text-center text-gray-500">
                     Loading SMTP accounts...
                   </td>
                 </tr>
               ) : filteredCredentials.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-gray-500">
+                  <td colSpan={4} className="py-12 text-center text-gray-500">
                     No SMTP addresses generated for this domain yet. Click "+ Generate SMTP Address" above.
                   </td>
                 </tr>
@@ -655,7 +635,6 @@ export default function SmtpManager({
                 filteredCredentials.map((user) => {
                   const displayEmail = user.email || user.fromEmail || user.username;
                   const isVisible = Boolean(showPasswords[user.username]);
-                  const isEnabled = user.enabled !== false;
                   const userDomain =
                     user.domain && user.domain !== "*"
                       ? user.domain
@@ -676,10 +655,11 @@ export default function SmtpManager({
                       <td className="py-3.5 px-3">
                         <div className="flex flex-col gap-0.5">
                           <span className="font-bold text-white text-sm flex items-center gap-2">
-                            <span className={`w-2 h-2 rounded-full ${isEnabled ? "bg-emerald-400" : "bg-gray-600"}`}></span>
+                            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
                             {displayEmail}
                           </span>
                           <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                            {user.id && <span className="text-[9px] bg-white/[0.06] px-1.5 py-0.5 rounded text-gray-300">ID: {user.id}</span>}
                             <span>User: {user.username}</span>
                             {user.description && (
                               <span className="bg-white/[0.04] px-1.5 py-0.5 rounded border border-white/[0.06] text-gray-300">
@@ -725,21 +705,6 @@ export default function SmtpManager({
                             {copiedKey === user.username ? "✓" : "📋"}
                           </button>
                         </div>
-                      </td>
-
-                      {/* Status Toggle */}
-                      <td className="py-3.5 px-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleStatus(user.username)}
-                          className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase transition-all cursor-pointer ${
-                            isEnabled
-                              ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25"
-                              : "bg-gray-800 border border-gray-700 text-gray-400 hover:bg-gray-700"
-                          }`}
-                        >
-                          {isEnabled ? "Active" : "Paused"}
-                        </button>
                       </td>
 
                       {/* Actions */}
@@ -958,17 +923,17 @@ export default function SmtpManager({
           </div>
           <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-between">
             <div>
-              <span className="text-amber-400 font-bold mr-1.5">POST</span>
-              <span className="text-gray-300">{apiPrefix}/smtp/toggle/:user</span>
+              <span className="text-purple-400 font-bold mr-1.5">POST</span>
+              <span className="text-gray-300">{apiPrefix}/smtp/send-bulk</span>
             </div>
-            <span className="text-gray-400 text-[10px]">Pause / Resume</span>
+            <span className="text-gray-400 text-[10px]">Bulk Dispatch (5s)</span>
           </div>
           <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-between">
             <div>
               <span className="text-rose-400 font-bold mr-1.5">DELETE</span>
-              <span className="text-gray-300">{apiPrefix}/smtp/:user</span>
+              <span className="text-gray-300">{apiPrefix}/smtp/:identifier</span>
             </div>
-            <span className="text-gray-400 text-[10px]">Remove Account</span>
+            <span className="text-gray-400 text-[10px]">Delete (ID/Email)</span>
           </div>
         </div>
       </div>

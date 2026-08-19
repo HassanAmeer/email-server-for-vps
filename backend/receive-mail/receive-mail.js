@@ -649,10 +649,6 @@ const httpServer = http.createServer((req, res) => {
         if (devSubPath === "smtp/send" && req.method === "POST") return ApiRouter.sendMailViaApi(req, res);
         if (devSubPath === "smtp/send-bulk" && req.method === "POST") return ApiRouter.sendBulkMailViaApi(req, res);
         if (devSubPath === "smtp/test" && req.method === "POST") return ApiRouter.testSmtpRelay(req, res);
-        if (devSubPath.startsWith("smtp/toggle/") && req.method === "POST") {
-          const username = decodeURIComponent(cleanUrl.split("/api/dev/smtp/toggle/")[1]);
-          return ApiRouter.toggleCredential(req, res, username);
-        }
         if (req.method === "GET") return ApiRouter.getCredentials(req, res);
         if (req.method === "POST") return ApiRouter.addCredential(req, res);
         if (req.method === "DELETE") {
@@ -881,11 +877,6 @@ const httpServer = http.createServer((req, res) => {
     return ApiRouter.testSmtpRelay(req, res);
   }
 
-  if (cleanUrl.startsWith("/api/admin/smtp/toggle/") && req.method === "POST") {
-    const username = decodeURIComponent(cleanUrl.split("/api/admin/smtp/toggle/")[1]);
-    return ApiRouter.toggleCredential(req, res, username);
-  }
-
   if ((cleanUrl === "/api/admin/smtp" || cleanUrl.startsWith("/api/admin/smtp/") || cleanUrl === "/api/admin/credentials" || cleanUrl.startsWith("/api/admin/credentials/")) && req.method === "DELETE") {
     let username = null;
     if (cleanUrl.includes("/api/admin/smtp/")) username = decodeURIComponent(cleanUrl.split("/api/admin/smtp/")[1]);
@@ -1081,10 +1072,6 @@ const httpServer = http.createServer((req, res) => {
     }
     if (normDevUrl === "/api/dev-admin/smtp/test" && req.method === "POST") {
       return ApiRouter.testSmtpRelay(req, res);
-    }
-    if (normDevUrl.startsWith("/api/dev-admin/smtp/toggle/") && req.method === "POST") {
-      const username = decodeURIComponent(normDevUrl.split("/api/dev-admin/smtp/toggle/")[1]);
-      return ApiRouter.toggleCredential(req, res, username);
     }
     if ((normDevUrl === "/api/dev-admin/smtp" || normDevUrl.startsWith("/api/dev-admin/smtp/") || normDevUrl === "/api/dev-admin/credentials" || normDevUrl.startsWith("/api/dev-admin/credentials/")) && req.method === "DELETE") {
       let username = null;

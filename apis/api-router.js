@@ -522,10 +522,6 @@ export class ApiRouter {
     return AdminController.addCredential(req, res);
   }
 
-  static toggleCredential(req, res, username) {
-    return AdminController.toggleCredential(req, res, username);
-  }
-
   static deleteCredential(req, res, username) {
     return AdminController.deleteCredential(req, res, username);
   }

@@ -158,7 +158,6 @@ export const defaultApiSettings = [
   { id: "smtp-send", method: "POST", path: "/api/admin/smtp/send", desc: "Send a single or test outbound email via HTTP REST API with DKIM signing, HTML body, and attachment files.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Body: JSON {from, to, subject, text, html, attachments}" },
   { id: "smtp-send-bulk", method: "POST", path: "/api/admin/smtp/send-bulk", desc: "Send bulk outbound emails to multiple recipients sequentially with an enforced minimum 5-second throttling delay to maintain sender reputation.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Body: JSON {from, recipients: [...], subject, text, html, attachments, delaySeconds: 5}" },
   { id: "smtp-test", method: "POST", path: "/api/admin/smtp/test", desc: "Test outbound email transmission from any active domain to any destination mailbox with live delivery status feedback.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Body: JSON {toEmail, fromEmail, subject, text}" },
-  { id: "smtp-toggle", method: "POST", path: "/api/admin/smtp/toggle/:identifier", desc: "Toggle active or paused state for an SMTP account by ID, email, or username.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Params: :identifier (ID or Email)" },
   { id: "smtp-delete", method: "DELETE", path: "/api/admin/smtp/:identifier", desc: "Permanently delete an SMTP account by account ID, email address, or username.", enabled: true, category: "SMTP Outbound API", hits: 0, auth: true, variables: "Params: :identifier (ID or Email)" }
 ];
 
@@ -930,70 +929,6 @@ export class AdminController {
       }));
     } catch (err) {
       console.error("[REST SMTP BULK SEND ERROR]", err);
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ success: false, error: err.message }));
-    }
-  }
-
-  /**
-   * Toggles active/paused status of an SMTP Relay credential by ID, email, or username
-   */
-  static async toggleCredential(req, res, identifier) {
-    try {
-      let target = identifier;
-
-      if (!target && req.url && req.url.includes("?")) {
-        const urlObj = new URL(req.url, "http://localhost");
-        target = urlObj.searchParams.get("id") || urlObj.searchParams.get("email") || urlObj.searchParams.get("username");
-      }
-
-      if (!target) {
-        const parsed = await parseJsonBody(req);
-        if (parsed) {
-          target = parsed.id || parsed.email || parsed.username;
-        }
-      }
-
-      if (!target) {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: false, error: "ID, email, or username parameter is required" }));
-        return;
-      }
-
-      if (!fs.existsSync(credsPath)) {
-        res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: false, error: "Credentials file not found" }));
-        return;
-      }
-
-      const creds = JSON.parse(fs.readFileSync(credsPath, "utf-8"));
-      const cleanTarget = decodeURIComponent(String(target).trim().toLowerCase());
-
-      const user = (creds.users || []).find(u => {
-        const uId = String(u.id || "").trim().toLowerCase();
-        const uUser = String(u.username || "").trim().toLowerCase();
-        const uEmail = String(u.email || "").trim().toLowerCase();
-        const uFrom = String(u.fromEmail || "").trim().toLowerCase();
-        return uId === cleanTarget || uUser === cleanTarget || uEmail === cleanTarget || uFrom === cleanTarget;
-      });
-
-      if (!user) {
-        res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: false, error: `SMTP account '${target}' not found.` }));
-        return;
-      }
-
-      user.enabled = user.enabled === false ? true : false;
-      user.updated_at = new Date().toISOString();
-      fs.writeFileSync(credsPath, JSON.stringify(creds, null, 2), "utf-8");
-
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({
-        success: true,
-        enabled: user.enabled,
-        message: `SMTP account status toggled to ${user.enabled ? "Active" : "Paused"}`
-      }));
-    } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: false, error: err.message }));
     }
