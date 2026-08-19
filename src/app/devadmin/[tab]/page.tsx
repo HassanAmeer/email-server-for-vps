@@ -1,16 +1,34 @@
-"use client";
+import DevAdminRedirectClient from "./DevAdminRedirectClient";
 
-import { useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+interface PageProps {
+  params: Promise<{ tab: string }>;
+}
 
-export default function DevAdminTabRedirect() {
-  const router = useRouter();
-  const params = useParams();
-  const tab = params?.tab || "overview";
+export default async function Page({ params }: PageProps) {
+  const resolvedParams = await params;
+  return <DevAdminRedirectClient tab={resolvedParams.tab} />;
+}
 
-  useEffect(() => {
-    router.replace(`/devpanel/${tab}`);
-  }, [router, tab]);
-
-  return null;
+export function generateStaticParams() {
+  return [
+    { tab: "overview" },
+    { tab: "logs" },
+    { tab: "domains" },
+    { tab: "primary-domain" },
+    { tab: "primary-domains" },
+    { tab: "mailbox" },
+    { tab: "mailboxes" },
+    { tab: "users-mailbox" },
+    { tab: "user-mailbox" },
+    { tab: "webmail" },
+    { tab: "projects" },
+    { tab: "settings" },
+    { tab: "api" },
+    { tab: "seeding" },
+    { tab: "data-seeding" },
+    { tab: "credentials" },
+    { tab: "smtp" },
+    { tab: "explorer" },
+    { tab: "mails" },
+  ];
 }

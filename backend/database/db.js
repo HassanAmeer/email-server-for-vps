@@ -1044,7 +1044,7 @@ export function getMailboxInbox(email, page = 1, limit = 200, search = "", filte
 export default db;
 
 // =============================================
-// DEV ADMIN SCOPE-BASED HELPERS
+// DEV PANEL SCOPE-BASED HELPERS
 // =============================================
 
 /**

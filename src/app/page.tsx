@@ -724,10 +724,10 @@ export default function Home() {
               <div className="space-y-5">
                 <h3 className="text-[11px] font-mono font-bold text-gray-300 uppercase tracking-[0.15em]">Developers</h3>
                 <ul className="space-y-3.5 text-sm font-sans">
-                  <li><a href="https://github.com" target="_blank" rel="noreferrer" className="text-gray-500 hover:text-white transition-colors duration-200">GitHub Repo ↗</a></li>
-                  <li><Link href="/doc" className="text-gray-500 hover:text-white transition-colors duration-200 bg-transparent border-none cursor-pointer p-0">REST Endpoints</Link></li>
+                  <li><Link href="/dev" className="text-gray-500 hover:text-violet-400 transition-colors duration-200">Developer Portal (/dev)</Link></li>
+                  <li><Link href="/devdoc" className="text-gray-500 hover:text-violet-400 transition-colors duration-200">Dev API Reference</Link></li>
+                  <li><Link href="/doc" className="text-gray-500 hover:text-white transition-colors duration-200">REST Endpoints</Link></li>
                   <li><button onClick={() => scrollToSection("faq")} className="text-gray-500 hover:text-white transition-colors duration-200 bg-transparent border-none cursor-pointer p-0">Architecture FAQs</button></li>
-                  <li><button onClick={() => setApiLang("javascript")} className="text-gray-500 hover:text-white transition-colors duration-200 bg-transparent border-none cursor-pointer p-0">JS Examples</button></li>
                 </ul>
               </div>
 

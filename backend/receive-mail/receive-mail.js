@@ -511,11 +511,8 @@ const httpServer = http.createServer((req, res) => {
   // DevPanel auth middleware helper (supports devPanelToken, devAdminToken and master adminToken)
   const checkDevAuth = () => {
     const authHeader = req.headers.authorization || "";
-    return authHeader.startsWith("Bearer ") && (
-      authHeader.split(" ")[1] === AdminController.devPanelToken ||
-      authHeader.split(" ")[1] === AdminController.devAdminToken ||
-      authHeader.split(" ")[1] === AdminController.adminToken
-    );
+    const token = authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
+    return AdminController.isValidDevToken(token);
   };
 
   // Server-Sent Events (SSE) Real-Time Stream Endpoint
@@ -558,15 +555,15 @@ const httpServer = http.createServer((req, res) => {
       return AdminController.devAdminLogin(req, res);
     }
 
-    // Dev Admin management routes
+    // Dev Panel management routes
     if (devSubPath === "stats" || devSubPath === "stats/traffic" || devSubPath.startsWith("credentials") || 
         devSubPath.startsWith("projects") || devSubPath.startsWith("domains") || devSubPath.startsWith("mailbox-users") ||
         devSubPath.startsWith("api-settings") || devSubPath.startsWith("seed") || devSubPath.startsWith("dblogs") ||
         devSubPath.startsWith("smtp-flags") || devSubPath === "serverinfo" || devSubPath === "dkim/generate") {
       
       const authHeader = req.headers.authorization || "";
-      const isDevAuth = (authHeader.startsWith("Bearer ") && authHeader.split(" ")[1] === AdminController.devAdminToken) ||
-                        (authHeader.startsWith("Bearer ") && authHeader.split(" ")[1] === AdminController.adminToken);
+      const token = authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
+      const isDevAuth = AdminController.isValidDevToken(token);
 
       if (devSubPath === "stats" && req.method === "GET") {
         if (!isDevAuth) { res.writeHead(401, { "Content-Type": "application/json" }); return res.end(JSON.stringify({ error: "Unauthorized" })); }
@@ -1032,7 +1029,8 @@ const httpServer = http.createServer((req, res) => {
 
   if (cleanUrl === "/api/admin/smtp-flags" && req.method === "GET") {
     const authHeader = req.headers["authorization"] || "";
-    if (authHeader !== `Bearer ${AdminController.adminToken}`) {
+    const token = authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
+    if (!AdminController.isValidAdminToken(token)) {
       res.writeHead(401, { "Content-Type": "application/json" });
       return res.end(JSON.stringify({ error: "Unauthorized" }));
     }
@@ -1044,7 +1042,8 @@ const httpServer = http.createServer((req, res) => {
   // SMTP Server Flags: POST to toggle/set a flag
   if (cleanUrl === "/api/admin/smtp-flags" && req.method === "POST") {
     const authHeader = req.headers["authorization"] || "";
-    if (authHeader !== `Bearer ${AdminController.adminToken}`) {
+    const token = authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
+    if (!AdminController.isValidAdminToken(token)) {
       res.writeHead(401, { "Content-Type": "application/json" });
       return res.end(JSON.stringify({ error: "Unauthorized" }));
     }

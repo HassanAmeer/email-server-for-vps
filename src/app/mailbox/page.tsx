@@ -137,8 +137,11 @@ export default function MailboxLogin() {
       }
 
       if (res.ok && data.token) {
+        const expiry = data.expiresAt || (Date.now() + 24 * 60 * 60 * 1000);
         localStorage.setItem("mailbox_token", data.token);
+        localStorage.setItem("mailbox_token_expiry", expiry.toString());
         localStorage.setItem("imap_mailbox_token", data.token);
+        localStorage.setItem("imap_mailbox_token_expiry", expiry.toString());
         const userData = JSON.stringify(data.user || { email, is_primary: true });
         localStorage.setItem("mailbox_user", userData);
         localStorage.setItem("imap_mailbox_user", userData);

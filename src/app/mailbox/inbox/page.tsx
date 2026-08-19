@@ -343,9 +343,10 @@ export default function MailboxInbox() {
   useEffect(() => {
     const token = localStorage.getItem("mailbox_token") || localStorage.getItem("imap_mailbox_token");
     const userStr = localStorage.getItem("mailbox_user") || localStorage.getItem("imap_mailbox_user");
+    const expiry = localStorage.getItem("mailbox_token_expiry") || localStorage.getItem("imap_mailbox_token_expiry");
 
-    if (!token || !userStr) {
-      router.push("/mailbox");
+    if (!token || !userStr || (expiry && Date.now() > Number(expiry))) {
+      handleLogout();
       return;
     }
 
@@ -554,8 +555,10 @@ export default function MailboxInbox() {
 
   const handleLogout = () => {
     localStorage.removeItem("mailbox_token");
+    localStorage.removeItem("mailbox_token_expiry");
     localStorage.removeItem("mailbox_user");
     localStorage.removeItem("imap_mailbox_token");
+    localStorage.removeItem("imap_mailbox_token_expiry");
     localStorage.removeItem("imap_mailbox_user");
     router.push("/mailbox");
   };

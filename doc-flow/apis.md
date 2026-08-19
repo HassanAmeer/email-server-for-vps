@@ -23,7 +23,7 @@
  │  /api/dev/emails/live                │ GET    │ Dev Live Console            │ 🔒 Bearer │ Active │
  │  /api/dev/send-email/local           │ POST   │ Dev Local Console           │ 🔒 Bearer │ Active │
  │  /api/dev/send-email/live            │ POST   │ Dev Live Console            │ Public    │ Active │
- │  /api/dev/mails                      │ GET    │ Dev Admin Management        │ 🔒 Bearer │ Active │
+ │  /api/dev/mails                      │ GET    │ Dev Panel Management        │ 🔒 Bearer │ Active │
  ├──────────────────────────────────────┴────────┴─────────────────────────────┴───────────┴────────┤
  │  Section 3: 🛠️ DevPanel Management & Server APIs (/api/devpanel/*)                              │
  ├──────────────────────────────────────┬────────┬─────────────────────────────┬───────────┬────────┤

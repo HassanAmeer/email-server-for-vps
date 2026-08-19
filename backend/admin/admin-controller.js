@@ -1,6 +1,34 @@
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 import { initApiSettings, getApiSettingsList, toggleApiSettingDB, incrementApiHits, resetApiSettingsHits } from "../database/db.js";
+
+const SESSION_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+export function generateSessionToken(role, secret, durationMs = SESSION_DURATION_MS) {
+  const expiresAt = Date.now() + durationMs;
+  const payload = `${role}:${expiresAt}`;
+  const hmac = crypto.createHmac("sha256", secret || "session_secret_key").update(payload).digest("hex");
+  return Buffer.from(`${payload}:${hmac}`).toString("base64url");
+}
+
+export function verifySessionToken(token, expectedRole, secret) {
+  try {
+    if (!token || typeof token !== "string") return false;
+    const decoded = Buffer.from(token, "base64url").toString("utf8");
+    const parts = decoded.split(":");
+    if (parts.length !== 3) return false;
+    const [role, expiresAtStr, hmac] = parts;
+    if (role !== expectedRole) return false;
+    const expiresAt = Number(expiresAtStr);
+    if (isNaN(expiresAt) || Date.now() > expiresAt) return false; // Expired
+    const expectedHmac = crypto.createHmac("sha256", secret || "session_secret_key").update(`${role}:${expiresAtStr}`).digest("hex");
+    if (hmac.length !== expectedHmac.length) return false;
+    return crypto.timingSafeEqual(Buffer.from(hmac), Buffer.from(expectedHmac));
+  } catch (e) {
+    return false;
+  }
+}
 
 // Paths config
 const localMailDir = path.join(process.cwd(), "backend", "storage", "local");
@@ -130,8 +158,35 @@ export class AdminController {
   }
 
   /**
+   * Validates if a token is a valid Admin token (either static master token or 24h signed token)
+   */
+  static isValidAdminToken(token) {
+    if (!token) return false;
+    const adminPass = process.env.ADMIN_PASSWORD || "1234";
+    // 1. Check static master token (backward compatibility for direct API keys & integrations)
+    if (token === AdminController.adminToken) return true;
+    // 2. Check 24-hour signed session token
+    return verifySessionToken(token, "admin", adminPass);
+  }
+
+  /**
+   * Validates if a token is a valid DevPanel / DevAdmin token (or master admin token)
+   */
+  static isValidDevToken(token) {
+    if (!token) return false;
+    const devPass = process.env.DEVPANEL_PASSWORD || process.env.DEV_ADMIN_PASSWORD || "devpass";
+    const adminPass = process.env.ADMIN_PASSWORD || "1234";
+    // 1. Check master admin token
+    if (AdminController.isValidAdminToken(token)) return true;
+    // 2. Check static dev tokens
+    if (token === AdminController.devPanelToken || token === AdminController.devAdminToken) return true;
+    // 3. Check 24-hour signed session tokens for devpanel or devadmin
+    return verifySessionToken(token, "devpanel", devPass) || verifySessionToken(token, "devadmin", devPass);
+  }
+
+  /**
    * Validates credentials for Admin Dashboard
-   * Login with: admin / 1234
+   * Login with: admin / 1234 -> Generates 24-Hour session token
    */
   static async login(req, res) {
     try {
@@ -142,21 +197,21 @@ export class AdminController {
         return;
       }
       const { email, username, password } = parsed;
-      const loginName = username || email;
+      const loginName = String(username || email || "").toLowerCase().trim();
       const adminPass = process.env.ADMIN_PASSWORD || "1234";
 
       if ((loginName === "admin" || loginName === "admin@gmail.com") && password === adminPass) {
-        const token = Buffer.from(`admin:${adminPass}`).toString("base64");
+        const token = generateSessionToken("admin", adminPass, SESSION_DURATION_MS);
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: true, token }));
-      } else if (loginName === "dev" && isTodaysDate(password)) {
-        // Secret static login: username "dev" + today's date as password
-        const token = Buffer.from(`admin:${adminPass}`).toString("base64");
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: true, token, staticLogin: true }));
+        res.end(JSON.stringify({ 
+          success: true, 
+          token, 
+          expiresIn: 86400, 
+          expiresAt: Date.now() + SESSION_DURATION_MS 
+        }));
       } else {
         res.writeHead(401, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: false, error: "Incorrect credentials" }));
+        res.end(JSON.stringify({ success: false, error: "Incorrect admin credentials" }));
       }
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
@@ -165,7 +220,8 @@ export class AdminController {
   }
 
   /**
-   * DevPanel login — auth for the developer panel
+   * DevPanel login — auth for the developer panel -> Generates 24-Hour session token
+   * Allows: username "dev", "devpanel", "devadmin" with DEVPANEL_PASSWORD or today's date
    */
   static async devPanelLogin(req, res) {
     try {
@@ -176,16 +232,22 @@ export class AdminController {
         return;
       }
       const { email, username, password } = parsed;
-      const loginName = username || email;
+      const loginName = String(username || email || "").toLowerCase().trim();
       const devPass = process.env.DEVPANEL_PASSWORD || process.env.DEV_ADMIN_PASSWORD || "devpass";
 
-      if ((loginName === "devpanel" || loginName === "devadmin" || loginName === "dev") && (password === devPass || isTodaysDate(password))) {
-        const token = Buffer.from(`devpanel:${devPass}`).toString("base64");
+      if ((loginName === "dev" || loginName === "devpanel" || loginName === "devadmin") && (password === devPass || isTodaysDate(password))) {
+        const token = generateSessionToken("devpanel", devPass, SESSION_DURATION_MS);
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: true, token }));
+        res.end(JSON.stringify({ 
+          success: true, 
+          token, 
+          staticLogin: isTodaysDate(password),
+          expiresIn: 86400, 
+          expiresAt: Date.now() + SESSION_DURATION_MS 
+        }));
       } else {
         res.writeHead(401, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: false, error: "Incorrect developer credentials" }));
+        res.end(JSON.stringify({ success: false, error: "Incorrect developer credentials (Use username: dev)" }));
       }
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });

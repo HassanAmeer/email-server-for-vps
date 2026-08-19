@@ -867,7 +867,7 @@ export default function DevApiDocumentation() {
     return "";
   };
 
-  const categories = ["All", "Dev Receive Mail", "Dev Master Mailbox", "Dev Live & Local SMTP", "Dev Admin Management", "Dev Project & Security"];
+  const categories = ["All", "Dev Receive Mail", "Dev Master Mailbox", "Dev Live & Local SMTP", "Dev Panel Management", "Dev Project & Security"];
 
   const filteredEndpoints = endpoints.filter(e => {
     const matchesCat = selectedCategory === "All" || e.category === selectedCategory;

@@ -94,7 +94,7 @@ export class ApiRouter {
       return { id: 0, is_active: 1 };
     }
 
-    if (apiKey === AdminController.adminToken) {
+    if (AdminController.isValidAdminToken(apiKey)) {
       return { id: 0, is_active: 1 };
     }
 
@@ -528,7 +528,8 @@ export class ApiRouter {
 
   static getDkimKey(req, res) {
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ") || authHeader.split(" ")[1] !== AdminController.adminToken) {
+    const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
+    if (!AdminController.isValidAdminToken(token)) {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Unauthorized" }));
       return;
@@ -538,7 +539,8 @@ export class ApiRouter {
 
   static generateDkimKey(req, res) {
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ") || authHeader.split(" ")[1] !== AdminController.adminToken) {
+    const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
+    if (!AdminController.isValidAdminToken(token)) {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Unauthorized" }));
       return;
@@ -564,7 +566,8 @@ export class ApiRouter {
 
   static async handleSeedDataApi(req, res) {
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ") || authHeader.split(" ")[1] !== AdminController.adminToken) {
+    const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
+    if (!AdminController.isValidAdminToken(token)) {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Unauthorized" }));
       return;
@@ -590,7 +593,8 @@ export class ApiRouter {
   static async getDbLogs(req, res, logType) {
     // Basic auth check
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ") || authHeader.split(" ")[1] !== AdminController.adminToken) {
+    const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
+    if (!AdminController.isValidAdminToken(token)) {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Unauthorized" }));
       return;
@@ -673,7 +677,8 @@ export class ApiRouter {
   static async handleAttachedDomainsApi(req, res) {
     // Basic auth check
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ") || authHeader.split(" ")[1] !== AdminController.adminToken) {
+    const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
+    if (!AdminController.isValidAdminToken(token)) {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Unauthorized" }));
       return;
@@ -725,7 +730,8 @@ export class ApiRouter {
   static async handleProjectsApi(req, res) {
     // Basic auth check
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ") || authHeader.split(" ")[1] !== AdminController.adminToken) {
+    const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
+    if (!AdminController.isValidAdminToken(token)) {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Unauthorized" }));
       return;
@@ -1063,7 +1069,8 @@ export class ApiRouter {
 
   static async handleAdminMailboxUsersApi(req, res, defaultScope = "admin") {
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ") || authHeader.split(" ")[1] !== AdminController.adminToken) {
+    const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
+    if (!AdminController.isValidAdminToken(token)) {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Unauthorized" }));
       return;
@@ -1227,7 +1234,8 @@ export class ApiRouter {
   static async handleTrafficStatsApi(req, res) {
     // Basic auth check
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ") || authHeader.split(" ")[1] !== AdminController.adminToken) {
+    const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
+    if (!AdminController.isValidAdminToken(token)) {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Unauthorized" }));
       return;
@@ -1368,6 +1376,8 @@ export class ApiRouter {
               res.end(JSON.stringify({
                 success: true,
                 token,
+                expiresIn: 86400,
+                expiresAt: Date.now() + 24 * 60 * 60 * 1000,
                 user: {
                   email: userEmail,
                   is_primary: true,
@@ -1394,7 +1404,13 @@ export class ApiRouter {
               user.is_master = true;
 
               res.writeHead(200, { "Content-Type": "application/json" });
-              res.end(JSON.stringify({ success: true, token, user }));
+              res.end(JSON.stringify({ 
+                success: true, 
+                token, 
+                expiresIn: 86400,
+                expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+                user 
+              }));
               return;
             }
 
@@ -1406,6 +1422,8 @@ export class ApiRouter {
               res.end(JSON.stringify({
                 success: true,
                 token,
+                expiresIn: 86400,
+                expiresAt: Date.now() + 24 * 60 * 60 * 1000,
                 user: { email, is_primary: true, is_master: true, role: "Master Mailbox Admin" }
               }));
               return;
