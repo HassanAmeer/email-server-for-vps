@@ -258,7 +258,6 @@ export default function SmtpManager({
           domain: cleanDomain,
           fromEmail: fullEmail,
           description: newDescription.trim() || "Website / App SMTP Connection",
-          enabled: true,
         }),
       });
 
@@ -889,7 +888,7 @@ export default function SmtpManager({
                 type="button"
                 onClick={() => {
                   const token = typeof window !== "undefined" ? localStorage.getItem(tokenKey) || "" : "";
-                  const txt = `curl -X POST "${apiUrl}${apiPrefix}/smtp" \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer ${token || "YOUR_TOKEN"}" \\\n  -d '{\n    "email": "orders@${primaryDomain || "yourdomain.com"}",\n    "password": "your_secure_password",\n    "domain": "${primaryDomain || "yourdomain.com"}",\n    "description": "E-commerce Orders",\n    "enabled": true\n  }'`;
+                  const txt = `curl -X POST "${apiUrl}${apiPrefix}/smtp" \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer ${token || "YOUR_TOKEN"}" \\\n  -d '{\n    "email": "orders@${primaryDomain || "yourdomain.com"}",\n    "password": "your_secure_password",\n    "domain": "${primaryDomain || "yourdomain.com"}",\n    "description": "E-commerce Orders"\n  }'`;
                   copyToClipboard(txt, "api_create_curl");
                 }}
                 className="text-[10px] bg-white/[0.05] hover:bg-white/[0.1] text-gray-300 px-2 py-1 rounded transition-colors cursor-pointer"
@@ -905,8 +904,7 @@ export default function SmtpManager({
   "email": "orders@${primaryDomain || "yourdomain.com"}",
   "password": "strong_secret_password",
   "domain": "${primaryDomain || "yourdomain.com"}",
-  "description": "Store Sender",
-  "enabled": true
+  "description": "Store Sender"
 }`}
             </pre>
           </div>

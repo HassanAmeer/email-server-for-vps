@@ -743,7 +743,7 @@ export class AdminController {
         res.end(JSON.stringify({ error: "Invalid JSON body" }));
         return;
       }
-      let { id, username, password, domain, fromEmail, email, description, enabled } = parsed;
+      let { id, username, password, domain, fromEmail, email, description } = parsed;
       
       const finalEmail = email?.trim() || fromEmail?.trim() || username?.trim() || "";
       if (!finalEmail && !username) {
@@ -784,7 +784,6 @@ export class AdminController {
         domain: domain?.trim() || (finalEmail.includes("@") ? finalEmail.split("@")[1] : "*"),
         fromEmail: fromEmail?.trim() || finalEmail || username.trim(),
         description: description?.trim() || "Web App / Website SMTP Relay",
-        enabled: typeof enabled === "boolean" ? enabled : true,
         created_at: existingUser?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };

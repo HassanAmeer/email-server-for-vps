@@ -723,18 +723,18 @@ const endpoints = [
   "email": "support@micorna.biz",
   "password": "strong_secret_password_or_leave_blank_for_auto_generate",
   "domain": "micorna.biz",
-  "description": "Customer Support Desk",
-  "enabled": true
+  "description": "Customer Support Desk"
 }`,
     response: `{
   "success": true,
   "message": "SMTP credential saved successfully",
   "credential": {
+    "id": "smtp_1720000000000_a1b2",
     "email": "support@micorna.biz",
     "username": "support@micorna.biz",
     "password": "...",
     "domain": "micorna.biz",
-    "enabled": true
+    "description": "Customer Support Desk"
   }
 }`,
     exampleUrl: "http://your-vps-ip:8081/api/admin/smtp",
