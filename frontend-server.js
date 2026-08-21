@@ -31,7 +31,7 @@ Bun.serve({
     let pathname = decodeURIComponent(url.pathname);
 
     // 1. Proxy API & Storage routes to backend (port 8081)
-    if (pathname.startsWith("/api/") || pathname.startsWith("/storage/")) {
+    if (pathname.startsWith("/api/") || pathname === "/api" || pathname.startsWith("/storage/") || pathname === "/storage") {
       const backendUrl = `http://127.0.0.1:${BACKEND_PORT}${pathname}${url.search}`;
       try {
         const headers = new Headers(req.headers);

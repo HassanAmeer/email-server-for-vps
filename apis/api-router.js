@@ -6,7 +6,7 @@ import db, { logGeneratedEmail, getProjectByApiKey, logProjectApiHit, getActiveD
 // Paths config
 const localMailDir = path.join(process.cwd(), "backend", "storage", "local");
 const liveMailDir = path.join(process.cwd(), "backend", "storage", "live");
-const attachmentsDir = path.join(process.cwd(), "backend", "storage", "media");
+const attachmentsDir = path.join(process.cwd(), "backend", "storage", "media-mails");
 const credsPath = path.join(process.cwd(), "backend", "send-mail-by-smtp", "credentials.json");
 
 // Helper to determine active email storage directory
@@ -786,8 +786,31 @@ export class ApiRouter {
         return;
       }
 
+      // PUT /api/admin/projects/:id/advanced (Update advanced settings like retention, forbidden IDs, allowed files)
+      if (req.method === "PUT" && req.url.endsWith("/advanced")) {
+        const urlParts = req.url.split("/");
+        const id = urlParts[urlParts.length - 2];
+        let body = "";
+        req.on("data", chunk => body += chunk.toString());
+        req.on("end", () => {
+          try {
+            const parsed = JSON.parse(body);
+            if (parsed.retention) dbModule.updateProjectRetention(id, parsed.retention);
+            if (parsed.forbiddenIds) dbModule.updateProjectForbiddenIds(id, parsed.forbiddenIds);
+            if (parsed.allowedFiles) dbModule.updateProjectAllowedFiles(id, parsed.allowedFiles);
+            
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ success: true }));
+          } catch (e) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: e.message }));
+          }
+        });
+        return;
+      }
+
       // PUT /api/admin/projects/:id (Update webhook or is_active)
-      if (req.method === "PUT" && !req.url.endsWith("/stats")) {
+      if (req.method === "PUT" && !req.url.endsWith("/stats") && !req.url.endsWith("/advanced")) {
         const id = req.url.split("/").pop();
         let body = "";
         req.on("data", chunk => body += chunk.toString());
@@ -806,29 +829,6 @@ export class ApiRouter {
               const stmt = db.prepare("UPDATE projects SET name = ? WHERE id = ?");
               stmt.run(parsed.name, id);
             }
-            
-            res.writeHead(200, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ success: true }));
-          } catch (e) {
-            res.writeHead(400, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ error: e.message }));
-          }
-        });
-        return;
-      }
-
-      // PUT /api/admin/projects/:id/advanced (Update advanced settings like retention, forbidden IDs, allowed files)
-      if (req.method === "PUT" && req.url.endsWith("/advanced")) {
-        const urlParts = req.url.split("/");
-        const id = urlParts[urlParts.length - 2];
-        let body = "";
-        req.on("data", chunk => body += chunk.toString());
-        req.on("end", () => {
-          try {
-            const parsed = JSON.parse(body);
-            if (parsed.retention) dbModule.updateProjectRetention(id, parsed.retention);
-            if (parsed.forbiddenIds) dbModule.updateProjectForbiddenIds(id, parsed.forbiddenIds);
-            if (parsed.allowedFiles) dbModule.updateProjectAllowedFiles(id, parsed.allowedFiles);
             
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ success: true }));
@@ -862,17 +862,17 @@ export class ApiRouter {
         const idStr = req.url.split("/")[4]; // /api/admin/projects/:id/stats
         const id = parseInt(idStr, 10);
         try {
-          const totalHits = db.query("SELECT COUNT(*) as count FROM project_api_logs WHERE project_id = ?").get(id).count;
-          const totalInboxes = db.query("SELECT COUNT(*) as count FROM generated_emails WHERE project_id = ?").get(id).count;
-          const totalReceived = db.query("SELECT COUNT(*) as count FROM received_emails WHERE project_id = ?").get(id).count;
+          const totalHits = db.prepare("SELECT COUNT(*) as count FROM project_api_logs WHERE project_id = ?").get(id)?.count || 0;
+          const totalInboxes = db.prepare("SELECT COUNT(*) as count FROM generated_emails WHERE project_id = ?").get(id)?.count || 0;
+          const totalReceived = db.prepare("SELECT COUNT(*) as count FROM received_emails WHERE project_id = ?").get(id)?.count || 0;
           
-          const simpleReceived = db.query("SELECT COUNT(*) as count FROM received_emails WHERE project_id = ? AND has_attachment = 0").get(id).count;
-          const attachmentReceived = db.query("SELECT COUNT(*) as count FROM received_emails WHERE project_id = ? AND has_attachment = 1").get(id).count;
-          const totalStorageUsed = db.query("SELECT SUM(attachment_size) as total FROM received_emails WHERE project_id = ?").get(id).total || 0;
+          const simpleReceived = db.prepare("SELECT COUNT(*) as count FROM received_emails WHERE project_id = ? AND has_attachment = 0").get(id)?.count || 0;
+          const attachmentReceived = db.prepare("SELECT COUNT(*) as count FROM received_emails WHERE project_id = ? AND has_attachment = 1").get(id)?.count || 0;
+          const totalStorageUsed = db.prepare("SELECT SUM(attachment_size) as total FROM received_emails WHERE project_id = ?").get(id)?.total || 0;
 
-          const recentLogs = db.query("SELECT endpoint, method, created_at FROM project_api_logs WHERE project_id = ? ORDER BY created_at DESC LIMIT 50").all(id);
-          const recentReceived = db.query("SELECT recipient, sender, subject, has_attachment, created_at FROM received_emails WHERE project_id = ? ORDER BY created_at DESC LIMIT 10").all(id);
-          const topEndpoints = db.query("SELECT endpoint, COUNT(*) as hits FROM project_api_logs WHERE project_id = ? GROUP BY endpoint ORDER BY hits DESC LIMIT 5").all(id);
+          const recentLogs = db.prepare("SELECT endpoint, method, created_at FROM project_api_logs WHERE project_id = ? ORDER BY created_at DESC LIMIT 50").all(id);
+          const recentReceived = db.prepare("SELECT recipient, sender, subject, has_attachment, created_at FROM received_emails WHERE project_id = ? ORDER BY created_at DESC LIMIT 10").all(id);
+          const topEndpoints = db.prepare("SELECT endpoint, COUNT(*) as hits FROM project_api_logs WHERE project_id = ? GROUP BY endpoint ORDER BY hits DESC LIMIT 5").all(id);
 
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({
@@ -1174,27 +1174,42 @@ export class ApiRouter {
         req.on("data", chunk => body += chunk.toString());
         req.on("end", () => {
           try {
-            const { email, password, project_id } = JSON.parse(body);
-            if (!password) {
+            const { email, password, project_id } = JSON.parse(body || "{}");
+            
+            const fields = [];
+            const values = [];
+
+            if (email) {
+              fields.push("email = ?");
+              values.push(email);
+            }
+
+            let plainPassword = undefined;
+            if (password) {
+              const hash = Bun.password.hashSync(password, {
+                algorithm: "bcrypt",
+                cost: 10,
+              });
+              fields.push("password_hash = ?");
+              values.push(hash);
+              fields.push("plain_password = ?");
+              values.push(password);
+              plainPassword = password;
+            }
+
+            if (project_id !== undefined) {
+              fields.push("project_id = ?");
+              values.push(project_id);
+            }
+
+            if (fields.length === 0) {
               res.writeHead(400, { "Content-Type": "application/json" });
-              res.end(JSON.stringify({ error: "Password is required" }));
+              res.end(JSON.stringify({ error: "No fields provided to update" }));
               return;
             }
 
-            const hash = Bun.password.hashSync(password, {
-              algorithm: "bcrypt",
-              cost: 10,
-            });
-
-            if (email && project_id) {
-              db.prepare("UPDATE mailbox_table SET email = ?, password_hash = ?, plain_password = ?, project_id = ? WHERE id = ?").run(email, hash, password, project_id, id);
-            } else if (email) {
-              db.prepare("UPDATE mailbox_table SET email = ?, password_hash = ?, plain_password = ? WHERE id = ?").run(email, hash, password, id);
-            } else if (project_id) {
-              db.prepare("UPDATE mailbox_table SET password_hash = ?, plain_password = ?, project_id = ? WHERE id = ?").run(hash, password, project_id, id);
-            } else {
-              db.prepare("UPDATE mailbox_table SET password_hash = ?, plain_password = ? WHERE id = ?").run(hash, password, id);
-            }
+            values.push(id);
+            db.prepare(`UPDATE mailbox_table SET ${fields.join(", ")} WHERE id = ?`).run(...values);
 
             // Sync primary_prefix in attached_domains if this email belongs to primary domain
             if (email && email.includes("@")) {
@@ -1207,7 +1222,7 @@ export class ApiRouter {
             }
 
             res.writeHead(200, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ success: true, id, email, plain_password: password }));
+            res.end(JSON.stringify({ success: true, id, email, plain_password: plainPassword }));
           } catch (err) {
             res.writeHead(500, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ error: err.message }));
@@ -1546,7 +1561,7 @@ export class ApiRouter {
         const offset = (page - 1) * limit;
         params.push(limit, offset);
 
-        const totalRecords = db.prepare(countQuery).get(...countParams).count;
+        const totalRecords = db.prepare(countQuery).get(...countParams)?.count || 0;
         const data = db.prepare(query).all(...params);
 
         let trashCount = 0;
@@ -1737,7 +1752,8 @@ export class ApiRouter {
       // DELETE /api/mailbox/inbox/:id (Soft delete / Move to Trash or permanent if ?permanent=true)
       if (normUrl.match(/\/api\/mailbox\/inbox\/\d+/) && req.method === "DELETE") {
         const id = normUrl.split("/").pop();
-        const isPermanent = parsedUrl.searchParams.get("permanent") === "true";
+        const urlObj = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+        const isPermanent = urlObj.searchParams.get("permanent") === "true";
         const db = dbModule.default;
         const emailRecord = db.prepare("SELECT file_name FROM received_emails WHERE id = ?").get(id);
         if (!emailRecord) {

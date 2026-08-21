@@ -83,35 +83,36 @@ db.exec(`
     project_id INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS attached_domains (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    domain TEXT NOT NULL UNIQUE,
+    status TEXT DEFAULT 'active',
+    plan TEXT DEFAULT 'free',
+    catch_all BOOLEAN DEFAULT 1,
+    is_primary BOOLEAN DEFAULT 0,
+    primary_prefix TEXT DEFAULT 'my',
+    route_to_primary BOOLEAN DEFAULT 1,
+    scope TEXT DEFAULT 'admin',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS api_settings (
+    id TEXT PRIMARY KEY,
+    method TEXT,
+    path TEXT,
+    desc TEXT,
+    enabled BOOLEAN DEFAULT 1,
+    category TEXT,
+    hits INTEGER DEFAULT 0
+  );
 `);
 
-try { db.exec(`ALTER TABLE sent_emails ADD COLUMN scope TEXT DEFAULT 'admin';`); } catch (e) { }
-
-try { db.exec(`ALTER TABLE generated_emails ADD COLUMN project_id INTEGER;`); } catch (e) { }
-try { db.exec(`ALTER TABLE received_emails ADD COLUMN project_id INTEGER;`); } catch (e) { }
-try { db.exec(`ALTER TABLE received_emails ADD COLUMN attachment_size INTEGER DEFAULT 0;`); } catch (e) { }
-try { db.exec(`ALTER TABLE received_emails ADD COLUMN file_name TEXT;`); } catch (e) { }
-try { db.exec(`ALTER TABLE received_emails ADD COLUMN is_deleted BOOLEAN DEFAULT 0;`); } catch (e) { }
-try { db.exec(`ALTER TABLE received_emails ADD COLUMN deleted_at DATETIME;`); } catch (e) { }
-try { db.exec(`ALTER TABLE projects ADD COLUMN is_active BOOLEAN DEFAULT 1;`); } catch (e) { }
-try { db.exec(`ALTER TABLE projects ADD COLUMN retention_generated_emails INTEGER DEFAULT 0;`); } catch (e) { }
-try { db.exec(`ALTER TABLE projects ADD COLUMN retention_simple_mails INTEGER DEFAULT 0;`); } catch (e) { }
-try { db.exec(`ALTER TABLE projects ADD COLUMN retention_attachments INTEGER DEFAULT 0;`); } catch (e) { }
-try { db.exec(`ALTER TABLE projects ADD COLUMN forbidden_ids TEXT DEFAULT 'admin,info,support,contact,mail,office,user';`); } catch (e) { }
-try { db.exec(`ALTER TABLE projects ADD COLUMN forbidden_ids_free TEXT DEFAULT 'admin,info,support,contact,mail,office,user';`); } catch (e) { }
-try { db.exec(`ALTER TABLE projects ADD COLUMN forbidden_ids_pro TEXT DEFAULT 'admin,support,info';`); } catch (e) { }
-try { db.exec(`ALTER TABLE projects ADD COLUMN retention_generated_emails_free INTEGER DEFAULT 1;`); } catch (e) { }
-try { db.exec(`ALTER TABLE projects ADD COLUMN retention_generated_emails_pro INTEGER DEFAULT 30;`); } catch (e) { }
-try { db.exec(`ALTER TABLE projects ADD COLUMN retention_simple_mails_free INTEGER DEFAULT 1;`); } catch (e) { }
-try { db.exec(`ALTER TABLE projects ADD COLUMN retention_simple_mails_pro INTEGER DEFAULT 30;`); } catch (e) { }
-try { db.exec(`ALTER TABLE projects ADD COLUMN retention_attachments_free INTEGER DEFAULT 1;`); } catch (e) { }
-try { db.exec(`ALTER TABLE projects ADD COLUMN retention_attachments_pro INTEGER DEFAULT 30;`); } catch (e) { }
-try { db.exec(`ALTER TABLE projects ADD COLUMN allowed_files_free TEXT DEFAULT 'txt,png,jpg,jpeg,pdf,zip';`); } catch (e) { }
-try { db.exec(`ALTER TABLE projects ADD COLUMN allowed_files_pro TEXT DEFAULT 'txt,sql,png,zip,pdf,ai,mp3,mp4,jpg,jpeg,gif';`); } catch (e) { }
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN catch_all BOOLEAN DEFAULT 1;`); } catch (e) { }
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN is_primary BOOLEAN DEFAULT 0;`); } catch (e) { }
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN primary_prefix TEXT DEFAULT 'my';`); } catch (e) { }
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN route_to_primary BOOLEAN DEFAULT 1;`); } catch (e) { }
+try { db.exec(`ALTER TABLE attached_domains ADD COLUMN scope TEXT DEFAULT 'admin';`); } catch (e) { }
 // Migrate mailbox/mailbox_users to mailbox_table if exists
 try {
   const hasMailboxUsers = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='mailbox_users'").get();
@@ -428,7 +429,7 @@ export function runDataRetentionCleanupJob() {
 
       for (const domainObj of domainsWithPlan) {
         const domain = domainObj.domain;
-        const plan = domainObj.plan === "premium" ? "pro" : "free";
+        const plan = (domainObj.plan === "premium" || domainObj.plan === "pro") ? "pro" : "free";
         const settings = retentionSettings[plan];
         
         if (!settings) continue;
@@ -1048,7 +1049,7 @@ export function getMailboxInbox(email, page = 1, limit = 200, search = "", filte
     query += " ORDER BY id DESC LIMIT ? OFFSET ?";
     params.push(parsedLimit, offset);
 
-    const totalRecords = db.prepare(countQuery).get(...countParams).count;
+    const totalRecords = db.prepare(countQuery).get(...countParams)?.count || 0;
     const data = db.prepare(query).all(...params);
     const totalPages = Math.ceil(totalRecords / parsedLimit);
 

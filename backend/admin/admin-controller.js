@@ -1,7 +1,20 @@
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import db, { initApiSettings, getApiSettingsList, toggleApiSettingDB, incrementApiHits, resetApiSettingsHits, getSetting, setSetting } from "../database/db.js";
+import { exec } from "child_process";
+import dns from "dns";
+import db, {
+  initApiSettings,
+  getApiSettingsList,
+  toggleApiSettingDB,
+  incrementApiHits,
+  resetApiSettingsHits,
+  getSetting,
+  setSetting,
+  getMailboxUsers,
+  createMailboxUser,
+  deleteMailboxUser,
+} from "../database/db.js";
 
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -34,7 +47,8 @@ export function verifySessionToken(token, expectedRole, secret) {
 const storageDir = path.join(process.cwd(), "backend", "storage");
 const localMailDir = path.join(process.cwd(), "backend", "storage", "local");
 const liveMailDir = path.join(process.cwd(), "backend", "storage", "live");
-const attachmentsDir = path.join(process.cwd(), "backend", "storage", "media");
+const attachmentsDir = path.join(process.cwd(), "backend", "storage", "media-mails");
+const maildirDir = path.join(process.cwd(), "backend", "storage", "maildir");
 const credsPath = path.join(process.cwd(), "backend", "send-mail-by-smtp", "credentials.json");
 
 // Helper to determine active email storage directory
@@ -230,7 +244,6 @@ export const DEFAULT_ADMIN_MENU = [
 
 // Initialize settings in database
 initApiSettings(defaultApiSettings);
-toggleApiSettingDB("mailbox-client-send", false);
 
 // Safe async request body reader
 async function parseJsonBody(req) {
@@ -830,15 +843,29 @@ export class AdminController {
         return;
       }
 
-      const { sendOutboundEmail } = await import("../send-mail-simple/send-mail-from-generated-mail-from-live.js");
-      const result = await sendOutboundEmail({
-        from,
-        to,
-        subject,
-        text: text || (html ? "" : "No text content"),
-        html: html || undefined,
-        attachments: Array.isArray(attachments) ? attachments : []
-      });
+      const IS_LIVE = process.env.live !== "false";
+      let result;
+      if (IS_LIVE) {
+        const { sendOutboundEmail } = await import("../send-mail-simple/send-mail-from-generated-mail-from-live.js");
+        result = await sendOutboundEmail({
+          from,
+          to,
+          subject,
+          text: text || (html ? "" : "No text content"),
+          html: html || undefined,
+          attachments: Array.isArray(attachments) ? attachments : []
+        });
+      } else {
+        const { sendOutboundEmail } = await import("../send-mail-simple/send-mail-from-generated-mail-from-local.js");
+        result = await sendOutboundEmail({
+          from,
+          to,
+          subject,
+          text: text || (html ? "" : "No text content"),
+          html: html || undefined,
+          attachments: Array.isArray(attachments) ? attachments : []
+        });
+      }
 
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
@@ -1008,8 +1035,8 @@ export class AdminController {
         res.end(JSON.stringify({ error: "Recipient email is required" }));
         return;
       }
-      const { sendOutboundEmail } = await import("../send-mail-simple/send-mail-from-generated-mail-from-live.js");
-      const result = await sendOutboundEmail({
+      const IS_LIVE = process.env.live !== "false";
+      const emailPayload = {
         from: fromEmail || "noreply@micorna.biz",
         to: toEmail,
         subject: subject || "⚡ Test Email via VPS SMTP Relay",
@@ -1025,7 +1052,16 @@ export class AdminController {
           </div>
           <p style="font-size:12px;color:#8b949e;margin-bottom:0;">DKIM signed & direct MX delivery verified.</p>
         </div>`
-      });
+      };
+
+      let result;
+      if (IS_LIVE) {
+        const { sendOutboundEmail } = await import("../send-mail-simple/send-mail-from-generated-mail-from-live.js");
+        result = await sendOutboundEmail(emailPayload);
+      } else {
+        const { sendOutboundEmail } = await import("../send-mail-simple/send-mail-from-generated-mail-from-local.js");
+        result = await sendOutboundEmail(emailPayload);
+      }
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: true, result }));
     } catch (err) {
@@ -1071,7 +1107,6 @@ export class AdminController {
    */
   static generateDkimKey(req, res) {
     try {
-      const { exec } = require("child_process");
       exec("bun backend/scripts/generate-dkim.js", (error, stdout, stderr) => {
         if (error) {
           res.writeHead(500, { "Content-Type": "application/json" });
@@ -1099,7 +1134,6 @@ export class AdminController {
    */
   static getAttachedDomains(req, res, scope = 'admin') {
     try {
-      const db = require('../database/db.js').default;
       const domains = db.prepare("SELECT * FROM attached_domains WHERE scope = ? ORDER BY is_primary DESC, created_at DESC").all(scope);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(domains));
@@ -1120,7 +1154,6 @@ export class AdminController {
         prefix = parsed.prefix.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
       }
 
-      const db = require('../database/db.js').default;
       const exists = db.prepare("SELECT id, domain FROM attached_domains WHERE id = ? AND scope = ?").get(id, scope);
       if (!exists) {
         res.writeHead(404, { "Content-Type": "application/json" });
@@ -1175,8 +1208,6 @@ export class AdminController {
         return;
       }
 
-      const db = require('../database/db.js').default;
-
       // If this is marked as primary, reset others in same scope only
       if (is_primary === 1 || is_primary === true) {
         db.prepare("UPDATE attached_domains SET is_primary = 0 WHERE scope = ?").run(scope);
@@ -1218,8 +1249,6 @@ export class AdminController {
         return;
       }
 
-      const db = require('../database/db.js').default;
-      
       let updates = [];
       let values = [];
       
@@ -1281,7 +1310,6 @@ export class AdminController {
         res.end(JSON.stringify({ error: "route_to_primary field is required" }));
         return;
       }
-      const db = require('../database/db.js').default;
       const routeFlag = payload.route_to_primary === true || payload.route_to_primary === 1 ? 1 : 0;
       
       if (Array.isArray(payload.domain_ids) && payload.domain_ids.length > 0) {
@@ -1305,7 +1333,6 @@ export class AdminController {
    */
   static async verifyAttachedDomain(req, res, id) {
     try {
-      const db = require('../database/db.js').default;
       const domainRecord = db.prepare("SELECT * FROM attached_domains WHERE id = ?").get(id);
       
       if (!domainRecord) {
@@ -1315,7 +1342,7 @@ export class AdminController {
       }
 
       const domain = domainRecord.domain;
-      const dns = require('dns').promises;
+      const dnsPromises = dns.promises;
       
       const results = {
         domain,
@@ -1327,7 +1354,7 @@ export class AdminController {
 
       // Check MX
       try {
-        const mxRecords = await dns.resolveMx(domain);
+        const mxRecords = await dnsPromises.resolveMx(domain);
         if (mxRecords && mxRecords.length > 0) {
           results.mx.valid = true;
           results.mx.details = mxRecords.map(r => `${r.exchange} (priority ${r.priority})`);
@@ -1338,8 +1365,8 @@ export class AdminController {
 
       // Check A record (mail.<domain> or <domain>)
       try {
-        const mailA = await dns.resolve4(`mail.${domain}`).catch(() => []);
-        const rootA = await dns.resolve4(domain).catch(() => []);
+        const mailA = await dnsPromises.resolve4(`mail.${domain}`).catch(() => []);
+        const rootA = await dnsPromises.resolve4(domain).catch(() => []);
         const ips = Array.from(new Set([...mailA, ...rootA]));
         if (ips.length > 0) {
           results.a.valid = true;
@@ -1351,7 +1378,7 @@ export class AdminController {
 
       // Check SPF TXT
       try {
-        const txtRecords = await dns.resolveTxt(domain);
+        const txtRecords = await dnsPromises.resolveTxt(domain);
         const flatTxt = txtRecords.map(t => Array.isArray(t) ? t.join("") : t);
         const spf = flatTxt.find(t => typeof t === "string" && t.toLowerCase().includes("v=spf1"));
         if (spf) {
@@ -1364,8 +1391,8 @@ export class AdminController {
 
       // Check DKIM TXT (check both mail._domainkey and default._domainkey)
       try {
-        const mailDkim = await dns.resolveTxt(`mail._domainkey.${domain}`).catch(() => []);
-        const defDkim = await dns.resolveTxt(`default._domainkey.${domain}`).catch(() => []);
+        const mailDkim = await dnsPromises.resolveTxt(`mail._domainkey.${domain}`).catch(() => []);
+        const defDkim = await dnsPromises.resolveTxt(`default._domainkey.${domain}`).catch(() => []);
         const allDkim = [...mailDkim, ...defDkim];
         const flatDkim = allDkim.map(t => Array.isArray(t) ? t.join("") : t);
         const dkim = flatDkim.find(t => typeof t === "string" && (t.toLowerCase().includes("v=dkim1") || t.includes("p=")));
@@ -1403,7 +1430,6 @@ export class AdminController {
    */
   static deleteAttachedDomain(req, res, id) {
     try {
-      const db = require('../database/db.js').default;
       const stmt = db.prepare("DELETE FROM attached_domains WHERE id = ?");
       const info = stmt.run(id);
       
@@ -1423,7 +1449,6 @@ export class AdminController {
   // --- MAILBOX MANAGEMENT ---
   static getMailboxUsers(req, res, projectId) {
     try {
-      const { getMailboxUsers } = require('../database/db.js');
       const users = getMailboxUsers(projectId);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ users }));
@@ -1443,7 +1468,6 @@ export class AdminController {
       }
       const { email, password } = parsed;
 
-      const { createMailboxUser } = require('../database/db.js');
       const result = createMailboxUser(email, password, projectId);
       
       if (result.success) {
@@ -1461,7 +1485,6 @@ export class AdminController {
 
   static deleteMailboxUser(req, res, projectId, userId) {
     try {
-      const { deleteMailboxUser } = require('../database/db.js');
       const success = deleteMailboxUser(userId, projectId);
       
       if (success) {
@@ -1482,7 +1505,6 @@ export class AdminController {
    */
   static getSeedStatus(req, res) {
     try {
-      const db = require('../database/db.js').default;
       const url = new URL(req.url, `http://${req.headers.host}`);
       const scope = url.searchParams.get("scope") || "admin";
 
@@ -1540,8 +1562,6 @@ export class AdminController {
       const scope = parsed?.scope || "admin";
       const customDomain = parsed?.domain || null;
       const customProjectId = parsed?.projectId ? parseInt(parsed.projectId, 10) : null;
-
-      const db = require('../database/db.js').default;
 
       // Helper to get active domains for this scope
       const primaryRow = db.prepare("SELECT domain, primary_prefix FROM attached_domains WHERE is_primary = 1 AND (scope = ? OR (? = 'devpanel' AND scope = 'devadmin')) LIMIT 1").get(scope, scope);
@@ -1870,7 +1890,7 @@ export class AdminController {
       // CLEAR ACTIONS
       const clearEmails = () => {
         let deletedFiles = 0;
-        [localMailDir, liveMailDir].forEach(dir => {
+        [localMailDir, liveMailDir, attachmentsDir, maildirDir].forEach(dir => {
           if (fs.existsSync(dir)) {
             const files = fs.readdirSync(dir);
             files.forEach(f => {
@@ -1955,9 +1975,9 @@ export class AdminController {
       };
 
       const clearAll = () => {
-        // 1. Wipe all files in storage/live and storage/local
+        // 1. Wipe all files in storage/live, storage/local, storage/media-mails, and storage/maildir
         let totalFilesDeleted = 0;
-        [localMailDir, liveMailDir].forEach(dir => {
+        [localMailDir, liveMailDir, attachmentsDir, maildirDir].forEach(dir => {
           if (fs.existsSync(dir)) {
             const files = fs.readdirSync(dir);
             files.forEach(f => {

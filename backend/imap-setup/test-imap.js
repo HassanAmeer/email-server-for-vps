@@ -31,7 +31,7 @@ client.on("data", (data) => {
   const response = data.toString();
   console.log(`[SERVER] ${response.trim()}`);
 
-  if (step === 0 && response.startsWith("* OK")) {
+  if (step === 0 && (response.trim().startsWith("* OK") || response.includes("* OK"))) {
     step = 1;
     const loginCmd = `A01 LOGIN "${email}" "${password}"\r\n`;
     console.log(`[CLIENT] ${loginCmd.trim()}`);

@@ -2,7 +2,8 @@ import { SMTPServer } from 'smtp-server';
 import { simpleParser } from 'mailparser';
 import fs from 'fs';
 import path from 'path';
-import { sendOutboundEmail } from '../send-mail-simple/send-mail-from-generated-mail-from-live.js';
+import { sendOutboundEmail as sendLiveOutboundEmail } from '../send-mail-simple/send-mail-from-generated-mail-from-live.js';
+import { sendOutboundEmail as sendLocalOutboundEmail } from '../send-mail-simple/send-mail-from-generated-mail-from-local.js';
 
 const PORT = 2525; // Port for outbound SMTP Relay (Client to VPS)
 const credsPath = path.join(process.cwd(), 'backend', 'send-mail-by-smtp', 'credentials.json');
@@ -23,6 +24,7 @@ if (fs.existsSync(envPath)) {
 }
 const IS_LIVE = process.env.live !== "false";
 const envText = IS_LIVE ? "LIVE Environment" : "LOCAL Environment";
+const sendOutboundEmail = IS_LIVE ? sendLiveOutboundEmail : sendLocalOutboundEmail;
 
 // Helper to check credentials
 function authenticateUser(username, password) {
@@ -71,8 +73,6 @@ const server = new SMTPServer({
 
   // onData is called when the email body is streamed
   onData(stream, session, callback) {
-    let emailData = [];
-    
     // Parse the incoming email stream using mailparser
     simpleParser(stream, async (err, parsed) => {
       if (err) {
@@ -80,44 +80,80 @@ const server = new SMTPServer({
         return callback(new Error('Email parsing failed'));
       }
 
-      console.log(`[SMTP DATA] Received email from ${parsed.from.text} to ${parsed.to.text}`);
-
       try {
-        // Extract the required fields for our outbound sender
-        const from = parsed.from.value[0].address;
+        // Extract sender address with envelope fallback
+        const from = parsed?.from?.value?.[0]?.address ||
+          session?.envelope?.mailFrom?.address ||
+          (session?.user && typeof session.user === 'object' ? session.user.username : null) ||
+          "noreply@localhost";
         
-        // Handle multiple recipients
-        const toAddresses = parsed.to.value.map(recipient => recipient.address);
-        
-        // Send email individually to each recipient using our outbound script
-        // which includes DKIM signing and direct MX delivery
+        // Extract recipient addresses with envelope and CC/BCC fallbacks
+        let toAddresses = [];
+        if (parsed?.to?.value && Array.isArray(parsed.to.value)) {
+          toAddresses.push(...parsed.to.value.map(r => r.address).filter(Boolean));
+        }
+        if (session?.envelope?.rcptTo && Array.isArray(session.envelope.rcptTo)) {
+          toAddresses.push(...session.envelope.rcptTo.map(r => r.address).filter(Boolean));
+        }
+        if (parsed?.cc?.value && Array.isArray(parsed.cc.value)) {
+          toAddresses.push(...parsed.cc.value.map(r => r.address).filter(Boolean));
+        }
+        if (parsed?.bcc?.value && Array.isArray(parsed.bcc.value)) {
+          toAddresses.push(...parsed.bcc.value.map(r => r.address).filter(Boolean));
+        }
+
+        // Deduplicate recipient addresses
+        toAddresses = Array.from(new Set(toAddresses.map(addr => (addr || "").trim()).filter(Boolean)));
+
+        if (toAddresses.length === 0) {
+          console.error('[SMTP DATA ERROR] No recipient address found in email headers or envelope');
+          return callback(new Error('No valid recipient found in email envelope or headers'));
+        }
+
+        const fromDisplay = parsed?.from?.text || from;
+        const toDisplay = parsed?.to?.text || toAddresses.join(", ");
+        console.log(`[SMTP DATA] Received email from ${fromDisplay} to ${toDisplay}`);
+
+        // Safely parse attachments
+        const attachments = Array.isArray(parsed?.attachments) ? parsed.attachments.map(att => {
+          if (!att || typeof att !== "object") return null;
+          let base64Content = "";
+          if (Buffer.isBuffer(att.content)) {
+            base64Content = att.content.toString("base64");
+          } else if (typeof att.content === "string") {
+            const trimmed = att.content.trim();
+            if (trimmed.length > 0 && trimmed.length % 4 === 0 && /^[A-Za-z0-9+/=]+$/.test(trimmed)) {
+              base64Content = trimmed;
+            } else {
+              base64Content = Buffer.from(att.content, "utf8").toString("base64");
+            }
+          }
+          return {
+            filename: att.filename || "attachment.dat",
+            content: base64Content,
+            contentType: att.contentType || "application/octet-stream"
+          };
+        }).filter(Boolean) : [];
+
+        // Send email individually to each recipient using outbound script
         for (const to of toAddresses) {
           console.log(`[SMTP RELAY] Relaying email to ${to}...`);
-          
-          const attachments = parsed.attachments ? parsed.attachments.map(att => ({
-            filename: att.filename,
-            content: att.content.toString('base64'), // We convert to base64 because our sender script expects base64
-            contentType: att.contentType
-          })) : [];
 
           await sendOutboundEmail({
             from: from,
             to: to,
-            subject: parsed.subject,
-            text: parsed.text,
-            html: parsed.html,
+            subject: parsed?.subject || "(No Subject)",
+            text: parsed?.text || "",
+            html: parsed?.html || "",
             attachments: attachments,
             logCallback: (msg) => console.log(msg)
           });
         }
         
-        console.log(`[SMTP RELAY] Successfully relayed email.`);
+        console.log(`[SMTP RELAY] Successfully relayed email to all recipients.`);
         callback(null, 'Message accepted and relayed');
       } catch (error) {
         console.error(`[SMTP RELAY ERROR] Failed to relay email:`, error.message);
-        // We accept the message anyway so the client doesn't crash, but we log the error
-        // If we return an error here, the client's app might throw an exception.
-        // It's a design choice. Let's return error to client so they know it failed.
         callback(new Error(`Relay failed: ${error.message}`));
       }
     });

@@ -99,10 +99,28 @@ export async function sendOutboundEmail({ from, to, subject, text, html, attachm
     subject: subject || "(No Subject)",
     text: text || "",
     html: html || "",
-    attachments: attachments ? attachments.map(att => ({
-      filename: att.filename,
-      content: Buffer.from(att.content, 'base64')
-    })) : []
+    attachments: Array.isArray(attachments) ? attachments.map(att => {
+      if (!att || typeof att !== "object") return att;
+      const parsedAtt = { filename: att.filename || "attachment.dat" };
+      if (att.contentType) parsedAtt.contentType = att.contentType;
+      if (att.path) {
+        parsedAtt.path = att.path;
+      } else if (att.content) {
+        if (Buffer.isBuffer(att.content)) {
+          parsedAtt.content = att.content;
+        } else if (typeof att.content === "string") {
+          const trimmed = att.content.trim();
+          if (trimmed.length > 0 && trimmed.length % 4 === 0 && /^[A-Za-z0-9+/=]+$/.test(trimmed)) {
+            parsedAtt.content = Buffer.from(trimmed, 'base64');
+          } else {
+            parsedAtt.content = Buffer.from(att.content, 'utf8');
+          }
+        } else {
+          parsedAtt.content = att.content;
+        }
+      }
+      return parsedAtt;
+    }) : []
   };
 
   try {

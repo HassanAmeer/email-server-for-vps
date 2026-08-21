@@ -1261,7 +1261,22 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
                       </span>
                       <div className="bg-black/50 p-2.5 rounded-lg border border-white/5 flex flex-col gap-1.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-gray-500 uppercase font-bold">Host / Name: mail._domainkey</span>
+                          <span className="text-[10px] text-gray-500 uppercase font-bold flex items-center gap-1.5">
+                            Host: <code className="text-emerald-400 font-mono text-[11px] font-bold">default._domainkey</code>
+                            <button
+                              onClick={() => copyToClipboard("default._domainkey", "dkim_host")}
+                              className="text-gray-400 hover:text-emerald-400 text-xs font-bold cursor-pointer"
+                              title="Copy Host Name"
+                            >
+                              {copiedKey === "dkim_host" ? (
+                                <span className="text-emerald-400 text-[10px]">Copied</span>
+                              ) : (
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                              )}
+                            </button>
+                          </span>
                           <button
                             onClick={() => copyToClipboard(dkimKey ? `v=DKIM1; k=rsa; p=${dkimKey}` : "v=DKIM1; k=rsa; p=...", "dkim_val")}
                             className="text-gray-400 hover:text-emerald-400 text-xs font-bold flex items-center gap-1 cursor-pointer"

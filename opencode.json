@@ -1,0 +1,48 @@
+{
+    "$schema": "https://opencode.ai/config.json",
+    "provider": {
+        "tokenrouter": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "TokenRouter",
+            "options": {
+                "baseURL": "https://api.tokenrouter.com/v1",
+                "apiKey": "sk-xXeQVyNf9SYTgt3XWeERu2kAd8bLLSz1LieG0SMXB78TgO75"
+            },
+            "models": {
+                "deepseek/deepseek-v4-pro-0813-free": {
+                    "name": "deepseekv4pro"
+                }
+            }
+        },
+        "hf-qwen": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "HuggingFace Qwen",
+            "options": {
+                "baseURL": "https://g9hnto0u7lvbu837.us-east-2.aws.endpoints.huggingface.cloud/v1",
+                "apiKey": "none"
+            },
+            "models": {
+                "Qwen/Qwen3.8-27B": {
+                    "name": "Qwen 3.8 27B"
+                }
+            }
+        },
+        "zenmux": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "ZenMux",
+            "options": {
+                "baseURL": "https://zenmux.ai/api/v1",
+                "apiKey": "sk-ai-v1-a13d5cec02eb5c9d15777d955acf6b80228181795d50b1a93f8e24f49f57d7d2"
+            },
+            "models": {
+                "z-ai/glm-5.3-free": {
+                    "name": "z-ai/glm-5.3-free"
+                },
+                "inclusionai/ling-3.0-tiny": {
+                    "name": "inclusionai/ling-3.0-tiny"
+                }
+            }
+        }
+    },
+    "model": "hf-qwen/Qwen/Qwen3.8-27B"
+}

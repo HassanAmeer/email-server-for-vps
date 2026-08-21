@@ -349,7 +349,7 @@ const smtpServer = new SMTPServer({
         const targetDomain = domainParts.length === 2 ? domainParts[1] : "";
         const activeDomains = getActiveDomainsWithPlan();
         const domInfo = activeDomains.find(d => d.domain === targetDomain);
-        const plan = (domInfo && domInfo.plan === "premium") ? "pro" : "free";
+        const plan = (domInfo && (domInfo.plan === "pro" || domInfo.plan === "premium")) ? "pro" : "free";
         
         const allowedFilesObj = getProjectAllowedFiles(project.id);
         allowedList = allowedFilesObj[plan] || [];
@@ -471,7 +471,7 @@ const smtpServer = new SMTPServer({
       });
 
       broadcastSseEvent("email_received", {
-        recipient,
+        recipient: targetEmailClean,
         sender: mailData.from,
         subject,
         date: mailData.date,
@@ -664,87 +664,9 @@ const httpServer = http.createServer((req, res) => {
       }
     }
 
-    // Standard client & mailbox endpoints mapped under /api/dev/*
-    const standardReq = Object.create(req);
-    standardReq.url = req.url.replace(/^\/api\/dev\//, "/api/");
-    const targetClean = cleanUrl.replace(/^\/api\/dev\//, "/api/");
-
-    if (targetClean === "/api/domains" && req.method === "GET") {
-      return ApiRouter.getDomains(standardReq, res);
-    }
-    if (targetClean === "/api/mailbox/generate" && req.method === "GET") {
-      return ApiRouter.generateMailbox(standardReq, res);
-    }
-    if (targetClean === "/api/mailbox/custom" && req.method === "GET") {
-      return ApiRouter.customGenerateMailbox(standardReq, res);
-    }
-    if (targetClean === "/api/project/forbidden-ids") {
-      return ApiRouter.handleForbiddenIds(standardReq, res);
-    }
-    if (targetClean === "/api/project/retention") {
-      return ApiRouter.handleRetentionApi(standardReq, res);
-    }
-    if (targetClean === "/api/project/allowed-files") {
-      return ApiRouter.handleAllowedFilesApi(standardReq, res);
-    }
-    if (targetClean.startsWith("/api/mailbox/info") ||
-        targetClean.startsWith("/api/mailbox/inbox") || 
-        targetClean.startsWith("/api/mailbox/login") || 
-        targetClean.startsWith("/api/mailbox/send") || 
-        targetClean.startsWith("/api/mailbox/media") ||
-        targetClean === "/api/mailbox/count") {
-      return ApiRouter.handleMailboxApi(standardReq, res);
-    }
-    if (targetClean.startsWith("/api/mailbox/") && req.method === "GET") {
-      const parts = targetClean.split("/");
-      const email = parts[3];
-      const isOtps = parts[4] === "otps";
-      const isSimple = parts[4] === "simple";
-      if (isOtps) {
-        return ApiRouter.getOtps(standardReq, res, email);
-      } else if (isSimple) {
-        return ApiRouter.getSimpleEmails(standardReq, res, email);
-      } else {
-        return ApiRouter.getMailbox(standardReq, res, email);
-      }
-    }
-    if (targetClean.startsWith("/api/mailbox/") && req.method === "DELETE") {
-      const parts = targetClean.split("/");
-      const email = parts[3];
-      const mailId = parts[4];
-      if (mailId) {
-        return ApiRouter.deleteMail(standardReq, res, email, mailId);
-      } else {
-        return ApiRouter.deleteMailbox(standardReq, res, email);
-      }
-    }
-    if (targetClean.startsWith("/api/attachments/") && req.method === "GET") {
-      const filename = targetClean.split("/")[3];
-      return ApiRouter.getAttachment(standardReq, res, filename);
-    }
-    if (targetClean === "/api/emails/local" && req.method === "GET") {
-      return ApiRouter.getLocalEmails(standardReq, res);
-    }
-    if (targetClean === "/api/emails/live" && req.method === "GET") {
-      return ApiRouter.getLiveEmails(standardReq, res);
-    }
-    if (targetClean.startsWith("/api/emails/delete/local/") && req.method === "POST") {
-      const filename = targetClean.split("/api/emails/delete/local/")[1];
-      return ApiRouter.deleteLocalEmail(standardReq, res, filename);
-    }
-    if (targetClean.startsWith("/api/emails/delete/live/") && req.method === "POST") {
-      const filename = targetClean.split("/api/emails/delete/live/")[1];
-      return ApiRouter.deleteLiveEmail(standardReq, res, filename);
-    }
-    if (targetClean === "/api/send-email/local" && req.method === "POST") {
-      return ApiRouter.sendLocalEmail(standardReq, res);
-    }
-    if (targetClean === "/api/send-email/live" && req.method === "POST") {
-      return ApiRouter.sendLiveEmail(standardReq, res);
-    }
-    if (targetClean === "/api/mails" && req.method === "GET") {
-      return ApiRouter.getAllMails(standardReq, res);
-    }
+    // Standard client & mailbox endpoints mapped under /api/dev/* -> rewrite url and delegate to standard handlers
+    req.url = req.url.replace(/^\/api\/dev\//, "/api/");
+    cleanUrl = cleanUrl.replace(/^\/api\/dev\//, "/api/");
   }
 
   // Intercept api-router temporary mailbox endpoints
@@ -1401,7 +1323,8 @@ const httpServer = http.createServer((req, res) => {
   let reqPath = req.url.split("?")[0];
 
   // Redirect to trailing slash for proper directory asset loading of static routes
-  if (reqPath === "/admin" || reqPath === "/local" || reqPath === "/live" || reqPath === "/doc" || reqPath === "/mailbox") {
+  if (reqPath === "/admin" || reqPath === "/local" || reqPath === "/live" || reqPath === "/doc" || reqPath === "/mailbox" ||
+      reqPath === "/devpanel" || reqPath === "/devadmin" || reqPath === "/devdoc" || reqPath === "/dev" || reqPath === "/imap-mailbox") {
     res.writeHead(301, { "Location": reqPath + "/" });
     res.end();
     return;
@@ -1416,6 +1339,16 @@ const httpServer = http.createServer((req, res) => {
     reqPath = "/admin/index.html";
   } else if (reqPath.startsWith("/doc/")) {
     reqPath = "/doc/index.html";
+  } else if (reqPath.startsWith("/devdoc/")) {
+    reqPath = "/devdoc/index.html";
+  } else if (reqPath.startsWith("/devpanel/")) {
+    reqPath = "/devpanel/index.html";
+  } else if (reqPath.startsWith("/devadmin/")) {
+    reqPath = "/devadmin/index.html";
+  } else if (reqPath.startsWith("/dev/")) {
+    reqPath = "/dev/index.html";
+  } else if (reqPath.startsWith("/imap-mailbox/")) {
+    reqPath = "/imap-mailbox/index.html";
   } else if (reqPath.startsWith("/mailbox/")) {
     if (reqPath.startsWith("/mailbox/inbox")) {
       reqPath = "/mailbox/inbox/index.html";
@@ -1429,16 +1362,22 @@ const httpServer = http.createServer((req, res) => {
   const publicPath = path.join(process.cwd(), "out", reqPath);
 
   if (fs.existsSync(publicPath) && fs.lstatSync(publicPath).isFile()) {
-    const ext = path.extname(publicPath);
+    const ext = path.extname(publicPath).toLowerCase();
     let contentType = "text/html";
     if (ext === ".css") contentType = "text/css";
-    else if (ext === ".js") contentType = "application/javascript";
+    else if (ext === ".js" || ext === ".mjs") contentType = "application/javascript";
     else if (ext === ".png") contentType = "image/png";
-    else if (ext === ".jpg") contentType = "image/jpeg";
+    else if (ext === ".jpg" || ext === ".jpeg") contentType = "image/jpeg";
+    else if (ext === ".webp") contentType = "image/webp";
+    else if (ext === ".gif") contentType = "image/gif";
     else if (ext === ".svg") contentType = "image/svg+xml";
     else if (ext === ".json") contentType = "application/json";
     else if (ext === ".wav") contentType = "audio/wav";
+    else if (ext === ".mp3") contentType = "audio/mpeg";
     else if (ext === ".ico") contentType = "image/x-icon";
+    else if (ext === ".woff2") contentType = "font/woff2";
+    else if (ext === ".woff") contentType = "font/woff";
+    else if (ext === ".ttf") contentType = "font/ttf";
 
     res.writeHead(200, { "Content-Type": contentType });
     fs.createReadStream(publicPath).pipe(res);
