@@ -180,22 +180,34 @@ export default function ApiSettingsManager({ apiUrl, apiPrefix = "/api/admin", t
 
   const isDev = apiPrefix.includes("dev");
 
+  const sortRoutesByMethod = (items: ApiRouteSetting[]) => {
+    const getPriority = (method: string) => {
+      const m = (method || "").toUpperCase().trim();
+      if (m.startsWith("GET")) return 1;
+      if (m.startsWith("POST")) return 2;
+      if (m.startsWith("PUT") || m.startsWith("PATCH")) return 3;
+      if (m.startsWith("DELETE")) return 4;
+      return 5;
+    };
+    return [...items].sort((a, b) => getPriority(a.method) - getPriority(b.method));
+  };
+
   const apiGroups = [
     {
       title: isDev ? "Dev Inbound & Mailbox APIs (/api/dev/*)" : "Receive Email & Mailbox APIs",
-      routes: filteredRoutes.filter(r => r.category.includes("Mailbox") || r.id === "api-domains" || r.id === "dev-domains" || r.category.includes("Temporary")),
+      routes: sortRoutesByMethod(filteredRoutes.filter(r => r.category.includes("Mailbox") || r.id === "api-domains" || r.id === "dev-domains" || r.category.includes("Temporary"))),
     },
     {
-      title: isDev ? "Dev SMTP Relay & Outbound Accounts APIs (/api/devpanel/smtp/*)" : "SMTP Relay & Outbound Accounts APIs (/api/admin/smtp/*)",
-      routes: filteredRoutes.filter(r => r.id.startsWith("smtp-") || r.id.startsWith("dev-smtp") || r.category.includes("SMTP")),
+      title: isDev ? "Dev Send Mail (SMTP) (/api/dev/smtp/*)" : "Send Mail (SMTP) (/api/admin/smtp/*)",
+      routes: sortRoutesByMethod(filteredRoutes.filter(r => r.id.startsWith("smtp-") || r.id.startsWith("dev-smtp") || r.category.includes("SMTP"))),
     },
     {
       title: isDev ? "Dev Outbound Sending Console APIs (/api/dev/*)" : "Direct Send Email APIs (/api/*)",
-      routes: filteredRoutes.filter(r => (r.id.startsWith("send-") || r.id.startsWith("dev-send") || r.category.includes("Console")) && !r.id.startsWith("smtp-") && !r.category.includes("SMTP")),
+      routes: sortRoutesByMethod(filteredRoutes.filter(r => (r.id.startsWith("send-") || r.id.startsWith("dev-send") || r.category.includes("Console")) && !r.id.startsWith("smtp-") && !r.category.includes("SMTP"))),
     },
     {
       title: isDev ? "DevPanel Management & Server APIs (/api/devpanel/*)" : "Admin, Projects & System APIs (/api/admin/*)",
-      routes: filteredRoutes.filter(r => !r.category.includes("Mailbox") && r.id !== "api-domains" && r.id !== "dev-domains" && !r.category.includes("Temporary") && !r.id.startsWith("smtp-") && !r.id.startsWith("dev-smtp") && !r.category.includes("SMTP") && !r.id.startsWith("send-") && !r.id.startsWith("dev-send") && !r.category.includes("Console")),
+      routes: sortRoutesByMethod(filteredRoutes.filter(r => !r.category.includes("Mailbox") && r.id !== "api-domains" && r.id !== "dev-domains" && !r.category.includes("Temporary") && !r.id.startsWith("smtp-") && !r.id.startsWith("dev-smtp") && !r.category.includes("SMTP") && !r.id.startsWith("send-") && !r.id.startsWith("dev-send") && !r.category.includes("Console"))),
     },
   ];
 

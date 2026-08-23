@@ -1,3 +1,55 @@
+
+
+
+micorna.biz
+Added 8/16/2026
+
+Free
+
+Enabled
+
+Verify DNS
+
+DNS Records
+
+Pause
+
+nativated.buzz
+Added 8/17/2026
+
+Free
+
+Enabled
+
+Verify DNS
+
+DNS Records
+
+Pause
+
+dlazdrowiamozgu.buzz
+Added 8/17/2026
+
+Free
+
+Enabled
+
+Verify DNS
+
+DNS Records
+
+Pause
+
+visakara.org
+Added 8/16/2026
+
+
+
+
+
+
+
+
 # Temp Email System (Custom Email Server)
 
 Yeh ek custom email server application hai jo aapko apni custom domain (jaise `llamerada.online`) par emails bhejney aur wasool (receive) karne ki poori saholat deti hai. Yeh system **Local development** aur **Live VPS** dono environments mein theek tarah se kaam karne ke liye design kiya gaya hai.

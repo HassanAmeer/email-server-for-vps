@@ -16,106 +16,74 @@ const CheckIcon = () => (
   </svg>
 );
 
+interface Endpoint {
+  id: string;
+  method: string;
+  path: string;
+  title: string;
+  category: string;
+  desc: string;
+  payload: string | null;
+  response: string;
+  exampleUrl: string;
+  returns: string;
+  auth: boolean;
+  disabled?: boolean;
+}
+
 // ─── Data ────────────────────────────────────────────────────────────────────
-const endpoints = [
+const endpoints: Endpoint[] = [
   {
-    id: "get-domains",
+    id: "api-domains",
     method: "GET",
     path: "/api/domains",
-    title: "Get Active Domains",
+    title: "Active Domains List",
     category: "Receive Mail",
-    desc: "Fetch a list of all active domains available for generating temporary email addresses. Use this list to let users choose a domain before generation.",
+    desc: "Fetch all active domains available for generating temporary emails.",
     payload: null,
-    response: `{
-  "domains": [
-    "llamerada.online",
-    "tempemail.vps"
-  ]
-}`,
+    response: "{\n  \"domains\": [\n    \"llamerada.online\",\n    \"tempemail.vps\"\n  ]\n}",
     exampleUrl: "http://your-vps-ip:8081/api/domains",
     returns: "JSON Object",
-    auth: false,
+    auth: false
   },
   {
-    id: "generate",
+    id: "mailbox-generate",
     method: "GET",
     path: "/api/mailbox/generate",
-    title: "Generate Mailbox",
+    title: "Generate Random Mailbox",
     category: "Receive Mail",
-    desc: "Dynamically allocates a random transient email address. Optionally pass a `domain` query parameter to force generation on a specific active domain.",
+    desc: "Generate a new random temporary email address. Optionally pass ?domain= to choose a specific domain.",
     payload: null,
-    response: `{
-  "email": "a1b2c3d4@tempemail.vps"
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/mailbox/generate?domain=tempemail.vps",
+    response: "{\n  \"email\": \"a1b2c3d4@tempemail.vps\"\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/mailbox/generate",
     returns: "JSON Object",
-    auth: true,
+    auth: true
   },
   {
-    id: "custom-generate",
+    id: "mailbox-custom",
     method: "GET",
     path: "/api/mailbox/custom",
-    title: "Custom Address Mailbox",
+    title: "Create Custom Mailbox",
     category: "Receive Mail",
-    desc: "Create a custom email address with your chosen name. Pass `name` (required) and optionally `domain`. Returns 409 if the address is already taken. Only letters, numbers, dots, hyphens, and underscores are allowed (1-64 chars).",
+    desc: "Create a custom temporary email address with your chosen name using ?name= and optional ?domain=.",
     payload: null,
-    response: `{
-  "email": "myname@tempemail.vps"
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/mailbox/custom?name=myname&domain=tempemail.vps",
+    response: "{\n  \"email\": \"myname@tempemail.vps\"\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/mailbox/custom",
     returns: "JSON Object",
-    auth: true,
+    auth: true
   },
   {
-    id: "get-mailbox",
+    id: "mailbox-get",
     method: "GET",
     path: "/api/mailbox/:email",
-    title: "Fetch Inbox Mails",
+    title: "Get Received Emails",
     category: "Receive Mail",
-    desc: "Retrieves all captured emails sent to the specified transient mailbox, including parsed sender info, subject, body text, HTML, and any attachment metadata.",
+    desc: "List of inboxes by email (get all received emails and messages for a specific email address).",
     payload: null,
-    response: `[
-  {
-    "id": "1234567890",
-    "from": "noreply@github.com",
-    "to": "test@tempemail.vps",
-    "subject": "Verify your email",
-    "text": "Your code is 123456",
-    "html": "<p>Your code is <b>123456</b></p>",
-    "date": "2026-07-07T10:17:02.000Z",
-    "attachments": [
-      {
-        "filename": "invoice.pdf",
-        "size": 14205,
-        "url": "/api/attachments/1234567890-invoice.pdf"
-      }
-    ]
-  }
-]`,
-    exampleUrl: "http://your-vps-ip:8081/api/mailbox/test@tempemail.vps",
+    response: "[\n  {\n    \"id\": \"1234567890\",\n    \"from\": \"noreply@github.com\",\n    \"to\": \"test@tempemail.vps\",\n    \"subject\": \"Verify your email\",\n    \"text\": \"Your code is 123456\",\n    \"html\": \"<p>Your code is <b>123456</b></p>\",\n    \"date\": \"2026-07-07T10:17:02.000Z\",\n    \"attachments\": []\n  }\n]",
+    exampleUrl: "http://your-vps-ip:8081/api/mailbox/:email",
     returns: "JSON Array",
-    auth: true,
-  },
-  {
-    id: "extract-otp",
-    method: "GET",
-    path: "/api/mailbox/:email/otps",
-    title: "Extract OTP Codes",
-    category: "Receive Mail",
-    desc: "Scans inbound emails in the specified mailbox and extracts all detected 4-6 digit numeric OTP verification codes via regex. Returns structured objects ready for test assertion.",
-    payload: null,
-    response: `[
-  {
-    "otp": "123456",
-    "from": "noreply@github.com",
-    "subject": "Verify your email",
-    "date": "2026-07-07T10:17:02.000Z",
-    "mailId": "1234567890"
-  }
-]`,
-    exampleUrl: "http://your-vps-ip:8081/api/mailbox/test@tempemail.vps/otps",
-    returns: "JSON Array",
-    auth: true,
+    auth: true
   },
   {
     id: "get-attachment",
@@ -123,498 +91,311 @@ const endpoints = [
     path: "/api/attachments/:filename",
     title: "Download Attachment",
     category: "Receive Mail",
-    desc: "Streams the raw binary payload of a previously saved email attachment. The filename is returned in the attachment metadata from the inbox endpoint.",
+    desc: "Download an attached file (image, PDF, document) from a received email using its filename.",
     payload: null,
-    response: `Binary Data (File Stream)`,
-    exampleUrl: "http://your-vps-ip:8081/api/attachments/1234567890-invoice.pdf",
-    returns: "Binary Stream",
-    auth: false,
-  },
-  // ─── Project Settings ───
-  {
-    id: "get-forbidden-ids",
-    method: "GET",
-    path: "/api/project/forbidden-ids",
-    title: "Get Forbidden Username IDs",
-    category: "Project Settings",
-    desc: "Fetch project-scoped list of forbidden username IDs (e.g. admin, info, support) blocked from transient email address generation for Free and Pro subscription plans.",
-    payload: null,
-    response: `{
-  "forbiddenIds": {
-    "free": ["admin", "info", "support", "contact", "mail", "office", "user"],
-    "pro": ["admin", "support", "info"]
-  }
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/project/forbidden-ids",
-    returns: "JSON Object",
-    auth: true,
+    response: "<Binary file stream / image bytes>",
+    exampleUrl: "http://your-vps-ip:8081/api/attachments/:filename",
+    returns: "Binary payload stream",
+    auth: false
   },
   {
-    id: "update-forbidden-ids",
-    method: "PUT",
-    path: "/api/project/forbidden-ids",
-    title: "Update Forbidden Username IDs",
-    category: "Project Settings",
-    desc: "Update forbidden username IDs for Free and Pro plan users under this project.",
-    payload: `{
-  "forbiddenIds": {
-    "free": ["admin", "info", "support", "contact", "ceo"],
-    "pro": ["admin", "support"]
-  }
-}`,
-    response: `{
-  "success": true,
-  "forbiddenIds": {
-    "free": ["admin", "info", "support", "contact", "ceo"],
-    "pro": ["admin", "support"]
-  }
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/project/forbidden-ids",
-    returns: "JSON Object",
-    auth: true,
-  },
-  {
-    id: "get-allowed-files",
-    method: "GET",
-    path: "/api/project/allowed-files",
-    title: "Get Allowed File Extensions",
-    category: "Project Settings",
-    desc: "Retrieve project-scoped allowed attachment file extensions for Free and Pro users.",
-    payload: null,
-    response: `{
-  "allowedFiles": {
-    "free": ["txt", "png", "jpg", "jpeg", "pdf", "zip"],
-    "pro": ["txt", "sql", "png", "zip", "pdf", "ai", "mp3", "mp4", "jpg", "jpeg", "gif"]
-  }
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/project/allowed-files",
-    returns: "JSON Object",
-    auth: true,
-  },
-  {
-    id: "update-allowed-files",
-    method: "PUT",
-    path: "/api/project/allowed-files",
-    title: "Update Allowed File Extensions",
-    category: "Project Settings",
-    desc: "Configure allowed email attachment extensions separately for Free and Pro plan users.",
-    payload: `{
-  "allowedFiles": {
-    "free": ["txt", "png", "jpg", "pdf"],
-    "pro": ["txt", "sql", "png", "jpg", "pdf", "zip", "mp4", "doc", "docx"]
-  }
-}`,
-    response: `{
-  "success": true,
-  "allowedFiles": {
-    "free": ["txt", "png", "jpg", "pdf"],
-    "pro": ["txt", "sql", "png", "jpg", "pdf", "zip", "mp4", "doc", "docx"]
-  }
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/project/allowed-files",
-    returns: "JSON Object",
-    auth: true,
-  },
-  {
-    id: "get-retention-settings",
-    method: "GET",
-    path: "/api/project/retention",
-    title: "Get Email Age Limits",
-    category: "Project Settings",
-    desc: "Fetch auto-cleanup email age limits (specified in Hours) for generated emails, simple text emails, and attachment emails per plan.",
-    payload: null,
-    response: `{
-  "retention": {
-    "free": {
-      "generated_emails": 24,
-      "simple_mails": 24,
-      "attachments": 12
-    },
-    "pro": {
-      "generated_emails": 720,
-      "simple_mails": 720,
-      "attachments": 720
-    }
-  }
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/project/retention",
-    returns: "JSON Object",
-    auth: true,
-  },
-  {
-    id: "update-retention-settings",
-    method: "PUT",
-    path: "/api/project/retention",
-    title: "Update Email Age Limits",
-    category: "Project Settings",
-    desc: "Update auto-cleanup email age thresholds (specified in Hours) for Free and Pro plan users under this project. Set to 0 to keep data forever.",
-    payload: `{
-  "retention": {
-    "free": {
-      "generated_emails": 24,
-      "simple_mails": 12,
-      "attachments": 6
-    },
-    "pro": {
-      "generated_emails": 720,
-      "simple_mails": 360,
-      "attachments": 168
-    }
-  }
-}`,
-    response: `{
-  "success": true,
-  "retention": {
-    "free": {
-      "generated_emails": 24,
-      "simple_mails": 12,
-      "attachments": 6
-    },
-    "pro": {
-      "generated_emails": 720,
-      "simple_mails": 360,
-      "attachments": 168
-    }
-  }
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/project/retention",
-    returns: "JSON Object",
-    auth: true,
-  },
-  {
-    id: "send-mail-live",
-    method: "POST",
-    path: "/api/send-email/live",
-    title: "Send Custom Email (Live)",
-    category: "Send Mail",
-    desc: "Dispatches an outbound email to any public internet address using your VPS SMTP node. Supports plain text and HTML bodies. Optionally include DKIM signing.",
-    payload: `{
-  "from": "sender@your-domain.com",
-  "to": "recipient@example.com",
-  "subject": "Hello World",
-  "text": "Plain text body content",
-  "html": "<p>HTML body <b>content</b></p>"
-}`,
-    response: `{
-  "success": true
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/send-email/live",
-    returns: "JSON Object",
-    auth: false,
-  },
-  {
-    id: "delete-mailbox",
+    id: "mailbox-delete",
     method: "DELETE",
     path: "/api/mailbox/:email",
-    title: "Delete Mailbox",
+    title: "Delete Entire Mailbox",
     category: "Receive Mail",
-    desc: "Purges the entire mailbox storage history. Useful for cleanup between test runs.",
+    desc: "Delete all received emails and messages for a specific email address.",
     payload: null,
-    response: `{
-  "success": true
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/mailbox/test@tempemail.vps",
+    response: "{\n  \"success\": true\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/mailbox/:email",
     returns: "JSON Object",
-    auth: true,
+    auth: true
   },
   {
-    id: "delete-mail",
+    id: "mailbox-delete-one",
     method: "DELETE",
     path: "/api/mailbox/:email/:mailId",
-    title: "Delete Specific Email",
+    title: "Delete Single Email",
     category: "Receive Mail",
-    desc: "Removes a single email by its ID from the mailbox.",
+    desc: "Delete a single specific email by its ID from a mailbox.",
     payload: null,
-    response: `{
-  "success": true
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/mailbox/test@tempemail.vps/1234567890",
+    response: "{\n  \"success\": true,\n  \"mailId\": \"1234567890\"\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/mailbox/:email/:mailId",
     returns: "JSON Object",
-    auth: true,
+    auth: true
   },
   {
-    id: "all-mails",
+    id: "mailbox-client-inbox",
     method: "GET",
-    path: "/api/mails",
-    title: "Get All Emails (Global)",
-    category: "Admin",
-    desc: "Returns a combined, date-sorted feed of every email captured across both the Live SMTP listener and Local Sandbox ports. Useful for admin dashboards or global monitoring.",
+    path: "/api/mailbox/inbox",
+    title: "Get User Inbox",
+    category: "Mailbox Client",
+    desc: "Get the list of received emails for the logged-in mailbox user.",
     payload: null,
-    response: `[
-  {
-    "id": "...",
-    "from": "...",
-    "to": "...",
-    "subject": "...",
-    "type": "live",
-    "date": "2026-07-07T10:17:02.000Z"
-  }
-]`,
-    exampleUrl: "http://your-vps-ip:8081/api/mails",
-    returns: "JSON Array",
-    auth: false,
+    response: "{\n  \"messages\": [\n    {\n      \"id\": 1,\n      \"from\": \"billing@stripe.com\",\n      \"subject\": \"Your Invoice\",\n      \"date\": \"2026-07-15T09:00:00Z\",\n      \"hasAttachments\": true\n    }\n  ],\n  \"total\": 1,\n  \"page\": 1,\n  \"limit\": 200\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/mailbox/inbox",
+    returns: "JSON Object",
+    auth: true
   },
-  // ─── Send Mail (Local) ───
   {
-    id: "send-mail-local",
+    id: "mailbox-client-count",
+    method: "GET",
+    path: "/api/mailbox/count",
+    title: "Get Unread Email Count",
+    category: "Mailbox Client",
+    desc: "Get the total number of emails in the user inbox (useful for badges).",
+    payload: null,
+    response: "{\n  \"success\": true,\n  \"count\": 12\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/mailbox/count",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "mailbox-client-read",
+    method: "GET",
+    path: "/api/mailbox/inbox/:id",
+    title: "Read Single Email",
+    category: "Mailbox Client",
+    desc: "Get full details, text, HTML, and attachments of a specific email by its ID.",
+    payload: null,
+    response: "{\n  \"id\": 1,\n  \"from\": \"billing@stripe.com\",\n  \"to\": \"support@yourdomain.com\",\n  \"subject\": \"Your Invoice\",\n  \"text\": \"Payment received\",\n  \"html\": \"<p>Payment received</p>\",\n  \"date\": \"2026-07-15T09:00:00Z\",\n  \"attachments\": []\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/mailbox/inbox/:id",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "mailbox-client-media",
+    method: "GET",
+    path: "/api/mailbox/media",
+    title: "List Email Attachments",
+    category: "Mailbox Client",
+    desc: "Get all file attachments received in the user mailbox with download links.",
+    payload: null,
+    response: "{\n  \"media\": [\n    {\n      \"emailId\": 1,\n      \"filename\": \"invoice.pdf\",\n      \"size\": 14205,\n      \"url\": \"/api/attachments/invoice.pdf\"\n    }\n  ]\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/mailbox/media",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "mailbox-client-login",
     method: "POST",
-    path: "/api/send-email/local",
-    title: "Send Email (Local SMTP)",
+    path: "/api/mailbox/login",
+    title: "Mailbox User Login",
+    category: "Mailbox Client",
+    desc: "Login as a mailbox user using email and password to get an access token.",
+    payload: "{\n  \"email\": \"support@yourdomain.com\",\n  \"password\": \"your_password\"\n}",
+    response: "{\n  \"success\": true,\n  \"token\": \"session_token_here\"\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/mailbox/login",
+    returns: "JSON Object",
+    auth: false
+  },
+  {
+    id: "mailbox-client-delete",
+    method: "DELETE",
+    path: "/api/mailbox/inbox/:id",
+    title: "Delete Single Email",
+    category: "Mailbox Client",
+    desc: "Delete a specific email from the logged-in user inbox.",
+    payload: null,
+    response: "{\n  \"success\": true\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/mailbox/inbox/:id",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "smtp-list",
+    method: "GET",
+    path: "/api/admin/smtp",
+    title: "List SMTP Accounts",
     category: "Send Mail",
-    desc: "Dispatch email locally through the sandbox SMTP Port 2525. Useful for testing email flows without hitting external servers.",
-    payload: `{
-  "from": "test@localhost",
-  "to": "user@localhost",
-  "subject": "Test Email",
-  "text": "Hello from local"
-}`,
-    response: `{
-  "success": true
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/send-email/local",
+    desc: "Get all configured SMTP sender email addresses.",
+    payload: null,
+    response: "{\n  \"users\": [\n    {\n      \"id\": \"acc_1\",\n      \"email\": \"support@tempemail.vps\",\n      \"domain\": \"tempemail.vps\",\n      \"description\": \"Primary Support Outbound\"\n    }\n  ]\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/smtp",
     returns: "JSON Object",
-    auth: true,
+    auth: true
   },
-  // ─── Admin Management APIs ───
   {
-    id: "admin-login",
+    id: "smtp-create",
     method: "POST",
-    path: "/api/admin/login",
-    title: "Admin Login",
-    category: "Admin",
-    desc: "Authenticate admin dashboard session. Returns a Bearer token for accessing protected admin endpoints.",
-    payload: `{
-  "username": "admin",
-  "password": "your_password"
-}`,
-    response: `{
-  "success": true,
-  "token": "YWRtaW46MTIzNA=="
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/admin/login",
+    path: "/api/admin/smtp",
+    title: "Create SMTP Account",
+    category: "Send Mail",
+    desc: "Create a new SMTP sender email address for sending emails.",
+    payload: "{\n  \"email\": \"support@tempemail.vps\",\n  \"password\": \"secure_password\",\n  \"domain\": \"tempemail.vps\",\n  \"description\": \"Customer Support\"\n}",
+    response: "{\n  \"success\": true,\n  \"id\": \"acc_1\"\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/smtp",
     returns: "JSON Object",
-    auth: false,
+    auth: true
+  },
+  {
+    id: "smtp-send",
+    method: "POST",
+    path: "/api/admin/smtp/send",
+    title: "Send Single Email",
+    category: "Send Mail",
+    desc: "Send a single email (with text, HTML, and attachments) via SMTP.",
+    payload: "{\n  \"from\": \"support@tempemail.vps\",\n  \"to\": \"customer@example.com\",\n  \"subject\": \"Welcome\",\n  \"text\": \"Hello World\",\n  \"html\": \"<p>Hello World</p>\"\n}",
+    response: "{\n  \"success\": true,\n  \"messageId\": \"<msg-12345@tempemail.vps>\"\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/smtp/send",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "smtp-send-bulk",
+    method: "POST",
+    path: "/api/admin/smtp/send-bulk",
+    title: "Send Bulk Emails",
+    category: "Send Mail",
+    desc: "Send emails to multiple recipients one by one with a safe delay between each email.",
+    payload: "{\n  \"from\": \"news@tempemail.vps\",\n  \"recipients\": [\n    \"user1@example.com\",\n    \"user2@example.com\"\n  ],\n  \"subject\": \"Newsletter\",\n  \"text\": \"Weekly updates\",\n  \"delaySeconds\": 5\n}",
+    response: "{\n  \"success\": true,\n  \"totalQueued\": 2,\n  \"estimatedTimeSeconds\": 10\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/smtp/send-bulk",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "smtp-test",
+    method: "POST",
+    path: "/api/admin/smtp/test",
+    title: "Test SMTP Relay",
+    category: "Send Mail",
+    desc: "Send a test email to verify SMTP relay configuration.",
+    payload: "{\n  \"toEmail\": \"test@example.com\",\n  \"fromEmail\": \"support@tempemail.vps\",\n  \"subject\": \"Relay Test\",\n  \"text\": \"Testing SMTP Relay\"\n}",
+    response: "{\n  \"success\": true\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/smtp/test",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "smtp-delete",
+    method: "DELETE",
+    path: "/api/admin/smtp/:identifier",
+    title: "Delete SMTP Account",
+    category: "Send Mail",
+    desc: "Delete an SMTP sender email address by its ID or email.",
+    payload: null,
+    response: "{\n  \"success\": true\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/smtp/:identifier",
+    returns: "JSON Object",
+    auth: true
   },
   {
     id: "admin-stats",
     method: "GET",
     path: "/api/admin/stats",
-    title: "Server Stats",
+    title: "Server Statistics",
     category: "Admin",
-    desc: "Get server metrics including disk usage, total emails, generated addresses count, and system uptime.",
+    desc: "Get server stats including total emails received, disk usage, and server uptime.",
     payload: null,
-    response: `{
-  "totalEmails": 42,
-  "totalGenerated": 15,
-  "diskUsage": "128 MB"
-}`,
+    response: "{\n  \"success\": true,\n  \"totalEmails\": 120,\n  \"uptime\": 86400,\n  \"diskUsage\": \"1.2 MB\"\n}",
     exampleUrl: "http://your-vps-ip:8081/api/admin/stats",
     returns: "JSON Object",
-    auth: true,
+    auth: true
   },
   {
     id: "admin-stats-traffic",
     method: "GET",
     path: "/api/admin/stats/traffic",
-    title: "Traffic Stats",
+    title: "Traffic Statistics",
     category: "Admin",
-    desc: "Get real-time traffic statistics and API usage analytics for the server dashboard.",
+    desc: "Get real-time traffic data, request counts, and API analytics.",
     payload: null,
-    response: `{
-  "totalRequests": 1250,
-  "todayRequests": 48
-}`,
+    response: "{\n  \"success\": true,\n  \"dailyHits\": [\n    {\n      \"date\": \"2026-08-23\",\n      \"hits\": 350\n    }\n  ]\n}",
     exampleUrl: "http://your-vps-ip:8081/api/admin/stats/traffic",
     returns: "JSON Object",
-    auth: true,
+    auth: true
+  },
+  {
+    id: "all-mails",
+    method: "GET",
+    path: "/api/mails",
+    title: "Get All Server Emails",
+    category: "Admin",
+    desc: "Fetch all incoming emails across the entire server for admin monitoring.",
+    payload: null,
+    response: "[\n  {\n    \"id\": \"1\",\n    \"from\": \"sender@example.com\",\n    \"to\": \"test@tempemail.vps\",\n    \"subject\": \"Test mail\",\n    \"date\": \"2026-08-23T12:00:00Z\"\n  }\n]",
+    exampleUrl: "http://your-vps-ip:8081/api/mails",
+    returns: "JSON Array",
+    auth: true
+  },
+  {
+    id: "mailbox-client-info",
+    method: "GET",
+    path: "/api/mailbox/info",
+    title: "Mailbox Server Info",
+    category: "Admin",
+    desc: "Get IMAP/POP3 hostnames, ports, and configuration details for webmail.",
+    payload: null,
+    response: "{\n  \"success\": true,\n  \"primaryDomain\": \"tempemail.vps\",\n  \"imap\": {\n    \"host\": \"mail.tempemail.vps\",\n    \"sslPort\": 993,\n    \"plainPort\": 143,\n    \"status\": \"active\"\n  }\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/mailbox/info",
+    returns: "JSON Object",
+    auth: false
   },
   {
     id: "admin-projects",
     method: "GET",
     path: "/api/admin/projects",
-    title: "Manage Projects",
+    title: "List API Projects",
     category: "Admin",
-    desc: "CRUD operations for API projects. GET lists all projects, POST creates a new project with API key. Supports project stats and email tracking.",
-    payload: `{
-  "name": "My Project",
-  "description": "Test project"
-}`,
-    response: `[
-  {
-    "id": 1,
-    "name": "My Project",
-    "api_key": "abc123...",
-    "is_active": 1
-  }
-]`,
+    desc: "List all developer projects and their API keys.",
+    payload: null,
+    response: "[\n  {\n    \"id\": 1,\n    \"name\": \"Default Project\",\n    \"api_key\": \"proj_key_123\"\n  }\n]",
     exampleUrl: "http://your-vps-ip:8081/api/admin/projects",
     returns: "JSON Array",
-    auth: true,
+    auth: true
+  },
+  {
+    id: "admin-projects-emails",
+    method: "GET",
+    path: "/api/admin/projects/:id/emails",
+    title: "Get Project Emails",
+    category: "Admin",
+    desc: "Get all emails received under a specific project.",
+    payload: null,
+    response: "{\n  \"success\": true,\n  \"emails\": []\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/projects/:id/emails",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "admin-projects-files",
+    method: "GET",
+    path: "/api/admin/projects/:id/files",
+    title: "Get Project Files",
+    category: "Admin",
+    desc: "Get all attachment files stored under a specific project.",
+    payload: null,
+    response: "{\n  \"success\": true,\n  \"files\": []\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/projects/:id/files",
+    returns: "JSON Object",
+    auth: true
   },
   {
     id: "admin-domains",
     method: "GET",
     path: "/api/admin/domains",
-    title: "Manage Attached Domains",
+    title: "List Server Domains",
     category: "Admin",
-    desc: "CRUD operations for domains attached to the server. GET lists all, POST adds a new domain, DELETE removes a domain.",
-    payload: `{
-  "domain": "example.com"
-}`,
-    response: `[
-  {
-    "id": 1,
-    "domain": "llamerada.online",
-    "status": "active"
-  }
-]`,
+    desc: "List all domain names connected to this email server.",
+    payload: null,
+    response: "[\n  {\n    \"id\": 1,\n    \"domain\": \"tempemail.vps\",\n    \"status\": \"active\",\n    \"is_primary\": 1\n  }\n]",
     exampleUrl: "http://your-vps-ip:8081/api/admin/domains",
     returns: "JSON Array",
-    auth: true,
-  },
-  {
-    id: "admin-api-settings",
-    method: "GET",
-    path: "/api/admin/api-settings",
-    title: "API Settings",
-    category: "Admin",
-    desc: "View all API endpoint settings including enabled/disabled status, hit counters, and auth requirements.",
-    payload: null,
-    response: `[
-  {
-    "id": "mailbox-generate",
-    "method": "GET",
-    "path": "/api/mailbox/generate",
-    "enabled": true,
-    "hits": 42
-  }
-]`,
-    exampleUrl: "http://your-vps-ip:8081/api/admin/api-settings",
-    returns: "JSON Array",
-    auth: true,
-  },
-  {
-    id: "admin-api-settings-toggle",
-    method: "POST",
-    path: "/api/admin/api-settings/toggle",
-    title: "Toggle API Endpoint",
-    category: "Admin",
-    desc: "Enable or disable a specific API endpoint by its ID. Disabled endpoints return 503 Service Unavailable.",
-    payload: `{
-  "id": "mailbox-generate",
-  "enabled": false
-}`,
-    response: `{
-  "success": true,
-  "api": { "id": "mailbox-generate", "enabled": false }
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/admin/api-settings/toggle",
-    returns: "JSON Object",
-    auth: true,
-  },
-  {
-    id: "admin-mailbox-users-list",
-    method: "GET",
-    path: "/api/admin/mailbox-users",
-    title: "Get Mailbox Logins",
-    category: "Admin",
-    desc: "Fetch all registered mailbox user logins across projects, including plain passwords, project IDs, and received email counts.",
-    payload: null,
-    response: `[
-  {
-    "id": 1,
-    "email": "john@llamerada.online",
-    "plain_password": "Pass1234!",
-    "project_id": 1,
-    "project_name": "Main Project",
-    "received_count": 5,
-    "created_at": "2026-07-30T16:00:00.000Z"
-  }
-]`,
-    exampleUrl: "http://your-vps-ip:8081/api/admin/mailbox-users",
-    returns: "JSON Array",
-    auth: true,
-  },
-  {
-    id: "admin-mailbox-users-create",
-    method: "POST",
-    path: "/api/admin/mailbox-users",
-    title: "Create Mailbox Login",
-    category: "Admin",
-    desc: "Create a new mailbox user account with email, plain password, and project ID.",
-    payload: `{
-  "email": "john@llamerada.online",
-  "password": "Pass1234!",
-  "project_id": 1
-}`,
-    response: `{
-  "id": 1,
-  "email": "john@llamerada.online",
-  "plain_password": "Pass1234!",
-  "project_id": 1
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/admin/mailbox-users",
-    returns: "JSON Object",
-    auth: true,
-  },
-  {
-    id: "admin-mailbox-users-update",
-    method: "PUT",
-    path: "/api/admin/mailbox-users/:id",
-    title: "Update Mailbox Password",
-    category: "Admin",
-    desc: "Update password and/or project assignment for a specific mailbox user by ID.",
-    payload: `{
-  "password": "NewSecretPass123!",
-  "project_id": 1
-}`,
-    response: `{
-  "success": true,
-  "id": "1",
-  "plain_password": "NewSecretPass123!"
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/admin/mailbox-users/1",
-    returns: "JSON Object",
-    auth: true,
-  },
-  {
-    id: "admin-mailbox-users-delete",
-    method: "DELETE",
-    path: "/api/admin/mailbox-users/:id",
-    title: "Delete Mailbox Login",
-    category: "Admin",
-    desc: "Permanently delete a mailbox user login.",
-    payload: null,
-    response: `{
-  "success": true
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/admin/mailbox-users/1",
-    returns: "JSON Object",
-    auth: true,
+    auth: true
   },
   {
     id: "admin-credentials",
     method: "GET",
     path: "/api/admin/credentials",
-    title: "SMTP Credentials",
+    title: "Get SMTP Credentials",
     category: "Admin",
-    desc: "Manage outbound SMTP relay credentials. GET lists all, POST adds new credentials, DELETE removes by username.",
-    payload: `{
-  "username": "smtp_user",
-  "password": "smtp_pass",
-  "host": "smtp.example.com",
-  "port": 587
-}`,
-    response: `[
-  {
-    "username": "smtp_user",
-    "host": "smtp.example.com",
-    "port": 587
-  }
-]`,
+    desc: "View and manage outbound SMTP login credentials.",
+    payload: null,
+    response: "{\n  \"users\": [\n    {\n      \"username\": \"admin\",\n      \"email\": \"admin@tempemail.vps\"\n    }\n  ]\n}",
     exampleUrl: "http://your-vps-ip:8081/api/admin/credentials",
-    returns: "JSON Array",
-    auth: true,
+    returns: "JSON Object",
+    auth: true
   },
   {
     id: "admin-server-info",
@@ -622,390 +403,311 @@ const endpoints = [
     path: "/api/admin/serverinfo",
     title: "Server Information",
     category: "Admin",
-    desc: "GET retrieves current server information including DKIM public key and IP address instructions.",
+    desc: "Get server details including IP address, status, and DKIM public key.",
     payload: null,
-    response: `{
-  "success": true,
-  "key": "v=DKIM1; k=rsa; p=MIIBIjAN...",
-  "ip_address": "64.227.137.95"
-}`,
+    response: "{\n  \"success\": true,\n  \"ip\": \"127.0.0.1\",\n  \"dkimKey\": \"v=DKIM1; k=rsa; p=MIGf...\"\n}",
     exampleUrl: "http://your-vps-ip:8081/api/admin/serverinfo",
     returns: "JSON Object",
-    auth: true,
+    auth: true
   },
   {
     id: "admin-dblogs",
     method: "GET",
     path: "/api/admin/dblogs/:type",
-    title: "Database Logs",
+    title: "Get Server Logs",
     category: "Admin",
-    desc: "Fetch system logs from the database. Type can be: SMTP_IN, SMTP_OUT, ERROR, or ALL.",
+    desc: "View database activity and error logs (e.g. SMTP_IN, SMTP_OUT, ERROR, ALL).",
     payload: null,
-    response: `{
-  "data": [...],
-  "pagination": { "total": 100, "page": 1, "limit": 50 }
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/admin/dblogs/SMTP_IN",
+    response: "{\n  \"success\": true,\n  \"logs\": []\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/dblogs/:type",
     returns: "JSON Object",
-    auth: true,
+    auth: true
   },
   {
-    id: "local-emails-api",
+    id: "admin-mailbox-users-list",
     method: "GET",
-    path: "/api/emails/local",
-    title: "Local Inbox Emails",
-    category: "Send Mail",
-    desc: "Fetch all emails received on the local SMTP sandbox. Returns email list and SMTP transaction logs.",
+    path: "/api/admin/mailbox-users",
+    title: "Get Mailbox Accounts",
+    category: "Admin",
+    desc: "Get a list of all permanent mailbox accounts, passwords, and project IDs.",
     payload: null,
-    response: `[
-  {
-    "id": "...",
-    "from": "test@localhost",
-    "to": "user@localhost",
-    "subject": "Test"
-  }
-]`,
-    exampleUrl: "http://your-vps-ip:8081/api/emails/local",
+    response: "[\n  {\n    \"id\": 1,\n    \"email\": \"support@tempemail.vps\",\n    \"project_id\": 1\n  }\n]",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/mailbox-users",
     returns: "JSON Array",
-    auth: true,
+    auth: true
   },
   {
-    id: "live-emails-api",
+    id: "api-settings",
     method: "GET",
-    path: "/api/emails/live",
-    title: "Live Inbox Emails",
-    category: "Send Mail",
-    desc: "Fetch all emails received on the live SMTP listener. Returns email list and SMTP traffic logs.",
+    path: "/api/admin/api-settings",
+    title: "Get API Settings",
+    category: "Admin",
+    desc: "View all API routes, their hit counts, and whether they are turned ON or OFF.",
     payload: null,
-    response: `[
-  {
-    "id": "...",
-    "from": "sender@example.com",
-    "to": "you@yourdomain.com",
-    "subject": "Hello"
-  }
-]`,
-    exampleUrl: "http://your-vps-ip:8081/api/emails/live",
+    response: "[\n  {\n    \"id\": \"api-domains\",\n    \"enabled\": true,\n    \"hits\": 45\n  }\n]",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/api-settings",
     returns: "JSON Array",
-    auth: true,
+    auth: true
   },
-  // ─── SMTP Server & REST Outbound Email APIs ───
   {
-    id: "smtp-get-credentials",
+    id: "get-retention-settings",
     method: "GET",
-    path: "/api/admin/smtp",
-    title: "List SMTP Email Addresses",
-    category: "Send Mail",
-    desc: "Retrieves the full list of configured SMTP sender addresses, assigned active domains, usernames, passwords, and status flags.",
+    path: "/api/project/retention",
+    title: "Get Email Auto-Delete Time",
+    category: "Project Settings",
+    desc: "Get the auto-cleanup time limit (in hours) for temporary emails and attachments.",
     payload: null,
-    response: `[
-  {
-    "email": "orders@micorna.biz",
-    "username": "orders@micorna.biz",
-    "domain": "micorna.biz",
-    "description": "Store Order Confirmations",
-    "enabled": true,
-    "created_at": "2026-08-19T10:00:00.000Z"
-  }
-]`,
-    exampleUrl: "http://your-vps-ip:8081/api/admin/smtp",
-    returns: "JSON Array",
-    auth: true,
-  },
-  {
-    id: "smtp-create-credential",
-    method: "POST",
-    path: "/api/admin/smtp",
-    title: "Create SMTP Address by Active Domain",
-    category: "Send Mail",
-    desc: "Programmatically generate an isolated SMTP address for any domain from your active domains list (/api/domains) with custom or auto-generated password.",
-    payload: `{
-  "email": "support@micorna.biz",
-  "password": "strong_secret_password_or_leave_blank_for_auto_generate",
-  "domain": "micorna.biz",
-  "description": "Customer Support Desk"
-}`,
-    response: `{
-  "success": true,
-  "message": "SMTP credential saved successfully",
-  "credential": {
-    "id": "smtp_1720000000000_a1b2",
-    "email": "support@micorna.biz",
-    "username": "support@micorna.biz",
-    "password": "...",
-    "domain": "micorna.biz",
-    "description": "Customer Support Desk"
-  }
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/admin/smtp",
+    response: "{\n  \"retention\": {\n    \"free\": {\n      \"generated_emails\": 24,\n      \"simple_mails\": 24,\n      \"attachments\": 12\n    }\n  }\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/project/retention",
     returns: "JSON Object",
-    auth: true,
+    auth: true
   },
   {
-    id: "smtp-send-email-api",
-    method: "POST",
-    path: "/api/admin/smtp/send",
-    title: "Send Single / Test Email (Text + HTML + Attachments)",
-    category: "Send Mail",
-    desc: "Dispatches a single or test outbound email via HTTP POST with automatic DKIM signing, HTML markup, and file attachment support.",
-    payload: `{
-  "from": "support@micorna.biz",
-  "to": "client@gmail.com",
-  "subject": "Order Confirmation #9401",
-  "text": "Your order has been confirmed and is now being prepared.",
-  "html": "<div style='font-family:sans-serif;'><h2>Order Confirmed!</h2><p>Your order has been dispatched.</p></div>",
-  "attachments": [
-    {
-      "filename": "invoice_9401.pdf",
-      "content": "JVBERi0xLjQKJcTl8uXr...",
-      "contentType": "application/pdf"
-    }
-  ]
-}`,
-    response: `{
-  "success": true,
-  "message": "Email dispatched successfully from support@micorna.biz to client@gmail.com",
-  "result": {
-    "accepted": ["client@gmail.com"],
-    "response": "250 2.0.0 OK",
-    "messageId": "<9401-vps-mail@micorna.biz>"
-  }
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/admin/smtp/send",
+    id: "get-allowed-files",
+    method: "GET",
+    path: "/api/project/allowed-files",
+    title: "Get Allowed Attachment Types",
+    category: "Project Settings",
+    desc: "Get the list of allowed file extensions (like png, jpg, pdf) for email attachments.",
+    payload: null,
+    response: "{\n  \"allowedFiles\": {\n    \"free\": [\n      \"txt\",\n      \"png\",\n      \"jpg\",\n      \"pdf\"\n    ]\n  }\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/project/allowed-files",
     returns: "JSON Object",
-    auth: true,
+    auth: true
   },
   {
-    id: "smtp-send-bulk-email-api",
-    method: "POST",
-    path: "/api/admin/smtp/send-bulk",
-    title: "Bulk Outbound Email Dispatch (Min 5s Delay Throttling)",
-    category: "Send Mail",
-    desc: "Dispatches emails to multiple recipients sequentially with a strict minimum 5-second throttling delay between messages to safeguard IP reputation and prevent spam filters.",
-    payload: `{
-  "from": "newsletter@micorna.biz",
-  "recipients": [
-    "customer1@gmail.com",
-    "customer2@yahoo.com",
-    "client3@outlook.com"
-  ],
-  "subject": "Weekly Newsletter & Updates",
-  "text": "Check out our latest releases this week!",
-  "html": "<h2>Weekly Updates</h2><p>Check out our latest releases!</p>",
-  "delaySeconds": 5
-}`,
-    response: `{
-  "success": true,
-  "message": "Bulk dispatch completed. 3/3 emails dispatched successfully.",
-  "total": 3,
-  "sent": 3,
-  "failed": 0,
-  "delaySeconds": 5,
-  "results": [
-    { "recipient": "customer1@gmail.com", "status": "sent", "messageId": "<...>" },
-    { "recipient": "customer2@yahoo.com", "status": "sent", "messageId": "<...>" },
-    { "recipient": "client3@outlook.com", "status": "sent", "messageId": "<...>" }
-  ]
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/admin/smtp/send-bulk",
+    id: "get-forbidden-ids",
+    method: "GET",
+    path: "/api/project/forbidden-ids",
+    title: "Get Blocked Names",
+    category: "Project Settings",
+    desc: "Get the list of blocked email usernames (like admin, support, root) that users cannot create.",
+    payload: null,
+    response: "{\n  \"forbiddenIds\": {\n    \"free\": [\n      \"admin\",\n      \"info\",\n      \"support\",\n      \"root\"\n    ]\n  }\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/project/forbidden-ids",
     returns: "JSON Object",
-    auth: true,
+    auth: true
   },
   {
-    id: "smtp-delete-credential",
+    id: "admin-login",
+    method: "POST",
+    path: "/api/admin/login",
+    title: "Admin Login",
+    category: "Admin",
+    desc: "Login to the admin dashboard and receive an authentication Bearer token.",
+    payload: "{\n  \"username\": \"admin\",\n  \"password\": \"admin_password\"\n}",
+    response: "{\n  \"success\": true,\n  \"token\": \"bearer_token_here\"\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/login",
+    returns: "JSON Object",
+    auth: false
+  },
+  {
+    id: "admin-projects-create",
+    method: "POST",
+    path: "/api/admin/projects",
+    title: "Create API Project",
+    category: "Admin",
+    desc: "Create a new developer project and generate its API key.",
+    payload: "{\n  \"name\": \"My Production App\",\n  \"plan\": \"pro\"\n}",
+    response: "{\n  \"success\": true,\n  \"id\": 2,\n  \"apiKey\": \"proj_key_xyz\"\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/projects",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "admin-domains-create",
+    method: "POST",
+    path: "/api/admin/domains",
+    title: "Add Server Domain",
+    category: "Admin",
+    desc: "Add a new domain name to the email server.",
+    payload: "{\n  \"domain\": \"customdomain.com\",\n  \"is_primary\": false\n}",
+    response: "{\n  \"success\": true,\n  \"id\": 3\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/domains",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "admin-mailbox-users-create",
+    method: "POST",
+    path: "/api/admin/mailbox-users",
+    title: "Create Mailbox Account",
+    category: "Admin",
+    desc: "Create a new permanent mailbox user account with email and password.",
+    payload: "{\n  \"email\": \"sales@tempemail.vps\",\n  \"password\": \"secure_password\",\n  \"projectId\": 1\n}",
+    response: "{\n  \"success\": true,\n  \"id\": 2\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/mailbox-users",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "api-settings-toggle",
+    method: "POST",
+    path: "/api/admin/api-settings/toggle",
+    title: "Turn API Route ON / OFF",
+    category: "Admin",
+    desc: "Enable or disable a specific API route instantly.",
+    payload: "{\n  \"id\": \"mailbox-generate\",\n  \"enabled\": false\n}",
+    response: "{\n  \"success\": true,\n  \"id\": \"mailbox-generate\",\n  \"enabled\": false\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/api-settings/toggle",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "api-settings-reset",
+    method: "POST",
+    path: "/api/admin/api-settings/reset-hits",
+    title: "Reset API Hits",
+    category: "Admin",
+    desc: "Reset hit counters for all API routes.",
+    payload: null,
+    response: "{\n  \"success\": true,\n  \"message\": \"All hit counts reset to 0\"\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/api-settings/reset-hits",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "admin-projects-update",
+    method: "PUT",
+    path: "/api/admin/projects/:id",
+    title: "Update API Project",
+    category: "Admin",
+    desc: "Update project name, rate limits, or webhook configuration.",
+    payload: "{\n  \"name\": \"Renamed Project\",\n  \"plan\": \"pro\"\n}",
+    response: "{\n  \"success\": true\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/projects/:id",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "admin-projects-retention",
+    method: "PUT",
+    path: "/api/admin/projects/:id/retention",
+    title: "Update Project Retention",
+    category: "Admin",
+    desc: "Configure data retention hours for a specific project.",
+    payload: "{\n  \"retention\": {\n    \"generated_emails\": 48,\n    \"simple_mails\": 48,\n    \"attachments\": 24\n  }\n}",
+    response: "{\n  \"success\": true\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/projects/:id/retention",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "admin-domains-update",
+    method: "PUT",
+    path: "/api/admin/domains/:id",
+    title: "Update Domain Settings",
+    category: "Admin",
+    desc: "Update status or settings for a specific connected domain.",
+    payload: "{\n  \"status\": \"active\",\n  \"catch_all\": true\n}",
+    response: "{\n  \"success\": true\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/domains/:id",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "admin-mailbox-users-update",
+    method: "PUT",
+    path: "/api/admin/mailbox-users/:id",
+    title: "Update Mailbox Password",
+    category: "Admin",
+    desc: "Change the password or project for an existing mailbox user account.",
+    payload: "{\n  \"password\": \"new_secure_password\"\n}",
+    response: "{\n  \"success\": true\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/mailbox-users/:id",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "update-retention-settings",
+    method: "PUT",
+    path: "/api/project/retention",
+    title: "Update Email Auto-Delete Time",
+    category: "Project Settings",
+    desc: "Update how long (in hours) emails and attachments are kept before being automatically deleted.",
+    payload: "{\n  \"retention\": {\n    \"free\": {\n      \"generated_emails\": 24,\n      \"simple_mails\": 12,\n      \"attachments\": 6\n    }\n  }\n}",
+    response: "{\n  \"success\": true\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/project/retention",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "update-allowed-files",
+    method: "PUT",
+    path: "/api/project/allowed-files",
+    title: "Update Allowed Attachment Types",
+    category: "Project Settings",
+    desc: "Update the list of allowed file extensions for email attachments.",
+    payload: "{\n  \"allowedFiles\": {\n    \"free\": [\n      \"txt\",\n      \"png\",\n      \"jpg\",\n      \"pdf\"\n    ]\n  }\n}",
+    response: "{\n  \"success\": true\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/project/allowed-files",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "update-forbidden-ids",
+    method: "PUT",
+    path: "/api/project/forbidden-ids",
+    title: "Update Blocked Names",
+    category: "Project Settings",
+    desc: "Update the list of blocked email usernames that cannot be generated.",
+    payload: "{\n  \"forbiddenIds\": {\n    \"free\": [\n      \"admin\",\n      \"info\",\n      \"support\",\n      \"contact\",\n      \"ceo\"\n    ]\n  }\n}",
+    response: "{\n  \"success\": true\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/project/forbidden-ids",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "admin-projects-delete",
     method: "DELETE",
-    path: "/api/admin/smtp/:identifier",
-    title: "Delete SMTP Address",
-    category: "Send Mail",
-    desc: "Permanently delete an SMTP address from the server by Account ID or Email.",
+    path: "/api/admin/projects/:id",
+    title: "Delete API Project",
+    category: "Admin",
+    desc: "Permanently delete a developer project and its associated API key.",
     payload: null,
-    response: `{
-  "success": true
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/admin/smtp/support@micorna.biz",
+    response: "{\n  \"success\": true\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/projects/:id",
     returns: "JSON Object",
-    auth: true,
-  },
-  // ─── Mailbox Client APIs (for Third-Party App Integration) ───
-  {
-    id: "mailbox-client-info",
-    method: "GET",
-    path: "/api/mailbox/info",
-    title: "Mailbox Server Info",
-    category: "Mailbox Client",
-    desc: "Fetch Primary Domain configuration, IMAP/POP3 hostnames, SSL/Plain port numbers (993/143), active status, and default mailbox credentials.",
-    payload: null,
-    response: `{
-  "success": true,
-  "primaryDomain": "mailserver10.com",
-  "catchAll": true,
-  "imap": {
-    "host": "mail.mailserver10.com",
-    "sslPort": 993,
-    "plainPort": 143,
-    "status": "active"
-  },
-  "defaultCredentials": {
-    "email": "admin@mailserver10.com",
-    "password": "••••••••"
-  }
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/mailbox/info",
-    returns: "JSON Object",
-    auth: false,
+    auth: true
   },
   {
-    id: "mailbox-client-login",
-    method: "POST",
-    path: "/api/mailbox/login",
-    title: "Mailbox Login",
-    category: "Mailbox Client",
-    desc: "Authenticate a permanent mailbox user (e.g. support@yourdomain.com) with their email and password. Returns a Bearer token to use in subsequent API requests.",
-    payload: `{
-  "email": "support@yourdomain.com",
-  "password": "your_secure_password"
-}`,
-    response: `{
-  "success": true,
-  "token": "a1b2c3d4...hextoken...:support@yourdomain.com",
-  "user": {
-    "id": 1,
-    "email": "support@yourdomain.com",
-    "project_id": 2,
-    "created_at": "2026-07-01T10:00:00Z"
-  }
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/mailbox/login",
-    returns: "JSON Object",
-    auth: false,
-  },
-  {
-    id: "mailbox-client-inbox",
-    method: "GET",
-    path: "/api/mailbox/inbox",
-    title: "Mailbox Inbox",
-    category: "Mailbox Client",
-    desc: "Retrieve paginated inbox messages for the authenticated mailbox user. Pass your token via `Authorization: Bearer <token>`. Supports `?page` and `?limit` query parameters.",
-    payload: null,
-    response: `{
-  "data": [
-    {
-      "id": 42,
-      "recipient": "support@yourdomain.com",
-      "sender": "noreply@github.com",
-      "subject": "Your verification code",
-      "has_attachment": 0,
-      "created_at": "2026-07-15T10:00:00Z"
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 50,
-    "totalRecords": 1,
-    "totalPages": 1
-  }
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/mailbox/inbox?page=1&limit=50",
-    returns: "JSON Object",
-    auth: true,
-  },
-  {
-    id: "mailbox-client-count",
-    method: "GET",
-    path: "/api/mailbox/count",
-    title: "Mailbox Message Count",
-    category: "Mailbox Client",
-    desc: "Returns the total number of messages in the authenticated user's inbox. Useful for unread badge counts in third-party apps. Does not count toward project API hit limits.",
-    payload: null,
-    response: `{
-  "email": "support@yourdomain.com",
-  "count": 7
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/mailbox/count",
-    returns: "JSON Object",
-    auth: true,
-  },
-  {
-    id: "mailbox-client-read",
-    method: "GET",
-    path: "/api/mailbox/inbox/:id",
-    title: "Read Specific Email",
-    category: "Mailbox Client",
-    desc: "Fetch the full parsed content of a specific email by its database record ID. Returns sender info, subject, plain text body, HTML body, and any attachment metadata.",
-    payload: null,
-    response: `{
-  "id": "1234567890",
-  "from": "noreply@github.com",
-  "to": "support@yourdomain.com",
-  "subject": "Verify your email",
-  "text": "Your code is 123456",
-  "html": "<p>Your code is <b>123456</b></p>",
-  "date": "2026-07-15T10:17:02.000Z",
-  "attachments": []
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/mailbox/inbox/42",
-    returns: "JSON Object",
-    auth: true,
-  },
-  {
-    id: "mailbox-client-delete",
+    id: "admin-projects-hits",
     method: "DELETE",
-    path: "/api/mailbox/inbox/:id",
-    title: "Delete Email",
-    category: "Mailbox Client",
-    desc: "Delete a specific email from the authenticated mailbox user's inbox by its database record ID. Removes both the DB record and the stored JSON file.",
+    path: "/api/admin/projects/:id/hits",
+    title: "Reset Project Hits",
+    category: "Admin",
+    desc: "Reset API usage hits for a specific project.",
     payload: null,
-    response: `{
-  "success": true
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/mailbox/inbox/42",
+    response: "{\n  \"success\": true\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/projects/:id/hits",
     returns: "JSON Object",
-    auth: true,
+    auth: true
   },
   {
-    id: "mailbox-client-media",
-    method: "GET",
-    path: "/api/mailbox/media",
-    title: "List Media Attachments",
-    category: "Mailbox Client",
-    desc: "Returns all media/file attachments received in the authenticated mailbox. Includes filename, MIME type, file size, and a public download URL.",
+    id: "admin-domains-delete",
+    method: "DELETE",
+    path: "/api/admin/domains/:id",
+    title: "Delete Server Domain",
+    category: "Admin",
+    desc: "Remove a domain from the email server.",
     payload: null,
-    response: `{
-  "media": [
-    {
-      "emailId": 42,
-      "sender": "noreply@invoices.com",
-      "date": "2026-07-15T09:00:00Z",
-      "filename": "invoice.pdf",
-      "contentType": "application/pdf",
-      "size": 14205,
-      "url": "/api/attachments/1234567890-invoice.pdf"
-    }
-  ]
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/mailbox/media",
+    response: "{\n  \"success\": true\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/domains/:id",
     returns: "JSON Object",
-    auth: true,
+    auth: true
   },
   {
-    id: "mailbox-client-send",
-    method: "POST",
-    path: "/api/mailbox/send",
-    title: "Send Email (Mailbox)",
-    category: "Mailbox Client",
-    desc: "Send an outbound email from the authenticated permanent mailbox address. The `from` is automatically set to the logged-in user's mailbox email.",
-    disabled: false,
-    payload: `{
-  "to": "recipient@example.com",
-  "subject": "Hello from my mailbox",
-  "message": "This is the email body."
-}`,
-    response: `{
-  "success": true
-}`,
-    exampleUrl: "http://your-vps-ip:8081/api/mailbox/send",
+    id: "admin-mailbox-users-delete",
+    method: "DELETE",
+    path: "/api/admin/mailbox-users/:id",
+    title: "Delete Mailbox Account",
+    category: "Admin",
+    desc: "Permanently delete a mailbox user account by ID.",
+    payload: null,
+    response: "{\n  \"success\": true\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/admin/mailbox-users/:id",
     returns: "JSON Object",
-    auth: true,
+    auth: true
   }
 ];
 

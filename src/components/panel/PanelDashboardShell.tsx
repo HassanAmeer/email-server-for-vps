@@ -104,7 +104,7 @@ export function PanelDashboardShell({
   const activeTab = (mode === "admin" && (rawActiveTab === "menu-set-tab" || rawActiveTab === "seeding-tab")) ? "overview-tab" : rawActiveTab;
 
   // Admin Sidebar Menu Visibility Config (Synced from DevPanel)
-  const [adminMenuConfig, setAdminMenuConfig] = useState<Array<{ id: string; tab: string; path: string; enabled: boolean }>>([]);
+  const [adminMenuConfig, setAdminMenuConfig] = useState<Array<{ id: string; tab: string; path: string; enabled: boolean }> | null>(null);
 
   // Stats State
   const [stats, setStats] = useState({
@@ -369,6 +369,9 @@ export function PanelDashboardShell({
 
   // Dynamically filter admin tabs based on DevPanel SuperAdmin toggle configuration
   const adminNavItems = allAdminNavItems.filter((item) => {
+    if (adminMenuConfig === null) {
+      return item.tab === "overview-tab";
+    }
     if (adminMenuConfig.length === 0) {
       // Default: show standard tabs
       return true;
@@ -625,19 +628,6 @@ export function PanelDashboardShell({
             </div>
           </div>
 
-          {isViolet && (
-            <a
-              href="/devdoc"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg text-center no-underline bg-amber-500/10 border border-amber-500/25 text-amber-300 hover:bg-amber-500/20 shadow-amber-500/5"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-amber-400">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
-              </svg>
-              <span>Developer API Docs ↗</span>
-            </a>
-          )}
 
           <button
             onClick={handleLogout}

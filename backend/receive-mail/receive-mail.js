@@ -507,7 +507,7 @@ const httpServer = http.createServer((req, res) => {
     return;
   }
 
-  const cleanUrl = req.url.split("?")[0];
+  let cleanUrl = req.url.split("?")[0];
 
   // DevPanel auth middleware helper (supports devPanelToken, devAdminToken and master adminToken)
   const checkDevAuth = () => {
@@ -699,7 +699,6 @@ const httpServer = http.createServer((req, res) => {
       cleanUrl.startsWith("/api/mailbox/info") ||
       cleanUrl.startsWith("/api/mailbox/inbox") || 
       cleanUrl.startsWith("/api/mailbox/login") || 
-      cleanUrl.startsWith("/api/mailbox/send") || 
       cleanUrl.startsWith("/api/mailbox/media") ||
       cleanUrl === "/api/mailbox/count") {
     return ApiRouter.handleMailboxApi(req, res);
@@ -756,9 +755,6 @@ const httpServer = http.createServer((req, res) => {
     return ApiRouter.handleTrafficStatsApi(req, res);
   }
 
-  if (cleanUrl.startsWith("/api/admin/seed")) {
-    return ApiRouter.handleSeedDataApi(req, res);
-  }
 
   if (cleanUrl.startsWith("/api/admin/dblogs")) {
     const parts = cleanUrl.replace(/\/+$/, "").split("/");
@@ -1101,39 +1097,6 @@ const httpServer = http.createServer((req, res) => {
     return;
   }
 
-  // API 1: Get local emails
-  if (cleanUrl === "/api/emails/local" && req.method === "GET") {
-    try {
-      const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
-      const limit = parseInt(url.searchParams.get("limit") || "50", 10);
-      const email = (url.searchParams.get("email") || "").toLowerCase().trim();
-      const emails = readRecentEmails(localMailDir, limit, email);
-
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(emails));
-    } catch (error) {
-      res.writeHead(500, { "Content-Type": "text/plain" });
-      res.end(`Error: ${error.message}`);
-    }
-    return;
-  }
-
-  // API 2: Get live emails
-  if (cleanUrl === "/api/emails/live" && req.method === "GET") {
-    try {
-      const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
-      const limit = parseInt(url.searchParams.get("limit") || "50", 10);
-      const email = (url.searchParams.get("email") || "").toLowerCase().trim();
-      const emails = readRecentEmails(liveMailDir, limit, email);
-
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(emails));
-    } catch (error) {
-      res.writeHead(500, { "Content-Type": "text/plain" });
-      res.end(`Error: ${error.message}`);
-    }
-    return;
-  }
 
   // API 3: Get local logs (Receiving or Sending)
   if (req.url.startsWith("/api/logs/local") && req.method === "GET") {
@@ -1198,71 +1161,6 @@ const httpServer = http.createServer((req, res) => {
     return;
   }
 
-  // API 8: Send Custom Outbound Email (Live)
-  if (req.url === "/api/send-email/live" && req.method === "POST") {
-    let body = "";
-    req.on("data", chunk => body += chunk.toString());
-    req.on("end", async () => {
-      try {
-        const data = JSON.parse(body);
-        const { from, to, subject, text, html, attachments } = data;
-
-        addLiveSendingLog(`Initiating custom outbound email from ${from} to ${to}`);
-
-        await sendOutboundEmailLive({
-          from,
-          to,
-          subject,
-          text,
-          html,
-          attachments,
-          logCallback: (msg) => addLiveSendingLog(msg)
-        });
-
-        addLiveSendingLog(`✅ Successfully sent custom email from ${from} to ${to}`);
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: true }));
-      } catch (error) {
-        addLiveSendingLog(`❌ Failed to send custom email: ${error.message}`);
-        res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: false, error: error.message }));
-      }
-    });
-    return;
-  }
-
-  // API 9: Send Custom Outbound Email (Local)
-  if (req.url === "/api/send-email/local" && req.method === "POST") {
-    let body = "";
-    req.on("data", chunk => body += chunk.toString());
-    req.on("end", async () => {
-      try {
-        const data = JSON.parse(body);
-        const { from, to, subject, text, html, attachments } = data;
-
-        addLocalSendingLog(`Initiating custom outbound email from ${from} to ${to}`);
-
-        await sendOutboundEmailLocal({
-          from,
-          to,
-          subject,
-          text,
-          html,
-          attachments,
-          logCallback: (msg) => addLocalSendingLog(msg)
-        });
-
-        addLocalSendingLog(`✅ Successfully sent custom email from ${from} to ${to}`);
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: true }));
-      } catch (error) {
-        addLocalSendingLog(`❌ Failed to send custom email: ${error.message}`);
-        res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: false, error: error.message }));
-      }
-    });
-    return;
-  }
 
   // API 9: Serve Attachment Files
   if (req.url.startsWith("/api/attachments/") && req.method === "GET") {
@@ -1285,39 +1183,7 @@ const httpServer = http.createServer((req, res) => {
     return;
   }
 
-  // API 6: Delete local email
-  if (req.url.startsWith("/api/emails/delete/local/") && req.method === "POST") {
-    const parts = req.url.split("/");
-    const fileName = parts[parts.length - 1];
-    const filePath = path.join(localMailDir, fileName);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-      addLocalLog(`Deleted local email file: ${fileName}`);
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ success: true }));
-    } else {
-      res.writeHead(404, { "Content-Type": "text/plain" });
-      res.end("Email not found");
-    }
-    return;
-  }
 
-  // API 7: Delete live email
-  if (req.url.startsWith("/api/emails/delete/live/") && req.method === "POST") {
-    const parts = req.url.split("/");
-    const fileName = parts[parts.length - 1];
-    const filePath = path.join(liveMailDir, fileName);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-      addLiveLog(`Deleted live email file: ${fileName}`);
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ success: true }));
-    } else {
-      res.writeHead(404, { "Content-Type": "text/plain" });
-      res.end("Email not found");
-    }
-    return;
-  }
 
   // Fallback: Static file serving (serves compiled static website)
   let reqPath = req.url.split("?")[0];

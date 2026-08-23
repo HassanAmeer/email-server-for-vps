@@ -323,78 +323,6 @@ export class ApiRouter {
   }
 
   /**
-   * GET /api/mailbox/:email/otps
-   * Fetches extracted numeric OTP codes from mailbox emails
-   */
-  static getOtps(req, res, emailAddress) {
-    const project = ApiRouter.validateApiKey(req, res);
-    if (!project) return;
-
-    if (!emailAddress) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Missing email address parameter" }));
-      return;
-    }
-
-    logProjectApiHit(project.id, `/api/mailbox/${emailAddress}/otps`, "GET");
-
-    try {
-      const targetDir = getTargetStorageDir();
-      if (!fs.existsSync(targetDir)) {
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify([]));
-        return;
-      }
-
-      const targetRecipient = emailAddress.toLowerCase().trim();
-      const records = db.query(`SELECT file_name FROM received_emails WHERE recipient LIKE ? ORDER BY created_at DESC`).all(`%${targetRecipient}%`);
-      const files = records.map(r => r.file_name).filter(Boolean);
-      const otps = [];
-
-      for (const file of files) {
-        try {
-          const filePath = path.join(targetDir, file);
-          const fileContent = fs.readFileSync(filePath, "utf-8");
-          const parsed = JSON.parse(fileContent);
-          
-          const cleanRecipient = extractEmail(parsed.to);
-          const targetRecipient = emailAddress.toLowerCase().trim();
-
-          if (cleanRecipient === targetRecipient || cleanRecipient.includes(targetRecipient)) {
-            // Scan subject and body text for 4-6 digit numeric codes
-            const searchText = `${parsed.subject} ${parsed.text} ${parsed.html || ""}`;
-            const matches = searchText.match(/\b\d{4,6}\b/g);
-
-            if (matches) {
-              const uniqueMatches = [...new Set(matches)];
-              for (const code of uniqueMatches) {
-                otps.push({
-                  otp: code,
-                  from: parsed.from,
-                  subject: parsed.subject,
-                  date: parsed.date,
-                  mailId: parsed.id
-                });
-              }
-            }
-          }
-        } catch (e) {
-          console.error(`Error reading mail file ${file}:`, e.message);
-        }
-      }
-
-      // Sort by date descending
-      otps.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(otps));
-    } catch (error) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: error.message }));
-    }
-  }
-
-  /**
    * DELETE /api/mailbox/:email
    * Deletes all emails matching this mailbox address
    */
@@ -576,27 +504,7 @@ export class ApiRouter {
     return AdminController.isApiEnabled(url, method);
   }
 
-  static async handleSeedDataApi(req, res) {
-    const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
-    if (!AdminController.isValidAdminToken(token)) {
-      res.writeHead(401, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Unauthorized" }));
-      return;
-    }
 
-    const cleanUrl = req.url.split("?")[0].replace(/\/+$/, "");
-    if (req.method === "GET" && (cleanUrl === "/api/admin/seed/status" || cleanUrl === "/api/admin/seed")) {
-      return AdminController.getSeedStatus(req, res);
-    }
-
-    if (req.method === "POST" && (cleanUrl === "/api/admin/seed" || cleanUrl === "/api/admin/seed/run")) {
-      return AdminController.handleSeedData(req, res);
-    }
-
-    res.writeHead(404, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "Seed endpoint not found" }));
-  }
 
   // ==========================================
   // NEW DATABASE LOGS APIS
@@ -1814,54 +1722,6 @@ export class ApiRouter {
         return;
       }
 
-      // POST /api/mailbox/send
-      if (normUrl === "/api/mailbox/send" && req.method === "POST") {
-        let body = "";
-        req.on("data", chunk => body += chunk.toString());
-        req.on("end", async () => {
-          try {
-            const data = JSON.parse(body);
-            const { to, subject, message } = data;
-            
-            if (!to || !message) {
-              res.writeHead(400, { "Content-Type": "application/json" });
-              res.end(JSON.stringify({ error: "'to' and 'message' fields are required" }));
-              return;
-            }
-
-            const IS_LIVE = process.env.live !== "false";
-            if (IS_LIVE) {
-              const { sendOutboundEmail: sendOutboundEmailLive } = await import("../backend/send-mail-simple/send-mail-from-generated-mail-from-live.js");
-              await sendOutboundEmailLive({
-                from: userEmail,
-                to,
-                subject: subject || "",
-                text: message,
-                html: "",
-                attachments: []
-              });
-            } else {
-              const { sendOutboundEmail: sendOutboundEmailLocal } = await import("../backend/send-mail-simple/send-mail-from-generated-mail-from-local.js");
-              await sendOutboundEmailLocal({
-                from: userEmail,
-                to,
-                subject: subject || "",
-                text: message,
-                html: "",
-                attachments: []
-              });
-            }
-
-            res.writeHead(200, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ success: true }));
-          } catch (error) {
-            console.error("Mailbox Send Error:", error);
-            res.writeHead(500, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ error: error.message }));
-          }
-        });
-        return;
-      }
 
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Mailbox API endpoint not found" }));
