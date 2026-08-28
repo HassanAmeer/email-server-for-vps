@@ -1593,10 +1593,8 @@ export default function MailboxInbox() {
                       : totalRecords > 0 ? `${startRecord}-${endRecord} of ${totalRecords}` : "0 emails"}
                   </span>
                   
-                  <span className={`flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 text-[9px] sm:text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border w-fit ${
-                    theme === "light"
-                      ? "bg-[#f1f3f4] border-[#dadce0] text-[#5f6368]"
-                      : "bg-white/[0.03] border-white/[0.06] text-gray-500"
+                  <span className={`flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 text-[9px] sm:text-[10px] font-mono uppercase tracking-wider ${
+                    theme === "light" ? "text-[#5f6368]" : "text-gray-500"
                   }`}>
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 text-blue-500">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5.5c0 .199.079.39.22.53l3 3a.75.75 0 101.06-1.06L10.75 9.94V5z" clipRule="evenodd" />
@@ -1605,74 +1603,77 @@ export default function MailboxInbox() {
                   </span>
                 </div>
 
-                {/* Config Button & Popover */}
-                <div className="relative">
-                  <button
-                    onClick={() => setIsConfigOpen(!isConfigOpen)}
-                    className={`flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg border transition-all cursor-pointer ${
-                      isConfigOpen
-                        ? (theme === "light" ? "bg-[#d2e3fc] border-[#1a73e8] text-[#1a73e8]" : "bg-blue-500/20 border-blue-500/40 text-blue-400")
-                        : (theme === "light" ? "bg-white hover:bg-[#f1f3f4] border-[#dadce0] text-[#5f6368]" : "bg-white/[0.03] hover:bg-white/[0.08] border-white/[0.06] text-gray-500 hover:text-gray-200")
-                    }`}
-                    title="Configure Emails Per Page"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3.5 h-3.5 sm:w-4 sm:h-4">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-                    </svg>
-                  </button>
-                  
-                  {/* Config Popover */}
-                  {isConfigOpen && (
-                    <div className={`absolute left-0 bottom-full mb-2 w-56 rounded-xl shadow-[0_-8px_30px_rgba(0,0,0,0.5)] z-50 p-4 border overflow-hidden ${
-                      theme === "light" ? "bg-white border-gray-200" : "bg-[#0b101e] border-white/[0.08]"
-                    }`}>
-                      <h4 className={`text-xs font-bold mb-3 ${theme === "light" ? "text-gray-800" : "text-gray-200"}`}>
-                        Emails Per Page
-                      </h4>
-                      <div className="flex items-center gap-2 mb-3">
-                        <input
-                          type="number"
-                          value={customLimit}
-                          onChange={(e) => setCustomLimit(e.target.value)}
-                          className={`w-full rounded-lg px-3 py-1.5 text-xs focus:outline-none transition-all ${
-                            theme === "light"
-                              ? "bg-gray-100 border border-transparent focus:border-blue-500 text-gray-800"
-                              : "bg-black/50 border border-white/[0.1] focus:border-blue-500/50 text-white"
-                          }`}
-                          min="1"
-                          max="1000"
-                        />
+                <div className="flex items-center gap-1 ml-1">
+                  {/* Config Button & Popover */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setIsConfigOpen(!isConfigOpen)}
+                      className={`flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg border transition-all cursor-pointer ${
+                        isConfigOpen
+                          ? (theme === "light" ? "bg-[#d2e3fc] border-[#1a73e8] text-[#1a73e8]" : "bg-blue-500/20 border-blue-500/40 text-blue-400")
+                          : (theme === "light" ? "bg-white hover:bg-[#f1f3f4] border-[#dadce0] text-[#5f6368]" : "bg-white/[0.03] hover:bg-white/[0.08] border-white/[0.06] text-gray-500 hover:text-gray-200")
+                      }`}
+                      title="Configure Emails Per Page"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3.5 h-3.5 sm:w-4 sm:h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                      </svg>
+                    </button>
+                    
+                    {/* Config Popover */}
+                    {isConfigOpen && (
+                      <div className={`absolute left-0 bottom-full mb-2 w-56 rounded-xl shadow-[0_-8px_30px_rgba(0,0,0,0.5)] z-50 p-4 border overflow-hidden ${
+                        theme === "light" ? "bg-white border-gray-200" : "bg-[#0b101e] border-white/[0.08]"
+                      }`}>
+                        <h4 className={`text-xs font-bold mb-3 ${theme === "light" ? "text-gray-800" : "text-gray-200"}`}>
+                          Emails Per Page
+                        </h4>
+                        <div className="flex items-center gap-2 mb-3">
+                          <input
+                            type="number"
+                            value={customLimit}
+                            onChange={(e) => setCustomLimit(e.target.value)}
+                            className={`w-full rounded-lg px-3 py-1.5 text-xs focus:outline-none transition-all ${
+                              theme === "light"
+                                ? "bg-gray-100 border border-transparent focus:border-blue-500 text-gray-800"
+                                : "bg-black/50 border border-white/[0.1] focus:border-blue-500/50 text-white"
+                            }`}
+                            min="1"
+                            max="1000"
+                          />
+                        </div>
+                        <button
+                          onClick={() => {
+                            const newLimit = parseInt(customLimit) || 100;
+                            setLimit(newLimit);
+                            setPage(1);
+                            setIsConfigOpen(false);
+                          }}
+                          className="w-full bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold py-2 rounded-lg transition-colors cursor-pointer"
+                        >
+                          Apply Changes
+                        </button>
                       </div>
-                      <button
-                        onClick={() => {
-                          const newLimit = parseInt(customLimit) || 100;
-                          setLimit(newLimit);
-                          setPage(1);
-                          setIsConfigOpen(false);
-                        }}
-                        className="w-full bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold py-2 rounded-lg transition-colors cursor-pointer"
-                      >
-                        Apply Changes
-                      </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                    disabled={page <= 1 || loading}
+                    className={`flex-shrink-0 w-7 h-7 flex items-center justify-center text-[11px] font-bold font-mono rounded-lg border transition-all disabled:opacity-30 disabled:pointer-events-none ${
+                      theme === "light"
+                        ? "bg-white hover:bg-[#f1f3f4] text-[#444746] border-[#dadce0]"
+                        : "bg-white/[0.03] hover:bg-white/[0.08] text-gray-300 border-white/[0.06]"
+                    }`}
+                    title="Previous Page"
+                  >
+                    ←
+                  </button>
                 </div>
               </div>
 
               {/* Right Side: Scrollable page tabs row */}
               <div className="flex items-center justify-end gap-1 overflow-x-auto no-scrollbar px-0.5 py-0.5 ml-auto">
-                <button
-                  onClick={() => setPage(prev => Math.max(1, prev - 1))}
-                  disabled={page <= 1 || loading}
-                  className={`flex-shrink-0 w-7 h-7 flex items-center justify-center text-[11px] font-bold font-mono rounded-lg border transition-all disabled:opacity-30 disabled:pointer-events-none ${
-                    theme === "light"
-                      ? "bg-white hover:bg-[#f1f3f4] text-[#444746] border-[#dadce0]"
-                      : "bg-white/[0.03] hover:bg-white/[0.08] text-gray-300 border-white/[0.06]"
-                  }`}
-                  title="Previous Page"
-                >
-                  ←
-                </button>
 
                 {Array.from({ length: Math.max(1, totalPages) }, (_, i) => i + 1).map(p => (
                   <button
