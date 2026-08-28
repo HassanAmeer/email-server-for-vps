@@ -620,7 +620,7 @@ export class ApiRouter {
 
     try {
       const dbModule = await import("../backend/database/db.js");
-      const db = dbModule.default;
+      const db = (dbModule.db || dbModule.default);
 
       // GET /api/admin/projects
       if (req.method === "GET" && req.url.split("?")[0] === "/api/admin/projects") {
@@ -959,7 +959,7 @@ export class ApiRouter {
 
     try {
       const dbModule = await import("../backend/database/db.js");
-      const db = dbModule.default;
+      const db = (dbModule.db || dbModule.default);
       const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
       const scope = url.searchParams.get("scope") || req.headers["x-scope"] || defaultScope || "admin";
       const cleanUrl = req.url.split("?")[0];
@@ -1139,7 +1139,7 @@ export class ApiRouter {
 
     try {
       const dbModule = await import("../backend/database/db.js");
-      const db = dbModule.default;
+      const db = (dbModule.db || dbModule.default);
       const fs = await import("fs");
       const path = await import("path");
 
@@ -1243,7 +1243,7 @@ export class ApiRouter {
         const primaryPrefix = primary?.primary_prefix || "admin";
         const masterEmail = `${primaryPrefix}@${primaryDomain}`;
 
-        const allUsers = dbModule.default.prepare("SELECT email, plain_password FROM mailbox_table ORDER BY id ASC").all();
+        const allUsers = (dbModule.db || dbModule.default).prepare("SELECT email, plain_password FROM mailbox_table ORDER BY id ASC").all();
         let defaultCreds = {
           email: masterEmail,
           password: process.env.ADMIN_PASSWORD || "1234"
@@ -1392,7 +1392,7 @@ export class ApiRouter {
         const search = parsedUrl.searchParams.get("search") || "";
         const filter = parsedUrl.searchParams.get("filter") || "all";
 
-        const db = dbModule.default;
+        const db = (dbModule.db || dbModule.default);
         if (dbModule.purgeExpiredTrashEmails) {
           try { dbModule.purgeExpiredTrashEmails(24); } catch (e) { }
         }
@@ -1461,7 +1461,7 @@ export class ApiRouter {
       // GET /api/mailbox/count
       if (normUrl === "/api/mailbox/count" && req.method === "GET") {
         try {
-          const db = dbModule.default;
+          const db = (dbModule.db || dbModule.default);
           const row = db.prepare("SELECT COUNT(*) as count FROM received_emails WHERE COALESCE(is_deleted, 0) = 0").get();
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ email: userEmail, count: row ? row.count : 0, isPrimaryMailbox: true }));
@@ -1475,7 +1475,7 @@ export class ApiRouter {
       // GET /api/mailbox/inbox/:id
       if (normUrl.match(/\/api\/mailbox\/inbox\/\d+/) && req.method === "GET") {
         const id = normUrl.split("/").pop();
-        const db = dbModule.default;
+        const db = (dbModule.db || dbModule.default);
         const emailRecord = db.prepare("SELECT id, file_name, recipient, sender, subject, created_at, has_attachment, attachment_size, is_deleted FROM received_emails WHERE id = ?").get(id);
         
         if (!emailRecord) {
@@ -1501,7 +1501,7 @@ export class ApiRouter {
         req.on("data", chunk => body += chunk.toString());
         req.on("end", () => {
           try {
-            const db = dbModule.default;
+            const db = (dbModule.db || dbModule.default);
             let ids = [];
             if (normUrl.match(/\/api\/mailbox\/inbox\/restore\/\d+/)) {
               ids = [normUrl.split("/").pop()];
@@ -1539,7 +1539,7 @@ export class ApiRouter {
         req.on("end", () => {
           try {
             const parsed = JSON.parse(body || "{}");
-            const db = dbModule.default;
+            const db = (dbModule.db || dbModule.default);
             let deletedCount = 0;
 
             if (parsed.all === true) {
@@ -1601,7 +1601,7 @@ export class ApiRouter {
               return;
             }
 
-            const db = dbModule.default;
+            const db = (dbModule.db || dbModule.default);
             let deletedCount = 0;
             for (const id of ids) {
               db.prepare("UPDATE received_emails SET is_deleted = 1, deleted_at = CURRENT_TIMESTAMP WHERE id = ?").run(id);
@@ -1623,7 +1623,7 @@ export class ApiRouter {
         const id = normUrl.split("/").pop();
         const urlObj = new URL(req.url, `http://${req.headers.host || "localhost"}`);
         const isPermanent = urlObj.searchParams.get("permanent") === "true";
-        const db = dbModule.default;
+        const db = (dbModule.db || dbModule.default);
         const emailRecord = db.prepare("SELECT file_name FROM received_emails WHERE id = ?").get(id);
         if (!emailRecord) {
           res.writeHead(404, { "Content-Type": "application/json" });
@@ -1650,7 +1650,7 @@ export class ApiRouter {
 
       // GET /api/mailbox/media
       if (normUrl === "/api/mailbox/media" && req.method === "GET") {
-        const db = dbModule.db || dbModule.default;
+        const db = dbModule.db || (dbModule.db || dbModule.default);
         const parsedUrl = new URL(req.url, "http://localhost");
         const filterEmail = parsedUrl.searchParams.get("email");
 
