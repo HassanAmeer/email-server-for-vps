@@ -128,7 +128,7 @@ export const defaultApiSettings = [
   { id: "get-attachment", method: "GET", path: "/api/attachments/:filename", desc: "Download an attached file (image, PDF, document) from a received email using its filename.", enabled: true, category: "Mailbox UI", hits: 0, auth: false, variables: "Params: :filename" },
   { id: "mailbox-delete", method: "DELETE", path: "/api/mailbox/:email", desc: "Delete all received emails and messages for a specific email address.", enabled: true, category: "Mailbox UI", hits: 0, auth: true, variables: "Params: :email" },
   { id: "mailbox-delete-one", method: "DELETE", path: "/api/mailbox/:email/:mailId", desc: "Delete a single specific email by its ID from a mailbox.", enabled: true, category: "Mailbox UI", hits: 0, auth: true, variables: "Params: :email, :mailId" },
-  { id: "mailbox-client-inbox", method: "GET", path: "/api/mailbox/inbox", desc: "Get the list of received emails for the logged-in mailbox user.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "?page=1&limit=200&filter=all&search=keyword" },
+  { id: "mailbox-client-inbox", method: "GET", path: "/api/mailbox/inbox", desc: "Get the list of received emails for the logged-in mailbox inbox.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "?page=1&limit=200&filter=all&search=keyword" },
   { id: "mailbox-client-count", method: "GET", path: "/api/mailbox/count", desc: "Get the total number of emails in the user inbox (useful for badges).", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "None" },
   { id: "mailbox-client-read", method: "GET", path: "/api/mailbox/inbox/:id", desc: "Get full details, text, HTML, and attachments of a specific email by its ID.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "Params: :id" },
   { id: "mailbox-client-media", method: "GET", path: "/api/mailbox/media", desc: "Get all file attachments received in the user mailbox with download links.", enabled: true, category: "Mailbox Client", hits: 0, auth: true, variables: "None" },
@@ -153,9 +153,9 @@ export const defaultApiSettings = [
   { id: "admin-dblogs", method: "GET", path: "/api/admin/dblogs/:type", desc: "View database activity and error logs (e.g. SMTP_IN, SMTP_OUT, ERROR, ALL).", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "Params: :type (ALL, ERROR, SMTP_IN, SMTP_OUT)" },
   { id: "admin-mailbox-users-list", method: "GET", path: "/api/admin/mailbox-users", desc: "Get a list of all permanent mailbox accounts, passwords, and project IDs.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "None" },
   { id: "api-settings", method: "GET", path: "/api/admin/api-settings", desc: "View all API routes, their hit counts, and whether they are turned ON or OFF.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "None" },
-  { id: "get-retention-settings", method: "GET", path: "/api/project/retention", desc: "Get the auto-cleanup time limit (in hours) for temporary emails and attachments.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "None" },
-  { id: "get-allowed-files", method: "GET", path: "/api/project/allowed-files", desc: "Get the list of allowed file extensions (like png, jpg, pdf) for email attachments.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "None" },
-  { id: "get-forbidden-ids", method: "GET", path: "/api/project/forbidden-ids", desc: "Get the list of blocked email usernames (like admin, support, root) that users cannot create.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "None" },
+  { id: "get-retention-settings", method: "GET", path: "/api/project/retention", desc: "Get the auto-cleanup time limit (in hours) for temporary emails and attachments.", enabled: true, category: "Dev Project Settings", hits: 0, auth: true, variables: "None", devOnly: true },
+  { id: "get-allowed-files", method: "GET", path: "/api/project/allowed-files", desc: "Get the list of allowed file extensions (like png, jpg, pdf) for email attachments.", enabled: true, category: "Dev Project Settings", hits: 0, auth: true, variables: "None", devOnly: true },
+  { id: "get-forbidden-ids", method: "GET", path: "/api/project/forbidden-ids", desc: "Get the list of blocked email usernames (like admin, support, root) that users cannot create.", enabled: true, category: "Dev Project Settings", hits: 0, auth: true, variables: "None", devOnly: true },
   { id: "admin-login", method: "POST", path: "/api/admin/login", desc: "Login to the admin dashboard and receive an authentication Bearer token.", enabled: true, category: "Admin Management", hits: 0, auth: false, variables: "Body: JSON {username, password}" },
   { id: "admin-projects-create", method: "POST", path: "/api/admin/projects", desc: "Create a new developer project and generate its API key.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "Body: JSON {name, plan}" },
   { id: "admin-domains-create", method: "POST", path: "/api/admin/domains", desc: "Add a new domain name to the email server.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "Body: JSON {domain, is_primary}" },
@@ -166,9 +166,9 @@ export const defaultApiSettings = [
   { id: "admin-projects-retention", method: "PUT", path: "/api/admin/projects/:id/retention", desc: "Configure data retention hours for a specific project.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "Params: :id, Body: JSON {retention}" },
   { id: "admin-domains-update", method: "PUT", path: "/api/admin/domains/:id", desc: "Update status or settings for a specific connected domain.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "Params: :id, Body: JSON {status, catch_all}" },
   { id: "admin-mailbox-users-update", method: "PUT", path: "/api/admin/mailbox-users/:id", desc: "Change the password or project for an existing mailbox user account.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "Params: :id, Body: JSON {password, projectId}" },
-  { id: "update-retention-settings", method: "PUT", path: "/api/project/retention", desc: "Update how long (in hours) emails and attachments are kept before being automatically deleted.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "Body: JSON {retention}" },
-  { id: "update-allowed-files", method: "PUT", path: "/api/project/allowed-files", desc: "Update the list of allowed file extensions for email attachments.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "Body: JSON {allowedFiles}" },
-  { id: "update-forbidden-ids", method: "PUT", path: "/api/project/forbidden-ids", desc: "Update the list of blocked email usernames that cannot be generated.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "Body: JSON {forbiddenIds}" },
+  { id: "update-retention-settings", method: "PUT", path: "/api/project/retention", desc: "Update how long (in hours) emails and attachments are kept before being automatically deleted.", enabled: true, category: "Dev Project Settings", hits: 0, auth: true, variables: "Body: JSON {retention}", devOnly: true },
+  { id: "update-allowed-files", method: "PUT", path: "/api/project/allowed-files", desc: "Update the list of allowed file extensions for email attachments.", enabled: true, category: "Dev Project Settings", hits: 0, auth: true, variables: "Body: JSON {allowedFiles}", devOnly: true },
+  { id: "update-forbidden-ids", method: "PUT", path: "/api/project/forbidden-ids", desc: "Update the list of blocked email usernames that cannot be generated.", enabled: true, category: "Dev Project Settings", hits: 0, auth: true, variables: "Body: JSON {forbiddenIds}", devOnly: true },
   { id: "admin-projects-delete", method: "DELETE", path: "/api/admin/projects/:id", desc: "Permanently delete a developer project and its associated API key.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "Params: :id" },
   { id: "admin-projects-hits", method: "DELETE", path: "/api/admin/projects/:id/hits", desc: "Reset API usage hits for a specific project.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "Params: :id" },
   { id: "admin-domains-delete", method: "DELETE", path: "/api/admin/domains/:id", desc: "Remove a domain from the email server.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "Params: :id" },
@@ -384,6 +384,16 @@ export class AdminController {
     return AdminController.devPanelLogin(req, res);
   }
 
+  static getPublicApiSettings(req, res) {
+    const isDevScope = (req.url && (req.url.startsWith("/api/devpanel") || req.url.startsWith("/api/dev-admin") || req.url.startsWith("/api/dev"))) ||
+      (req.headers && (req.headers["x-scope"] === "devpanel" || req.headers["x-scope"] === "dev"));
+    const scope = isDevScope ? "dev" : "admin";
+    const list = getApiSettingsList(scope);
+    const publicList = list.map(item => ({ id: item.id, enabled: item.enabled === 1 || item.enabled === true }));
+    res.writeHead(200, { "Content-Type": "application/json" });
+    return res.end(JSON.stringify({ success: true, settings: publicList }));
+  }
+
   static getApiSettings(req, res) {
     const isDevScope = (req.url && (req.url.startsWith("/api/devpanel") || req.url.startsWith("/api/dev-admin") || req.url.startsWith("/api/dev"))) ||
       (req.headers && (req.headers["x-scope"] === "devpanel" || req.headers["x-scope"] === "dev"));
@@ -403,7 +413,7 @@ export class AdminController {
         } else if (itemPath.startsWith("/api/")) {
           itemPath = itemPath.replace("/api/", "/api/dev/");
           itemCategory = itemCategory === "Mailbox UI" ? "Dev Mailbox UI" :
-            itemCategory === "Mailbox Client" ? "Dev Master Mailbox" :
+            itemCategory === "Mailbox Client" ? "Dev Mailbox" :
               itemCategory === "Local Console" ? "Dev Local Console" :
                 itemCategory === "Live Console" ? "Dev Live Console" : `Dev ${itemCategory}`;
         }

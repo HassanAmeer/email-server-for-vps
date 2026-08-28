@@ -11,19 +11,19 @@ Open the Terminal on your local machine (Mac) and connect to the VPS.
 ### 1. Connection (Incorrect Parked IP) — *Failed*
 When trying to connect to Hostinger's default parked domain IP, the connection times out because Hostinger does not allow SSH root access on their parked domain servers.
 ```bash
-# This will TIMEOUT because 162.159.140.98 is Hostinger's parking IP, not your VPS IP
-ssh root@162.159.140.98
+# This will TIMEOUT because 187.52.117.2 is Hostinger's parking IP, not your VPS IP
+ssh root@187.52.117.2
 ```
 
 ### 2. Connection (Correct VPS IP) — *Succeeded*
-Log in using your actual DigitalOcean Droplet IP address (`64.227.137.95`) as the `root` user:
+Log in using your actual DigitalOcean Droplet IP address (`187.52.117.2`) as the `root` user:
 ```bash
 # Connect to your actual Droplet IP
-ssh root@64.227.137.95
+ssh root@187.52.117.2
 ```
-* **Host IP**: `64.227.137.95`
+* **Host IP**: `187.52.117.2`
 * **Username**: `root`
-* **Password**: HasanAmeer386@gmail.com 
+* **Password**: Hasanameer386@gmail.com 
 --> `[Put your VPS root password here]`
 * **Fingerprint Warning**: The first time you connect, type `yes` to add the VPS IP to your machine's known hosts.
 * **Password**: Enter the root password you created during the Droplet setup.
@@ -62,7 +62,7 @@ Clone the project repository from GitHub and prepare the package files.
 git clone https://github.com/HassanAmeer/temp-email-vps.git
 
 # 2. Navigate into the cloned repository folder (ZAROORI: Always enter the directory before running bun commands)
-cd temp-email-vps
+cd tempmail
 
 # 3. Install all packages and dependencies defined in package.json using Bun
 bun install
@@ -101,7 +101,7 @@ bun run build
 # 2. Run the SMTP Server and Web Dashboard on default development ports (SMTP: 2525, Web: 8081)
 bun run mail:start
 ```
-*At this point, you can access the dashboard at: `http://64.227.137.95:8081/live`*
+*At this point, you can access the dashboard at: `http://187.52.117.2:8081/live`*
 
 ---
 
@@ -115,7 +115,7 @@ To make it fully ready to receive emails from public senders like Gmail, Outlook
 # 2. Run the start command as root to bind to ports 80 and 25
 sudo bun run mail:start
 ```
-*Now you can access the dashboard directly without port numbers: `http://64.227.137.95/live`*
+*Now you can access the dashboard directly without port numbers: `http://187.52.117.2/live`*
 
 ---
 

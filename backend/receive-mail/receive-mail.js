@@ -556,6 +556,10 @@ const httpServer = http.createServer((req, res) => {
       return AdminController.devAdminLogin(req, res);
     }
 
+    if (devSubPath === "docs/settings" && req.method === "GET") {
+      return AdminController.getPublicApiSettings(req, res);
+    }
+
     // Dev Panel management routes
     if (devSubPath === "stats" || devSubPath === "stats/traffic" || devSubPath.startsWith("credentials") || 
         devSubPath.startsWith("projects") || devSubPath.startsWith("domains") || devSubPath.startsWith("mailbox-users") ||
@@ -724,6 +728,10 @@ const httpServer = http.createServer((req, res) => {
     } else {
       return ApiRouter.deleteMailbox(req, res, email);
     }
+  }
+
+  if (cleanUrl === "/api/docs/settings" && req.method === "GET") {
+    return AdminController.getPublicApiSettings(req, res);
   }
 
   // Intercept admin endpoints

@@ -21,6 +21,7 @@ export default function LiveLogs({ apiUrl, systemMode, apiPrefix = "/api/admin",
   const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [rcptLogging, setRcptLogging] = useState<boolean>(false);
   const [rcptLoggingLoading, setRcptLoggingLoading] = useState(false);
+  const [selectedLog, setSelectedLog] = useState<any | null>(null);
 
   const showToast = (text: string, type: "success" | "error" = "success") => {
     setToastMessage({ text, type });
@@ -541,7 +542,7 @@ export default function LiveLogs({ apiUrl, systemMode, apiPrefix = "/api/admin",
                             ? "bg-emerald-500/[0.07] hover:bg-emerald-500/[0.10]" 
                             : "hover:bg-white/[0.02]"
                         }`}
-                        onClick={() => toggleSelectRow(row.id)}
+                        onClick={() => setSelectedLog(row)}
                       >
                         {/* Row Checkbox */}
                         <td className="px-4 py-3.5 text-center align-top" onClick={(e) => e.stopPropagation()}>
@@ -584,6 +585,120 @@ export default function LiveLogs({ apiUrl, systemMode, apiPrefix = "/api/admin",
           {pagination.total > 0 && renderPaginationBar("bottom")}
         </div>
       </div>
+
+      {/* Right Side Sheet for Detailed Log View */}
+      {selectedLog && (
+        <>
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] animate-fade-in"
+            onClick={() => setSelectedLog(null)}
+          />
+          {/* Drawer */}
+          <div className="fixed top-0 right-0 h-full w-full max-w-lg bg-[#050a14] border-l border-white/[0.08] shadow-2xl z-[101] transform transition-transform animate-slide-in flex flex-col">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-white/[0.06] bg-slate-900/40">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5 text-emerald-400">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white tracking-tight">Log Details</h3>
+                  <p className="text-xs text-gray-400 font-mono">ID: #{selectedLog.id}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedLog(null)}
+                className="p-2 text-gray-400 hover:text-white hover:bg-white/[0.05] rounded-full transition-colors cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-5 custom-scrollbar">
+              <div className="space-y-6">
+                
+                {/* Meta Grid */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white/[0.02] border border-white/[0.04] p-3.5 rounded-xl">
+                    <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-1.5">Type</p>
+                    <div>{getTypeBadge(selectedLog.log_type)}</div>
+                  </div>
+                  <div className="bg-white/[0.02] border border-white/[0.04] p-3.5 rounded-xl">
+                    <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-1.5">Status</p>
+                    <div>{getStatusBadge(selectedLog.status)}</div>
+                  </div>
+                  <div className="bg-white/[0.02] border border-white/[0.04] p-3.5 rounded-xl col-span-2">
+                    <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-1.5">Timestamp (UTC)</p>
+                    <p className="text-sm font-mono text-gray-300">
+                      {new Date(selectedLog.created_at + "Z").toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Message */}
+                <div>
+                  <h4 className="text-[11px] uppercase tracking-wider font-bold text-gray-500 mb-2">Message / Event Step</h4>
+                  <div className="bg-slate-900/60 border border-white/[0.06] rounded-xl p-4 shadow-inner">
+                    <p className="text-sm text-gray-200 leading-relaxed font-medium">
+                      {selectedLog.message}
+                    </p>
+                  </div>
+                </div>
+
+                {/* JSON Details Payload */}
+                <div>
+                  <h4 className="text-[11px] uppercase tracking-wider font-bold text-gray-500 mb-2 flex items-center justify-between">
+                    <span>JSON Details Payload</span>
+                    {selectedLog.details && (
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(JSON.stringify(selectedLog.details, null, 2));
+                          showToast("Copied JSON details to clipboard!", "success");
+                        }}
+                        className="text-emerald-400 hover:text-emerald-300 flex items-center gap-1 cursor-pointer"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3.5 h-3.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75" />
+                        </svg>
+                        Copy JSON
+                      </button>
+                    )}
+                  </h4>
+                  <div className="bg-black/60 border border-white/[0.08] rounded-xl p-4 overflow-x-auto shadow-inner relative group">
+                    {selectedLog.details ? (
+                      <pre className="text-emerald-300 font-mono text-[12px] leading-relaxed break-all whitespace-pre-wrap">
+                        {JSON.stringify(selectedLog.details, null, 2)}
+                      </pre>
+                    ) : (
+                      <div className="flex items-center justify-center py-6 text-gray-500 italic text-xs">
+                        No additional details payload provided for this log.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+            
+            {/* Footer */}
+            <div className="p-4 border-t border-white/[0.06] bg-slate-900/40">
+              <button 
+                onClick={() => setSelectedLog(null)}
+                className="w-full py-2.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-gray-300 font-bold transition-all cursor-pointer"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </section>
   );
 }

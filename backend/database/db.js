@@ -894,14 +894,20 @@ export function initApiSettings(settingsArray) {
     `);
     for (const api of settingsArray) {
       // 1. Admin Scope
-      stmt.run(api.id, "admin", api.method, api.path, api.desc, api.enabled ? 1 : 0, api.category, api.hits || 0);
+      if (!api.devOnly) {
+        stmt.run(api.id, "admin", api.method, api.path, api.desc, api.enabled ? 1 : 0, api.category, api.hits || 0);
+      } else {
+        try {
+          db.prepare("DELETE FROM api_settings WHERE id = ? AND scope = 'admin'").run(api.id);
+        } catch(e) {}
+      }
 
       // 2. Dev Scope
       let devPath = api.path;
       let devCat = api.category;
       if (devPath.startsWith("/api/admin/")) {
         devPath = devPath.replace("/api/admin/", "/api/devpanel/");
-        devCat = "DevPanel Management";
+        devCat = "DevPanel Settings";
       } else if (devPath.startsWith("/api/")) {
         devPath = devPath.replace("/api/", "/api/dev/");
       }

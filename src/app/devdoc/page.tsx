@@ -129,8 +129,8 @@ const endpoints: Endpoint[] = [
     method: "GET",
     path: "/api/dev/mailbox/inbox",
     title: "Get User Inbox",
-    category: "Dev Master Mailbox",
-    desc: "Get the list of received emails for the logged-in mailbox user.",
+    category: "Dev Mailbox",
+    desc: "Get the list of received emails for the logged-in mailbox inbox.",
     payload: null,
     response: "{\n  \"messages\": [\n    {\n      \"id\": 1,\n      \"from\": \"billing@stripe.com\",\n      \"subject\": \"Your Invoice\",\n      \"date\": \"2026-07-15T09:00:00Z\",\n      \"hasAttachments\": true\n    }\n  ],\n  \"total\": 1,\n  \"page\": 1,\n  \"limit\": 200\n}",
     exampleUrl: "http://your-vps-ip:8081/api/dev/mailbox/inbox",
@@ -142,7 +142,7 @@ const endpoints: Endpoint[] = [
     method: "GET",
     path: "/api/dev/mailbox/count",
     title: "Get Unread Email Count",
-    category: "Dev Master Mailbox",
+    category: "Dev Mailbox",
     desc: "Get the total number of emails in the user inbox (useful for badges).",
     payload: null,
     response: "{\n  \"success\": true,\n  \"count\": 12\n}",
@@ -155,7 +155,7 @@ const endpoints: Endpoint[] = [
     method: "GET",
     path: "/api/dev/mailbox/inbox/:id",
     title: "Read Single Email",
-    category: "Dev Master Mailbox",
+    category: "Dev Mailbox",
     desc: "Get full details, text, HTML, and attachments of a specific email by its ID.",
     payload: null,
     response: "{\n  \"id\": 1,\n  \"from\": \"billing@stripe.com\",\n  \"to\": \"support@yourdomain.com\",\n  \"subject\": \"Your Invoice\",\n  \"text\": \"Payment received\",\n  \"html\": \"<p>Payment received</p>\",\n  \"date\": \"2026-07-15T09:00:00Z\",\n  \"attachments\": []\n}",
@@ -168,7 +168,7 @@ const endpoints: Endpoint[] = [
     method: "GET",
     path: "/api/dev/mailbox/media",
     title: "List Email Attachments",
-    category: "Dev Master Mailbox",
+    category: "Dev Mailbox",
     desc: "Get all file attachments received in the user mailbox with download links.",
     payload: null,
     response: "{\n  \"media\": [\n    {\n      \"emailId\": 1,\n      \"filename\": \"invoice.pdf\",\n      \"size\": 14205,\n      \"url\": \"/api/attachments/invoice.pdf\"\n    }\n  ]\n}",
@@ -181,7 +181,7 @@ const endpoints: Endpoint[] = [
     method: "POST",
     path: "/api/dev/mailbox/login",
     title: "Mailbox User Login",
-    category: "Dev Master Mailbox",
+    category: "Dev Mailbox",
     desc: "Login as a mailbox user using email and password to get an access token.",
     payload: "{\n  \"email\": \"support@yourdomain.com\",\n  \"password\": \"your_password\"\n}",
     response: "{\n  \"success\": true,\n  \"token\": \"session_token_here\"\n}",
@@ -194,7 +194,7 @@ const endpoints: Endpoint[] = [
     method: "DELETE",
     path: "/api/dev/mailbox/inbox/:id",
     title: "Delete Single Email",
-    category: "Dev Master Mailbox",
+    category: "Dev Mailbox",
     desc: "Delete a specific email from the logged-in user inbox.",
     payload: null,
     response: "{\n  \"success\": true\n}",
@@ -285,7 +285,7 @@ const endpoints: Endpoint[] = [
     method: "GET",
     path: "/api/devpanel/stats",
     title: "Server Statistics",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "Get server stats including total emails received, disk usage, and server uptime.",
     payload: null,
     response: "{\n  \"success\": true,\n  \"totalEmails\": 120,\n  \"uptime\": 86400,\n  \"diskUsage\": \"1.2 MB\"\n}",
@@ -298,7 +298,7 @@ const endpoints: Endpoint[] = [
     method: "GET",
     path: "/api/devpanel/stats/traffic",
     title: "Traffic Statistics",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "Get real-time traffic data, request counts, and API analytics.",
     payload: null,
     response: "{\n  \"success\": true,\n  \"dailyHits\": [\n    {\n      \"date\": \"2026-08-23\",\n      \"hits\": 350\n    }\n  ]\n}",
@@ -311,7 +311,7 @@ const endpoints: Endpoint[] = [
     method: "GET",
     path: "/api/dev/mails",
     title: "Get All Server Emails",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "Fetch all incoming emails across the entire server for admin monitoring.",
     payload: null,
     response: "[\n  {\n    \"id\": \"1\",\n    \"from\": \"sender@example.com\",\n    \"to\": \"test@tempemail.vps\",\n    \"subject\": \"Test mail\",\n    \"date\": \"2026-08-23T12:00:00Z\"\n  }\n]",
@@ -324,7 +324,7 @@ const endpoints: Endpoint[] = [
     method: "GET",
     path: "/api/dev/mailbox/info",
     title: "Mailbox Server Info",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "Get IMAP/POP3 hostnames, ports, and configuration details for webmail.",
     payload: null,
     response: "{\n  \"success\": true,\n  \"primaryDomain\": \"tempemail.vps\",\n  \"imap\": {\n    \"host\": \"mail.tempemail.vps\",\n    \"sslPort\": 993,\n    \"plainPort\": 143,\n    \"status\": \"active\"\n  }\n}",
@@ -337,7 +337,7 @@ const endpoints: Endpoint[] = [
     method: "GET",
     path: "/api/devpanel/projects",
     title: "List API Projects",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "List all developer projects and their API keys.",
     payload: null,
     response: "[\n  {\n    \"id\": 1,\n    \"name\": \"Default Project\",\n    \"api_key\": \"proj_key_123\"\n  }\n]",
@@ -350,7 +350,7 @@ const endpoints: Endpoint[] = [
     method: "GET",
     path: "/api/devpanel/projects/:id/emails",
     title: "Get Project Emails",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "Get all emails received under a specific project.",
     payload: null,
     response: "{\n  \"success\": true,\n  \"emails\": []\n}",
@@ -363,7 +363,7 @@ const endpoints: Endpoint[] = [
     method: "GET",
     path: "/api/devpanel/projects/:id/files",
     title: "Get Project Files",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "Get all attachment files stored under a specific project.",
     payload: null,
     response: "{\n  \"success\": true,\n  \"files\": []\n}",
@@ -376,7 +376,7 @@ const endpoints: Endpoint[] = [
     method: "GET",
     path: "/api/devpanel/domains",
     title: "List Server Domains",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "List all domain names connected to this email server.",
     payload: null,
     response: "[\n  {\n    \"id\": 1,\n    \"domain\": \"tempemail.vps\",\n    \"status\": \"active\",\n    \"is_primary\": 1\n  }\n]",
@@ -389,7 +389,7 @@ const endpoints: Endpoint[] = [
     method: "GET",
     path: "/api/devpanel/credentials",
     title: "Get SMTP Credentials",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "View and manage outbound SMTP login credentials.",
     payload: null,
     response: "{\n  \"users\": [\n    {\n      \"username\": \"admin\",\n      \"email\": \"admin@tempemail.vps\"\n    }\n  ]\n}",
@@ -402,7 +402,7 @@ const endpoints: Endpoint[] = [
     method: "GET",
     path: "/api/devpanel/serverinfo",
     title: "Server Information",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "Get server details including IP address, status, and DKIM public key.",
     payload: null,
     response: "{\n  \"success\": true,\n  \"ip\": \"127.0.0.1\",\n  \"dkimKey\": \"v=DKIM1; k=rsa; p=MIGf...\"\n}",
@@ -415,7 +415,7 @@ const endpoints: Endpoint[] = [
     method: "GET",
     path: "/api/devpanel/dblogs/all",
     title: "Get Server Logs",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "View database activity and error logs (e.g. SMTP_IN, SMTP_OUT, ERROR, ALL).",
     payload: null,
     response: "{\n  \"success\": true,\n  \"logs\": []\n}",
@@ -428,7 +428,7 @@ const endpoints: Endpoint[] = [
     method: "GET",
     path: "/api/dev-admin/mailbox-users",
     title: "Get Mailbox Accounts",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "Get a list of all permanent mailbox accounts, passwords, and project IDs.",
     payload: null,
     response: "[\n  {\n    \"id\": 1,\n    \"email\": \"support@tempemail.vps\",\n    \"project_id\": 1\n  }\n]",
@@ -441,7 +441,7 @@ const endpoints: Endpoint[] = [
     method: "GET",
     path: "/api/devpanel/api-settings",
     title: "Get API Settings",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "View all API routes, their hit counts, and whether they are turned ON or OFF.",
     payload: null,
     response: "[\n  {\n    \"id\": \"api-domains\",\n    \"enabled\": true,\n    \"hits\": 45\n  }\n]",
@@ -493,7 +493,7 @@ const endpoints: Endpoint[] = [
     method: "POST",
     path: "/api/devpanel/login",
     title: "Admin Login",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "Login to the admin dashboard and receive an authentication Bearer token.",
     payload: "{\n  \"username\": \"admin\",\n  \"password\": \"admin_password\"\n}",
     response: "{\n  \"success\": true,\n  \"token\": \"bearer_token_here\"\n}",
@@ -506,7 +506,7 @@ const endpoints: Endpoint[] = [
     method: "POST",
     path: "/api/devpanel/projects",
     title: "Create API Project",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "Create a new developer project and generate its API key.",
     payload: "{\n  \"name\": \"My Production App\",\n  \"plan\": \"pro\"\n}",
     response: "{\n  \"success\": true,\n  \"id\": 2,\n  \"apiKey\": \"proj_key_xyz\"\n}",
@@ -519,7 +519,7 @@ const endpoints: Endpoint[] = [
     method: "POST",
     path: "/api/devpanel/domains",
     title: "Add Server Domain",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "Add a new domain name to the email server.",
     payload: "{\n  \"domain\": \"customdomain.com\",\n  \"is_primary\": false\n}",
     response: "{\n  \"success\": true,\n  \"id\": 3\n}",
@@ -532,7 +532,7 @@ const endpoints: Endpoint[] = [
     method: "POST",
     path: "/api/dev-admin/mailbox-users",
     title: "Create Mailbox Account",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "Create a new permanent mailbox user account with email and password.",
     payload: "{\n  \"email\": \"sales@tempemail.vps\",\n  \"password\": \"secure_password\",\n  \"projectId\": 1\n}",
     response: "{\n  \"success\": true,\n  \"id\": 2\n}",
@@ -545,7 +545,7 @@ const endpoints: Endpoint[] = [
     method: "POST",
     path: "/api/devpanel/api-settings/toggle",
     title: "Turn API Route ON / OFF",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "Enable or disable a specific API route instantly.",
     payload: "{\n  \"id\": \"mailbox-generate\",\n  \"enabled\": false\n}",
     response: "{\n  \"success\": true,\n  \"id\": \"mailbox-generate\",\n  \"enabled\": false\n}",
@@ -558,7 +558,7 @@ const endpoints: Endpoint[] = [
     method: "POST",
     path: "/api/devpanel/api-settings/reset-hits",
     title: "Reset API Hits",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "Reset hit counters for all API routes.",
     payload: null,
     response: "{\n  \"success\": true,\n  \"message\": \"All hit counts reset to 0\"\n}",
@@ -571,7 +571,7 @@ const endpoints: Endpoint[] = [
     method: "PUT",
     path: "/api/devpanel/projects/:id",
     title: "Update API Project",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "Update project name, rate limits, or webhook configuration.",
     payload: "{\n  \"name\": \"Renamed Project\",\n  \"plan\": \"pro\"\n}",
     response: "{\n  \"success\": true\n}",
@@ -584,7 +584,7 @@ const endpoints: Endpoint[] = [
     method: "PUT",
     path: "/api/devpanel/projects/:id/retention",
     title: "Update Project Retention",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "Configure data retention hours for a specific project.",
     payload: "{\n  \"retention\": {\n    \"generated_emails\": 48,\n    \"simple_mails\": 48,\n    \"attachments\": 24\n  }\n}",
     response: "{\n  \"success\": true\n}",
@@ -597,7 +597,7 @@ const endpoints: Endpoint[] = [
     method: "PUT",
     path: "/api/devpanel/domains/:id",
     title: "Update Domain Settings",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "Update status or settings for a specific connected domain.",
     payload: "{\n  \"status\": \"active\",\n  \"catch_all\": true\n}",
     response: "{\n  \"success\": true\n}",
@@ -610,7 +610,7 @@ const endpoints: Endpoint[] = [
     method: "PUT",
     path: "/api/dev-admin/mailbox-users/:id",
     title: "Update Mailbox Password",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "Change the password or project for an existing mailbox user account.",
     payload: "{\n  \"password\": \"new_secure_password\"\n}",
     response: "{\n  \"success\": true\n}",
@@ -662,7 +662,7 @@ const endpoints: Endpoint[] = [
     method: "DELETE",
     path: "/api/devpanel/projects/:id",
     title: "Delete API Project",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "Permanently delete a developer project and its associated API key.",
     payload: null,
     response: "{\n  \"success\": true\n}",
@@ -675,7 +675,7 @@ const endpoints: Endpoint[] = [
     method: "DELETE",
     path: "/api/devpanel/projects/:id/hits",
     title: "Reset Project Hits",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "Reset API usage hits for a specific project.",
     payload: null,
     response: "{\n  \"success\": true\n}",
@@ -688,7 +688,7 @@ const endpoints: Endpoint[] = [
     method: "DELETE",
     path: "/api/devpanel/domains/:id",
     title: "Delete Server Domain",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "Remove a domain from the email server.",
     payload: null,
     response: "{\n  \"success\": true\n}",
@@ -701,11 +701,89 @@ const endpoints: Endpoint[] = [
     method: "DELETE",
     path: "/api/dev-admin/mailbox-users/:id",
     title: "Delete Mailbox Account",
-    category: "DevPanel Management",
+    category: "DevPanel Settings",
     desc: "Permanently delete a mailbox user account by ID.",
     payload: null,
     response: "{\n  \"success\": true\n}",
     exampleUrl: "http://your-vps-ip:8081/api/dev-admin/mailbox-users/:id",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "dev-smtp-list",
+    method: "GET",
+    path: "/api/devpanel/smtp",
+    title: "List SMTP Credentials",
+    category: "Send Mail",
+    desc: "Get all configured SMTP sender email addresses.",
+    payload: null,
+    response: "{\n  \"success\": true,\n  \"smtp\": []\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/devpanel/smtp",
+    returns: "JSON Array",
+    auth: true
+  },
+  {
+    id: "dev-smtp-create",
+    method: "POST",
+    path: "/api/devpanel/smtp",
+    title: "Create SMTP Credential",
+    category: "Send Mail",
+    desc: "Create a new SMTP sender email address for sending emails.",
+    payload: "{\n  \"email\": \"hello@domain.com\",\n  \"password\": \"secret\",\n  \"domain\": \"domain.com\",\n  \"description\": \"Main sender\"\n}",
+    response: "{\n  \"success\": true\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/devpanel/smtp",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "dev-smtp-send",
+    method: "POST",
+    path: "/api/devpanel/smtp/send",
+    title: "Send Single Email",
+    category: "Send Mail",
+    desc: "Send a single email (with text, HTML, and attachments) via SMTP.",
+    payload: "{\n  \"from\": \"hello@domain.com\",\n  \"to\": \"user@example.com\",\n  \"subject\": \"Test\",\n  \"text\": \"Hello\",\n  \"html\": \"<b>Hello</b>\",\n  \"attachments\": []\n}",
+    response: "{\n  \"success\": true\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/devpanel/smtp/send",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "dev-smtp-send-bulk",
+    method: "POST",
+    path: "/api/devpanel/smtp/send-bulk",
+    title: "Send Bulk Email",
+    category: "Send Mail",
+    desc: "Send emails to multiple recipients one by one with a safe delay between each email.",
+    payload: "{\n  \"from\": \"hello@domain.com\",\n  \"recipients\": [\"user1@test.com\", \"user2@test.com\"],\n  \"subject\": \"Test\",\n  \"text\": \"Hello\",\n  \"html\": \"<b>Hello</b>\",\n  \"delaySeconds\": 5\n}",
+    response: "{\n  \"success\": true\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/devpanel/smtp/send-bulk",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "dev-smtp-test",
+    method: "POST",
+    path: "/api/devpanel/smtp/test",
+    title: "Test SMTP Configuration",
+    category: "Send Mail",
+    desc: "Send a test email to verify SMTP relay configuration.",
+    payload: "{\n  \"toEmail\": \"user@example.com\",\n  \"fromEmail\": \"hello@domain.com\",\n  \"subject\": \"Test\",\n  \"text\": \"Hello\"\n}",
+    response: "{\n  \"success\": true\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/devpanel/smtp/test",
+    returns: "JSON Object",
+    auth: true
+  },
+  {
+    id: "dev-smtp-delete",
+    method: "DELETE",
+    path: "/api/devpanel/smtp/:identifier",
+    title: "Delete SMTP Credential",
+    category: "Send Mail",
+    desc: "Delete an SMTP sender email address by its ID or email.",
+    payload: null,
+    response: "{\n  \"success\": true\n}",
+    exampleUrl: "http://your-vps-ip:8081/api/devpanel/smtp/:identifier",
     returns: "JSON Object",
     auth: true
   }
@@ -725,11 +803,29 @@ export default function DevApiDocumentation() {
   const [codeLang, setCodeLang] = useState<"curl" | "js" | "python" | "php">("curl");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [enabledApiIds, setEnabledApiIds] = useState<Set<string> | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       setBaseUrl(window.location.origin);
     }
+
+    // Fetch enabled settings
+    fetch("/api/dev/docs/settings")
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.success && data.settings) {
+          const ids = new Set<string>();
+          data.settings.forEach((s: any) => {
+            if (s.enabled) {
+              ids.add(s.id);
+              ids.add(`dev-${s.id}`);
+            }
+          });
+          setEnabledApiIds(ids);
+        }
+      })
+      .catch(err => console.error("Failed to load dev API settings", err));
   }, []);
 
   const handleCopy = (text: string, id: string) => {
@@ -781,17 +877,19 @@ export default function DevApiDocumentation() {
     return "";
   };
 
-  const categories = ["All", "Dev Receive Mail", "Dev Master Mailbox", "Dev Live & Local SMTP", "Dev Panel Management", "Dev Project & Security"];
+  const categories = ["All", "Dev Receive Mail", "Dev Mailbox", "Dev Project Settings", "DevPanel Settings", "Send Mail"];
 
-  const filteredEndpoints = endpoints.filter(e => {
+  const activeEndpoints = enabledApiIds ? endpoints.filter(e => enabledApiIds.has(e.id)) : endpoints;
+
+  const filteredEndpoints = activeEndpoints.filter(e => {
     const matchesCat = selectedCategory === "All" || e.category === selectedCategory;
     const matchesSearch = e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          e.path.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          e.desc.toLowerCase().includes(searchQuery.toLowerCase());
+      e.path.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      e.desc.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCat && matchesSearch;
   });
 
-  const ep = endpoints.find(e => e.id === activeTab) || filteredEndpoints[0] || endpoints[0];
+  const ep = activeEndpoints.find(e => e.id === activeTab) || filteredEndpoints[0] || activeEndpoints[0];
   const colors = methodColors[ep.method] || methodColors["GET"];
   const activeSnippet = generateSnippet(codeLang, ep.method, ep.exampleUrl, ep.auth, ep.payload);
 
@@ -842,7 +940,7 @@ export default function DevApiDocumentation() {
       </header>
 
       <div className="flex flex-col md:flex-row flex-1 relative z-10">
-        
+
         {/* ── Sidebar ── */}
         <aside className="w-full md:w-[300px] lg:w-[320px] shrink-0 border-r border-white/[0.08] flex flex-col bg-[#050a14] md:h-[calc(100vh-4rem)] md:sticky md:top-16 z-20">
 
@@ -867,11 +965,10 @@ export default function DevApiDocumentation() {
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`text-[10px] font-mono px-2.5 py-1 rounded-lg shrink-0 transition-all cursor-pointer ${
-                    selectedCategory === cat
+                  className={`text-[10px] font-mono px-2.5 py-1 rounded-lg shrink-0 transition-all cursor-pointer ${selectedCategory === cat
                       ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold"
                       : "text-gray-400 bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.04]"
-                  }`}
+                    }`}
                 >
                   {cat === "All" ? "All" : cat.replace("Dev ", "")}
                 </button>
@@ -897,11 +994,10 @@ export default function DevApiDocumentation() {
                       <button
                         key={e.id}
                         onClick={() => setActiveTab(e.id)}
-                        className={`w-full text-left px-3 py-2 rounded-xl flex items-center gap-2.5 transition-all duration-150 cursor-pointer group ${
-                          isActive
+                        className={`w-full text-left px-3 py-2 rounded-xl flex items-center gap-2.5 transition-all duration-150 cursor-pointer group ${isActive
                             ? "bg-white/[0.08] border border-white/[0.12] shadow-md shadow-black/40"
                             : "border border-transparent hover:bg-white/[0.03] hover:border-white/[0.05]"
-                        }`}
+                          }`}
                       >
                         <span className={`shrink-0 text-[9px] font-black font-mono px-1.5 py-0.5 rounded border uppercase tracking-wider ${c.badge}`}>
                           {e.method}
@@ -1084,9 +1180,9 @@ export default function DevApiDocumentation() {
             {/* ── Prev / Next Navigation ── */}
             <div className="flex items-center justify-between mt-12 pt-8 border-t border-white/[0.08]">
               {(() => {
-                const idx = endpoints.findIndex(e => e.id === activeTab);
-                const prev = endpoints[idx - 1];
-                const next = endpoints[idx + 1];
+                const idx = activeEndpoints.findIndex(e => e.id === activeTab);
+                const prev = activeEndpoints[idx - 1];
+                const next = activeEndpoints[idx + 1];
                 return (
                   <>
                     <div>

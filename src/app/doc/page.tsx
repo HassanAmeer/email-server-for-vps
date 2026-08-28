@@ -130,7 +130,7 @@ const endpoints: Endpoint[] = [
     path: "/api/mailbox/inbox",
     title: "Get User Inbox",
     category: "Mailbox Client",
-    desc: "Get the list of received emails for the logged-in mailbox user.",
+    desc: "Get the list of received emails for the logged-in mailbox inbox.",
     payload: null,
     response: "{\n  \"messages\": [\n    {\n      \"id\": 1,\n      \"from\": \"billing@stripe.com\",\n      \"subject\": \"Your Invoice\",\n      \"date\": \"2026-07-15T09:00:00Z\",\n      \"hasAttachments\": true\n    }\n  ],\n  \"total\": 1,\n  \"page\": 1,\n  \"limit\": 200\n}",
     exampleUrl: "http://your-vps-ip:8081/api/mailbox/inbox",
@@ -450,45 +450,6 @@ const endpoints: Endpoint[] = [
     auth: true
   },
   {
-    id: "get-retention-settings",
-    method: "GET",
-    path: "/api/project/retention",
-    title: "Get Email Auto-Delete Time",
-    category: "Project Settings",
-    desc: "Get the auto-cleanup time limit (in hours) for temporary emails and attachments.",
-    payload: null,
-    response: "{\n  \"retention\": {\n    \"free\": {\n      \"generated_emails\": 24,\n      \"simple_mails\": 24,\n      \"attachments\": 12\n    }\n  }\n}",
-    exampleUrl: "http://your-vps-ip:8081/api/project/retention",
-    returns: "JSON Object",
-    auth: true
-  },
-  {
-    id: "get-allowed-files",
-    method: "GET",
-    path: "/api/project/allowed-files",
-    title: "Get Allowed Attachment Types",
-    category: "Project Settings",
-    desc: "Get the list of allowed file extensions (like png, jpg, pdf) for email attachments.",
-    payload: null,
-    response: "{\n  \"allowedFiles\": {\n    \"free\": [\n      \"txt\",\n      \"png\",\n      \"jpg\",\n      \"pdf\"\n    ]\n  }\n}",
-    exampleUrl: "http://your-vps-ip:8081/api/project/allowed-files",
-    returns: "JSON Object",
-    auth: true
-  },
-  {
-    id: "get-forbidden-ids",
-    method: "GET",
-    path: "/api/project/forbidden-ids",
-    title: "Get Blocked Names",
-    category: "Project Settings",
-    desc: "Get the list of blocked email usernames (like admin, support, root) that users cannot create.",
-    payload: null,
-    response: "{\n  \"forbiddenIds\": {\n    \"free\": [\n      \"admin\",\n      \"info\",\n      \"support\",\n      \"root\"\n    ]\n  }\n}",
-    exampleUrl: "http://your-vps-ip:8081/api/project/forbidden-ids",
-    returns: "JSON Object",
-    auth: true
-  },
-  {
     id: "admin-login",
     method: "POST",
     path: "/api/admin/login",
@@ -619,45 +580,6 @@ const endpoints: Endpoint[] = [
     auth: true
   },
   {
-    id: "update-retention-settings",
-    method: "PUT",
-    path: "/api/project/retention",
-    title: "Update Email Auto-Delete Time",
-    category: "Project Settings",
-    desc: "Update how long (in hours) emails and attachments are kept before being automatically deleted.",
-    payload: "{\n  \"retention\": {\n    \"free\": {\n      \"generated_emails\": 24,\n      \"simple_mails\": 12,\n      \"attachments\": 6\n    }\n  }\n}",
-    response: "{\n  \"success\": true\n}",
-    exampleUrl: "http://your-vps-ip:8081/api/project/retention",
-    returns: "JSON Object",
-    auth: true
-  },
-  {
-    id: "update-allowed-files",
-    method: "PUT",
-    path: "/api/project/allowed-files",
-    title: "Update Allowed Attachment Types",
-    category: "Project Settings",
-    desc: "Update the list of allowed file extensions for email attachments.",
-    payload: "{\n  \"allowedFiles\": {\n    \"free\": [\n      \"txt\",\n      \"png\",\n      \"jpg\",\n      \"pdf\"\n    ]\n  }\n}",
-    response: "{\n  \"success\": true\n}",
-    exampleUrl: "http://your-vps-ip:8081/api/project/allowed-files",
-    returns: "JSON Object",
-    auth: true
-  },
-  {
-    id: "update-forbidden-ids",
-    method: "PUT",
-    path: "/api/project/forbidden-ids",
-    title: "Update Blocked Names",
-    category: "Project Settings",
-    desc: "Update the list of blocked email usernames that cannot be generated.",
-    payload: "{\n  \"forbiddenIds\": {\n    \"free\": [\n      \"admin\",\n      \"info\",\n      \"support\",\n      \"contact\",\n      \"ceo\"\n    ]\n  }\n}",
-    response: "{\n  \"success\": true\n}",
-    exampleUrl: "http://your-vps-ip:8081/api/project/forbidden-ids",
-    returns: "JSON Object",
-    auth: true
-  },
-  {
     id: "admin-projects-delete",
     method: "DELETE",
     path: "/api/admin/projects/:id",
@@ -725,6 +647,7 @@ export default function ApiDocumentation() {
   const [baseUrl, setBaseUrl] = useState("http://localhost:8081");
   const [codeLang, setCodeLang] = useState<"curl" | "js" | "python" | "php">("curl");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [enabledApiIds, setEnabledApiIds] = useState<Set<string> | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -732,6 +655,22 @@ export default function ApiDocumentation() {
       const token = localStorage.getItem("admin_token");
       if (token) setIsAdmin(true);
     }
+
+    // Fetch enabled settings
+    fetch("/api/docs/settings")
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.success && data.settings) {
+          const ids = new Set<string>();
+          data.settings.forEach((s: any) => {
+            if (s.enabled) {
+              ids.add(s.id);
+            }
+          });
+          setEnabledApiIds(ids);
+        }
+      })
+      .catch(err => console.error("Failed to load API settings", err));
   }, []);
 
   const handleCopy = (text: string, id: string) => {
@@ -783,7 +722,8 @@ export default function ApiDocumentation() {
     return "";
   };
 
-  const ep = endpoints.find(e => e.id === activeTab) || endpoints[0];
+  const activeEndpoints = enabledApiIds ? endpoints.filter(e => enabledApiIds.has(e.id)) : endpoints;
+  const ep = activeEndpoints.find(e => e.id === activeTab) || activeEndpoints[0] || endpoints[0];
   const colors = methodColors[ep.method];
   const activeSnippet = generateSnippet(codeLang, ep.method, ep.exampleUrl, ep.auth, ep.payload);
 
@@ -843,7 +783,7 @@ export default function ApiDocumentation() {
               // Grouped view for admin
               <>
                 {["Receive Mail", "Project Settings", "Send Mail", "Mailbox Client", "Admin"].map(cat => {
-                  const catEndpoints = endpoints.filter(e => e.category === cat);
+                  const catEndpoints = activeEndpoints.filter(e => e.category === cat);
                   if (catEndpoints.length === 0) return null;
                   return (
                     <div key={cat} className="mb-2">
@@ -885,7 +825,7 @@ export default function ApiDocumentation() {
               // Flat list for non-admin - show Receive Mail & Project Settings
               <>
                 {["Receive Mail", "Project Settings"].map(cat => {
-                  const catEndpoints = endpoints.filter(e => e.category === cat);
+                  const catEndpoints = activeEndpoints.filter(e => e.category === cat);
                   if (catEndpoints.length === 0) return null;
                   return (
                     <div key={cat} className="mb-2">
@@ -893,25 +833,25 @@ export default function ApiDocumentation() {
                       {catEndpoints.map((e) => {
                         const c = methodColors[e.method] || methodColors["GET"];
                         const isActive = activeTab === e.id;
-                  return (
-                    <button
-                      key={e.id}
-                      onClick={() => setActiveTab(e.id)}
-                      className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center gap-3 transition-all duration-150 cursor-pointer group ${isActive
-                        ? "bg-white/[0.05] border border-white/[0.08]"
-                        : "border border-transparent hover:bg-white/[0.02] hover:border-white/[0.04]"
-                        }`}
-                    >
-                      <span className={`shrink-0 text-[9px] font-black font-mono px-1.5 py-0.5 rounded border uppercase tracking-wider ${c.badge}`}>
-                        {e.method}
-                      </span>
-                      <span className={`text-xs font-medium truncate transition-colors ${isActive ? "text-white" : "text-gray-500 group-hover:text-gray-300"}`}>
-                        {e.title}
-                      </span>
-                      {isActive && (
-                        <span className={`ml-auto w-1.5 h-1.5 rounded-full shrink-0 ${c.dot}`}></span>
-                      )}
-                    </button>
+                        return (
+                          <button
+                            key={e.id}
+                            onClick={() => setActiveTab(e.id)}
+                            className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center gap-3 transition-all duration-150 cursor-pointer group ${isActive
+                              ? "bg-white/[0.05] border border-white/[0.08]"
+                              : "border border-transparent hover:bg-white/[0.02] hover:border-white/[0.04]"
+                              }`}
+                          >
+                            <span className={`shrink-0 text-[9px] font-black font-mono px-1.5 py-0.5 rounded border uppercase tracking-wider ${c.badge}`}>
+                              {e.method}
+                            </span>
+                            <span className={`text-xs font-medium truncate transition-colors ${isActive ? "text-white" : "text-gray-500 group-hover:text-gray-300"}`}>
+                              {e.title}
+                            </span>
+                            {isActive && (
+                              <span className={`ml-auto w-1.5 h-1.5 rounded-full shrink-0 ${c.dot}`}></span>
+                            )}
+                          </button>
                         );
                       })}
                     </div>
@@ -919,7 +859,7 @@ export default function ApiDocumentation() {
                 })}
                 <div className="mt-4 mx-1 p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
                   <p className="text-[10px] text-emerald-400/80 font-mono leading-relaxed">
-                    🔒 Admin, Mailbox Client & Send Mail APIs are hidden.<br/>
+                    🔒 Admin, Mailbox Client & Send Mail APIs are hidden.<br />
                     <a href="/admin" className="underline hover:text-emerald-300 transition-colors">Login as admin</a> to view all endpoints.
                   </p>
                 </div>
@@ -1110,9 +1050,9 @@ export default function ApiDocumentation() {
             {/* ── Pagination ── */}
             <div className="flex items-center justify-between mt-12 pt-8 border-t border-white/[0.05]">
               {(() => {
-                const idx = endpoints.findIndex(e => e.id === activeTab);
-                const prev = endpoints[idx - 1];
-                const next = endpoints[idx + 1];
+                const idx = activeEndpoints.findIndex(e => e.id === activeTab);
+                const prev = activeEndpoints[idx - 1];
+                const next = activeEndpoints[idx + 1];
                 return (
                   <>
                     <div>

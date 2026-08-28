@@ -206,7 +206,7 @@ export default function ApiSettingsManager({ apiUrl, apiPrefix = "/api/admin", t
       routes: sortRoutesByMethod(filteredRoutes.filter(r => (r.id.startsWith("send-") || r.id.startsWith("dev-send") || r.category.includes("Console")) && !r.id.startsWith("smtp-") && !r.category.includes("SMTP"))),
     },
     {
-      title: isDev ? "DevPanel Management & Server APIs (/api/devpanel/*)" : "Admin, Projects & System APIs (/api/admin/*)",
+      title: isDev ? "DevPanel Settings & Server APIs (/api/devpanel/*)" : "Admin, Projects & System APIs (/api/admin/*)",
       routes: sortRoutesByMethod(filteredRoutes.filter(r => !r.category.includes("Mailbox") && r.id !== "api-domains" && r.id !== "dev-domains" && !r.category.includes("Temporary") && !r.id.startsWith("smtp-") && !r.id.startsWith("dev-smtp") && !r.category.includes("SMTP") && !r.id.startsWith("send-") && !r.id.startsWith("dev-send") && !r.category.includes("Console"))),
     },
   ];
