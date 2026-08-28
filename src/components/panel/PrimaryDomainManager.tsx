@@ -29,7 +29,7 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
   const [toastMessage, setToastMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState<number | null>(null);
 
-  // Form State: Choose & Create Primary Domain / Mailbox
+  // Form State: Choose & Create Primary Email / Mailbox
   const [selectedDomainId, setSelectedDomainId] = useState<number | string>("");
   const [primaryPrefix, setPrimaryPrefix] = useState<string>("my");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -260,7 +260,7 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
     }
   };
 
-  // Set / Create Primary Domain Handler
+  // Set / Create Primary Email Handler
   const handleSavePrimaryDomain = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!selectedDomainId) {
@@ -296,18 +296,18 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
       });
 
       if (res.ok) {
-        showToast(`Primary Domain set to "${target?.domain}" with mailbox "${cleanPrefix}@${target?.domain}"!`, "success");
+        showToast(`Primary Email set to "${target?.domain}" with mailbox "${cleanPrefix}@${target?.domain}"!`, "success");
         if (target?.domain) {
           fetchMailboxCredentials(target.domain, cleanPrefix);
         }
       } else {
         setDomains(previousDomains);
         const data = await res.json();
-        showToast(data.error || "Failed to set Primary Domain", "error");
+        showToast(data.error || "Failed to set Primary Email", "error");
       }
     } catch (err: any) {
       setDomains(previousDomains);
-      showToast("Network error setting Primary Domain", "error");
+      showToast("Network error setting Primary Email", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -478,7 +478,7 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
             <span className="text-xl">⭐</span>
           </div>
           <div>
-            <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight">Primary Domain & Mailbox</h1>
+            <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight">Primary Email & Mailbox</h1>
             <p className="text-gray-400 text-xs sm:text-sm font-medium mt-0.5">
               Choose a domain from your attached list, customize the primary mailbox address, and route all incoming emails to one central node.
             </p>
@@ -566,7 +566,7 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
             className="px-6 py-3.5 rounded-2xl border border-amber-500/40 hover:border-amber-400 bg-amber-500/5 hover:bg-amber-500/15 text-amber-400 hover:text-amber-300 active:scale-98 text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap self-stretch lg:self-end disabled:opacity-50"
           >
             <span className="text-sm">⭐</span>
-            <span>Set Primary Domain</span>
+            <span>Set Primary Email</span>
           </button>
         </form>
       </div>
@@ -581,7 +581,7 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
           <div className="flex items-center gap-2.5">
             <span className="text-amber-400 text-sm">⭐</span>
             <h3 className="text-sm font-bold text-white tracking-wide">
-              Primary Domains
+              Primary Emails
             </h3>
           </div>
 
@@ -747,7 +747,7 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
             <div className="flex items-center gap-2 self-start sm:self-auto">
               <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-500/30 flex items-center gap-1.5 shadow-inner">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                Primary Domains
+                Primary Emails
               </span>
             </div>
           </div>
@@ -977,9 +977,9 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
                 <circle cx="40" cy="48" r="18" fill="#78350f" stroke="#fbbf24" strokeWidth="1.5" />
                 <text x="40" y="55" textAnchor="middle" fontSize="16">⭐</text>
 
-                {/* Primary Domains Title */}
+                {/* Primary Emails Title */}
                 <text x="68" y="44" fill="#fbbf24" fontSize="16" fontWeight="extrabold" letterSpacing="0.5">
-                  Primary Domains
+                  Primary Emails
                 </text>
                 <rect x="225" y="31" width="75" height="16" rx="4" fill="#064e3b" stroke="#10b981" strokeWidth="0.8" />
                 <text x="262" y="43" textAnchor="middle" fill="#6ee7b7" fontSize="8.5" fontWeight="bold" fontFamily="monospace">
@@ -2147,7 +2147,7 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
                 {/* Centered Note Text (No background) */}
                 <p className="text-center text-[10.5px] text-gray-400 flex items-center justify-center gap-1.5 select-none">
                   <span className="text-xs">💡</span>
-                  <span>Transfer All Emails From Multi Domains to Single Primary Domain/Email</span>
+                  <span>Transfer All Emails From Multi Domains to Single Primary Email/Email</span>
                 </p>
 
                 {/* Bottom Controls Row */}
