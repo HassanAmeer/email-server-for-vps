@@ -92,7 +92,7 @@ db.exec(`
     catch_all BOOLEAN DEFAULT 1,
     is_primary BOOLEAN DEFAULT 0,
     primary_prefix TEXT DEFAULT 'my',
-    route_to_primary BOOLEAN DEFAULT 1,
+    route_to_primary BOOLEAN DEFAULT 0,
     scope TEXT DEFAULT 'admin',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
@@ -113,7 +113,7 @@ db.exec(`
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN catch_all BOOLEAN DEFAULT 1;`); } catch (e) { }
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN is_primary BOOLEAN DEFAULT 0;`); } catch (e) { }
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN primary_prefix TEXT DEFAULT 'my';`); } catch (e) { }
-try { db.exec(`ALTER TABLE attached_domains ADD COLUMN route_to_primary BOOLEAN DEFAULT 1;`); } catch (e) { }
+try { db.exec(`ALTER TABLE attached_domains ADD COLUMN route_to_primary BOOLEAN DEFAULT 0;`); } catch (e) { }
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN scope TEXT DEFAULT 'admin';`); } catch (e) { }
 
 // Migrate api_settings to include (id, scope) composite primary key

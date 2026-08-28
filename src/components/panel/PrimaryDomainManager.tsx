@@ -436,9 +436,7 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
     setIsRightSheetOpen(true);
   };
 
-  const primaryDomain =
-    domains.find((d) => d.is_primary === 1 || d.is_primary === true) ||
-    (domains.length > 0 ? domains[0] : null);
+  const primaryDomain = domains.find((d) => d.is_primary === 1 || d.is_primary === true) || null;
 
   const selectedDomainObj = domains.find((d) => String(d.id) === String(selectedDomainId)) || primaryDomain;
   const targetDeleteDomain = domains.find((d) => d.id === showDeleteConfirmModal);

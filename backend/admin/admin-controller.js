@@ -1213,7 +1213,7 @@ export class AdminController {
         return;
       }
 
-      const { domain, status = 'pending', plan = 'free', catch_all = 1, is_primary = 0, route_to_primary = 1 } = parsed;
+      const { domain, status = 'pending', plan = 'free', catch_all = 1, is_primary = 0, route_to_primary = 0 } = parsed;
       if (!domain) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Domain name is required" }));
