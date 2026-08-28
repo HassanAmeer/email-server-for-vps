@@ -1650,7 +1650,7 @@ export class ApiRouter {
 
       // GET /api/mailbox/media
       if (normUrl === "/api/mailbox/media" && req.method === "GET") {
-        const db = dbModule.default;
+        const db = dbModule.db || dbModule.default;
         const parsedUrl = new URL(req.url, "http://localhost");
         const filterEmail = parsedUrl.searchParams.get("email");
 
