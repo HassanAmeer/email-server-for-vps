@@ -1650,13 +1650,19 @@ export class ApiRouter {
 
       // GET /api/mailbox/media
       if (normUrl === "/api/mailbox/media" && req.method === "GET") {
-        const db = dbModule.db || (dbModule.db || dbModule.default);
-        const parsedUrl = new URL(req.url, "http://localhost");
-        const filterEmail = parsedUrl.searchParams.get("email");
+        const user = dbModule.verifyMailboxUser(token);
+        if (!user) {
+          res.writeHead(401, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Invalid token" }));
+          return;
+        }
 
+        const db = dbModule.db || dbModule.default;
+        
         let emails = [];
-        if (filterEmail) {
-          emails = db.prepare("SELECT id, recipient, sender, created_at, file_name FROM received_emails WHERE has_attachment = 1 AND recipient = ? AND COALESCE(is_deleted, 0) = 0 ORDER BY id DESC").all(filterEmail);
+        if (!user.is_master) {
+          emails = db.prepare("SELECT id, recipient, sender, created_at, file_name FROM received_emails WHERE has_attachment = 1 AND (recipient = ? OR recipient LIKE ? OR recipient LIKE ?) AND COALESCE(is_deleted, 0) = 0 ORDER BY id DESC")
+                     .all(user.email, `%<${user.email}>%`, `% ${user.email} %`);
         } else {
           emails = db.prepare("SELECT id, recipient, sender, created_at, file_name FROM received_emails WHERE has_attachment = 1 AND COALESCE(is_deleted, 0) = 0 ORDER BY id DESC").all();
         }
