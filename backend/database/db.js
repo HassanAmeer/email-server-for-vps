@@ -116,6 +116,9 @@ try { db.exec(`ALTER TABLE attached_domains ADD COLUMN primary_prefix TEXT DEFAU
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN route_to_primary BOOLEAN DEFAULT 0;`); } catch (e) { }
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN scope TEXT DEFAULT 'admin';`); } catch (e) { }
 
+try { db.exec(`ALTER TABLE received_emails ADD COLUMN is_deleted BOOLEAN DEFAULT 0;`); } catch (e) { }
+try { db.exec(`ALTER TABLE received_emails ADD COLUMN deleted_at DATETIME;`); } catch (e) { }
+
 // Migrate api_settings to include (id, scope) composite primary key
 try {
   const tableInfo = db.prepare("PRAGMA table_info(api_settings)").all();
