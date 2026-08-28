@@ -70,48 +70,9 @@ function extractEmail(str) {
 export class ApiRouter {
   
   static validateApiKey(req, res) {
-    const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-    
-    // Check Authorization: Bearer token first
-    let apiKey = null;
-    const authHeader = req.headers['authorization'];
-    if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
-      apiKey = authHeader.substring(7).trim();
-    }
-    
-    // Fallback to x-api-key or query param
-    if (!apiKey) {
-      apiKey = req.headers['x-api-key'] || url.searchParams.get('apiKey');
-    }
-
-    if (!apiKey) {
-      res.writeHead(401, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Missing API Key. Provide 'Authorization: Bearer <token>' header or 'apiKey' query parameter." }));
-      return null;
-    }
-
-    if (apiKey === "demo") {
-      return { id: 0, is_active: 1 };
-    }
-
-    if (AdminController.isValidAdminToken(apiKey)) {
-      return { id: 0, is_active: 1 };
-    }
-
-    const project = getProjectByApiKey(apiKey);
-    if (!project) {
-      res.writeHead(403, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Invalid API Key." }));
-      return null;
-    }
-
-    if (project.is_active === 0) {
-      res.writeHead(403, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "API Key is disabled." }));
-      return null;
-    }
-
-    return project;
+    // Project system and API key requirements have been completely removed.
+    // Return a dummy project so dependent code (like API hit logging) doesn't break.
+    return { id: 0, is_active: 1 };
   }
 
   /**
@@ -268,7 +229,7 @@ export class ApiRouter {
    * GET /api/mailbox/:email
    * Fetches all emails received for the specified mailbox
    */
-  static getMailbox(req, res, emailAddress) {
+  static async getMailbox(req, res, emailAddress) {
     const project = ApiRouter.validateApiKey(req, res);
     if (!project) return;
 
@@ -296,13 +257,13 @@ export class ApiRouter {
       for (const file of files) {
         try {
           const filePath = path.join(targetDir, file);
-          const fileContent = fs.readFileSync(filePath, "utf-8");
+          const fileContent = await fs.promises.readFile(filePath, "utf-8");
           const parsed = JSON.parse(fileContent);
           
           const cleanRecipient = extractEmail(parsed.to);
-          const targetRecipient = emailAddress.toLowerCase().trim();
+          const currentTargetRecipient = emailAddress.toLowerCase().trim();
 
-          if (cleanRecipient === targetRecipient || cleanRecipient.includes(targetRecipient)) {
+          if (cleanRecipient === currentTargetRecipient || cleanRecipient.includes(currentTargetRecipient)) {
             parsed.fileName = file;
             emails.push(parsed);
           }
@@ -373,7 +334,7 @@ export class ApiRouter {
    * DELETE /api/mailbox/:email/:mailId
    * Deletes a specific email file from a mailbox
    */
-  static deleteMail(req, res, emailAddress, mailId) {
+  static async deleteMail(req, res, emailAddress, mailId) {
     const project = ApiRouter.validateApiKey(req, res);
     if (!project) return;
 
@@ -403,14 +364,14 @@ export class ApiRouter {
         const filePath = path.join(targetDir, record.file_name);
         if (!fs.existsSync(filePath)) continue;
 
-        const fileContent = fs.readFileSync(filePath, "utf-8");
+        const fileContent = await fs.promises.readFile(filePath, "utf-8");
         const parsed = JSON.parse(fileContent);
 
         const cleanRecipient = extractEmail(parsed.to);
-        const targetRecipient = emailAddress.toLowerCase().trim();
+        const currentTargetRecipient = emailAddress.toLowerCase().trim();
 
-        if (parsed.id === mailId && (cleanRecipient === targetRecipient || cleanRecipient.includes(targetRecipient))) {
-          fs.unlinkSync(filePath);
+        if (parsed.id === mailId && (cleanRecipient === currentTargetRecipient || cleanRecipient.includes(currentTargetRecipient))) {
+          await fs.promises.unlink(filePath).catch(() => {});
           db.query(`DELETE FROM received_emails WHERE id = ?`).run(record.id);
           deleted = true;
           break;
@@ -1690,8 +1651,16 @@ export class ApiRouter {
       // GET /api/mailbox/media
       if (normUrl === "/api/mailbox/media" && req.method === "GET") {
         const db = dbModule.default;
-        const emails = db.prepare("SELECT id, recipient, sender, created_at, file_name FROM received_emails WHERE has_attachment = 1 AND COALESCE(is_deleted, 0) = 0 ORDER BY id DESC").all();
-        const targetDir = getTargetStorageDir();
+        const parsedUrl = new URL(req.url, "http://localhost");
+        const filterEmail = parsedUrl.searchParams.get("email");
+
+        let emails = [];
+        if (filterEmail) {
+          emails = db.prepare("SELECT id, recipient, sender, created_at, file_name FROM received_emails WHERE has_attachment = 1 AND recipient = ? AND COALESCE(is_deleted, 0) = 0 ORDER BY id DESC").all(filterEmail);
+        } else {
+          emails = db.prepare("SELECT id, recipient, sender, created_at, file_name FROM received_emails WHERE has_attachment = 1 AND COALESCE(is_deleted, 0) = 0 ORDER BY id DESC").all();
+        }
+
         const allMedia = [];
 
         for (const email of emails) {
@@ -1701,15 +1670,23 @@ export class ApiRouter {
               const parsed = JSON.parse(fileContent);
               if (parsed.attachments && Array.isArray(parsed.attachments)) {
                 for (const att of parsed.attachments) {
+                  let fileUrl = att.url;
+                  if (!fileUrl && att.filename) {
+                    fileUrl = `/api/attachments/${encodeURIComponent(att.filename)}`;
+                  }
+                  if (!fileUrl && att.content) {
+                    fileUrl = `data:${att.contentType || 'application/octet-stream'};base64,${att.content}`;
+                  }
                   allMedia.push({
                     emailId: email.id,
                     sender: email.sender,
                     recipient: email.recipient,
+                    subject: parsed.subject || "No Subject",
                     date: email.created_at,
                     filename: att.filename || "attachment",
                     contentType: att.contentType || "application/octet-stream",
-                    size: att.size || 0,
-                    url: att.url || (att.content ? `data:${att.contentType || 'image/png'};base64,${att.content}` : "")
+                    size: att.size || (att.content ? Math.round(att.content.length * 0.75) : 0),
+                    url: fileUrl || ""
                   });
                 }
               }

@@ -38,6 +38,7 @@ interface MediaFile {
   emailId: number;
   sender: string;
   recipient: string;
+  subject?: string;
   date: string;
   filename: string;
   contentType: string;
@@ -67,6 +68,12 @@ export default function MailboxInbox() {
   const [viewMode, setViewMode] = useState<"html" | "text">("html");
   const [pinnedEmails, setPinnedEmails] = useState<Set<number>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Media & Attachments Right Sheet Drawer & Lightbox Modal States
+  const [isMediaSheetOpen, setIsMediaSheetOpen] = useState(false);
+  const [mediaSearchQuery, setMediaSearchQuery] = useState("");
+  const [mediaCategoryFilter, setMediaCategoryFilter] = useState<"all" | "images" | "videos" | "documents" | "others">("all");
+  const [previewModalFile, setPreviewModalFile] = useState<MediaFile | null>(null);
 
   // Server Settings (IMAP/POP) Right Sheet Drawer State
   const [isSettingsSheetOpen, setIsSettingsSheetOpen] = useState(false);
@@ -511,17 +518,22 @@ export default function MailboxInbox() {
     }
   };
 
-  const fetchMediaFiles = async () => {
-    setShowMedia(true);
-    setSelectedEmail(null);
-    setShowCompose(false);
-    setSidebarOpen(false);
+  const openMediaSheet = async () => {
+    setIsMediaSheetOpen(true);
     setLoadingMedia(true);
     try {
       const apiBase = getApiBaseUrl();
       const token = localStorage.getItem("mailbox_token") || localStorage.getItem("imap_mailbox_token");
-      const res = await fetch(`${apiBase}/api/mailbox/media`, {
-        headers: { "Authorization": `Bearer ${token}` }
+      const userStr = localStorage.getItem("mailbox_user") || localStorage.getItem("imap_mailbox_user");
+      let emailParam = "";
+      if (userStr) {
+        try {
+          const parsed = JSON.parse(userStr);
+          if (parsed.email) emailParam = `?email=${encodeURIComponent(parsed.email)}`;
+        } catch (e) {}
+      }
+      const res = await fetch(`${apiBase}/api/mailbox/media${emailParam}`, {
+        headers: token ? { "Authorization": `Bearer ${token}` } : {}
       });
       if (res.ok) {
         const text = await res.text();
@@ -536,6 +548,69 @@ export default function MailboxInbox() {
       console.error("Error fetching media:", err);
     } finally {
       setLoadingMedia(false);
+    }
+  };
+
+  const fetchMediaFiles = async () => {
+    // Open right sheet directly
+    openMediaSheet();
+  };
+
+  const getFileExtension = (filename: string): string => {
+    if (!filename) return "FILE";
+    const parts = filename.split(".");
+    if (parts.length > 1) {
+      return parts[parts.length - 1].toUpperCase();
+    }
+    return "FILE";
+  };
+
+  const getMediaCategory = (file: MediaFile): "images" | "videos" | "documents" | "others" => {
+    const ext = (file.filename?.split(".").pop() || "").toLowerCase();
+    const ct = (file.contentType || "").toLowerCase();
+    if (ct.startsWith("image/") || ["png", "jpg", "jpeg", "webp", "gif", "svg", "bmp", "ico", "avif"].includes(ext)) {
+      return "images";
+    }
+    if (ct.startsWith("video/") || ["mp4", "webm", "ogg", "mov", "avi", "mkv", "m4v"].includes(ext)) {
+      return "videos";
+    }
+    if (ct === "application/pdf" || ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "csv", "rtf", "md"].includes(ext)) {
+      return "documents";
+    }
+    return "others";
+  };
+
+  const getExtensionBadgeStyle = (ext: string): { bg: string; text: string; border: string; glow: string } => {
+    const e = ext.toUpperCase();
+    switch (e) {
+      case "PDF":
+        return { bg: "bg-rose-500/15", text: "text-rose-400", border: "border-rose-500/30", glow: "from-rose-500/20 to-red-600/10" };
+      case "DOC":
+      case "DOCX":
+        return { bg: "bg-blue-500/15", text: "text-blue-400", border: "border-blue-500/30", glow: "from-blue-500/20 to-indigo-600/10" };
+      case "XLS":
+      case "XLSX":
+      case "CSV":
+        return { bg: "bg-emerald-500/15", text: "text-emerald-400", border: "border-emerald-500/30", glow: "from-emerald-500/20 to-teal-600/10" };
+      case "ZIP":
+      case "RAR":
+      case "7Z":
+      case "TAR":
+      case "GZ":
+        return { bg: "bg-amber-500/15", text: "text-amber-400", border: "border-amber-500/30", glow: "from-amber-500/20 to-yellow-600/10" };
+      case "TXT":
+      case "MD":
+      case "LOG":
+        return { bg: "bg-slate-500/15", text: "text-slate-300", border: "border-slate-500/30", glow: "from-slate-500/20 to-gray-600/10" };
+      case "JSON":
+      case "JS":
+      case "TS":
+      case "HTML":
+      case "CSS":
+      case "PY":
+        return { bg: "bg-purple-500/15", text: "text-purple-400", border: "border-purple-500/30", glow: "from-purple-500/20 to-violet-600/10" };
+      default:
+        return { bg: "bg-indigo-500/15", text: "text-indigo-400", border: "border-indigo-500/30", glow: "from-indigo-500/20 to-purple-600/10" };
     }
   };
 
@@ -608,16 +683,27 @@ export default function MailboxInbox() {
     try {
       const apiBase = getApiBaseUrl();
       const token = localStorage.getItem("mailbox_token") || localStorage.getItem("imap_mailbox_token");
-      const res = await fetch(`${apiBase}/api/mailbox/send`, {
+      const userStr = localStorage.getItem("mailbox_user") || localStorage.getItem("imap_mailbox_user");
+      let senderEmail = "admin@micorna.biz";
+      try {
+        if (userStr) {
+          const parsedUser = JSON.parse(userStr);
+          if (parsedUser.email) senderEmail = parsedUser.email;
+        }
+      } catch (e) {}
+
+      const res = await fetch(`${apiBase}/api/admin/smtp/send`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
+          from: senderEmail,
           to: composeTo,
           subject: composeSubject,
-          message: composeMessage
+          text: composeMessage,
+          html: `<p>${composeMessage.replace(/\n/g, '<br/>')}</p>`
         })
       });
 
@@ -964,13 +1050,15 @@ export default function MailboxInbox() {
                   </svg>
                 </button>
                 <button
-                  onClick={fetchMediaFiles}
-                  className={`w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl border transition-colors ${
-                    theme === "light"
+                  onClick={openMediaSheet}
+                  className={`w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl border transition-colors cursor-pointer ${
+                    isMediaSheetOpen
+                      ? "border-purple-500 bg-purple-500/20 text-purple-400 font-bold shadow-sm"
+                      : theme === "light"
                       ? "border-[#dadce0] bg-white text-[#444746] hover:text-[#673ab7] hover:border-[#673ab7] hover:bg-[#f3e8fd]"
-                      : "border-white/[0.12] bg-transparent text-gray-300 hover:text-indigo-400 hover:border-indigo-500/40 hover:bg-indigo-500/5"
+                      : "border-white/[0.12] bg-transparent text-gray-300 hover:text-purple-400 hover:border-purple-500/40 hover:bg-purple-500/10"
                   }`}
-                  title="Server Media Library"
+                  title="Media & Attachments Gallery (Slide-over)"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3.5 h-3.5 sm:w-4 sm:h-4">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
@@ -1210,6 +1298,22 @@ export default function MailboxInbox() {
                   <path d="M16.5 4.5v4.879a1.5 1.5 0 00.44 1.06l1.62 1.621A1.5 1.5 0 0117.5 14.5H13v6a1 1 0 01-2 0v-6H6.5a1.5 1.5 0 01-1.06-2.44l1.62-1.62a1.5 1.5 0 00.44-1.06V4.5h10zM15.5 3.5h-7a1 1 0 00-1 1v.5h9v-.5a1 1 0 00-1-1z" />
                 </svg>
                 <span>Pinned ({pinnedCount})</span>
+              </button>
+
+              {/* 7th: Media Gallery Drawer Trigger */}
+              <button
+                onClick={() => openMediaSheet()}
+                className={`text-[11px] font-bold px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                  isMediaSheetOpen
+                    ? "bg-purple-500/20 text-purple-300 border border-purple-500/40"
+                    : (theme === "light" ? "bg-white text-[#673ab7] hover:bg-[#f3e8fd] border border-[#d0bcff]" : "bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 border border-purple-500/20")
+                }`}
+                title="Open Media & Attachments Sheet (Slide-over)"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3 h-3 text-purple-400">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                </svg>
+                <span>Media &amp; Files</span>
               </button>
             </div>
           </div>
@@ -2188,6 +2292,419 @@ export default function MailboxInbox() {
           )}
         </div>
       </main>
+
+      {/* ========================================================= */}
+      {/* RIGHT SHEET (DRAWER) FOR MEDIA & ATTACHMENTS GALLERY       */}
+      {/* ========================================================= */}
+      {isMediaSheetOpen && (
+        <div className="fixed inset-0 z-50 overflow-hidden">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+            onClick={() => setIsMediaSheetOpen(false)}
+          ></div>
+
+          <div className="fixed inset-y-0 right-0 max-w-xl sm:max-w-2xl w-full flex pl-3 sm:pl-6 z-50">
+            <div className={`w-full border-l shadow-2xl flex flex-col justify-between animate-slide-left overflow-hidden transition-colors ${
+              theme === "light"
+                ? "bg-[#ffffff] border-[#dadce0] text-[#202124]"
+                : "bg-[#050a15] border-white/10 text-white"
+            }`}>
+              
+              {/* Top Navigation Header */}
+              <div className={`px-5 py-4 border-b flex items-center justify-between backdrop-blur-md shrink-0 ${
+                theme === "light" ? "bg-[#f8f9fa] border-[#dadce0]" : "bg-[#0a0f1d]/90 border-white/[0.08]"
+              }`}>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className={`text-sm sm:text-base font-bold ${theme === "light" ? "text-[#202124]" : "text-white"}`}>
+                        Mailbox Media &amp; Files
+                      </h3>
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/30">
+                        {mediaFiles.length} files
+                      </span>
+                    </div>
+                    <p className={`text-[11px] ${theme === "light" ? "text-gray-500" : "text-gray-400"}`}>
+                      All images, videos, and document attachments received
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className={`px-3 py-1.5 rounded-xl border text-right ${
+                    theme === "light" ? "bg-white border-gray-200" : "bg-white/[0.03] border-white/[0.06]"
+                  }`}>
+                    <span className="text-[10px] text-gray-500 block uppercase tracking-wider font-mono">Storage Used</span>
+                    <span className="text-xs font-mono font-bold text-emerald-400">
+                      {formatBytes(mediaFiles.reduce((acc, f) => acc + (f.size || 0), 0))}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsMediaSheetOpen(false)}
+                    className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors cursor-pointer ${
+                      theme === "light" ? "bg-gray-100 hover:bg-gray-200 text-gray-700" : "bg-white/[0.05] hover:bg-white/[0.1] text-gray-300 hover:text-white"
+                    }`}
+                    title="Close"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Search & Category Filter Pills */}
+              <div className={`p-4 border-b space-y-3 shrink-0 ${
+                theme === "light" ? "bg-white border-[#dadce0]" : "bg-[#060a14] border-white/[0.06]"
+              }`}>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={mediaSearchQuery}
+                    onChange={(e) => setMediaSearchQuery(e.target.value)}
+                    placeholder="Search by filename, extension (.pdf, .png, .mp4)..."
+                    className={`w-full text-xs rounded-xl px-3.5 py-2 pl-9 focus:outline-none transition-all font-mono ${
+                      theme === "light"
+                        ? "bg-gray-100 border border-gray-300 text-gray-900 focus:border-purple-500"
+                        : "bg-white/[0.03] border border-white/[0.08] text-white focus:border-purple-500/50"
+                    }`}
+                  />
+                  <svg className="w-4 h-4 text-gray-500 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                  </svg>
+                </div>
+
+                {/* Filter Pills */}
+                <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                  {[
+                    { id: "all", label: "All Files", count: mediaFiles.length },
+                    { id: "images", label: "Images", count: mediaFiles.filter(f => getMediaCategory(f) === "images").length },
+                    { id: "videos", label: "Videos", count: mediaFiles.filter(f => getMediaCategory(f) === "videos").length },
+                    { id: "documents", label: "Documents", count: mediaFiles.filter(f => getMediaCategory(f) === "documents").length },
+                    { id: "others", label: "Others", count: mediaFiles.filter(f => getMediaCategory(f) === "others").length },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setMediaCategoryFilter(tab.id as any)}
+                      className={`text-[11px] font-mono px-3 py-1 rounded-lg shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
+                        mediaCategoryFilter === tab.id
+                          ? "bg-purple-500/20 text-purple-300 border border-purple-500/40 font-bold"
+                          : theme === "light"
+                          ? "text-gray-600 bg-gray-100 hover:bg-gray-200 border border-gray-200"
+                          : "text-gray-400 bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.04]"
+                      }`}
+                    >
+                      <span>{tab.label}</span>
+                      <span className="text-[10px] opacity-70">({tab.count})</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Grid Body */}
+              <div className="p-4 sm:p-5 overflow-y-auto flex-grow custom-scrollbar">
+                {loadingMedia ? (
+                  <div className="flex flex-col justify-center items-center h-64 gap-3">
+                    <div className="w-10 h-10 border-3 border-purple-500/20 border-t-purple-500 rounded-full animate-spin"></div>
+                    <span className="text-xs font-mono text-gray-500">Loading attachments...</span>
+                  </div>
+                ) : mediaFiles.filter(file => {
+                  const matchesSearch = !mediaSearchQuery || 
+                    file.filename.toLowerCase().includes(mediaSearchQuery.toLowerCase()) ||
+                    (file.subject && file.subject.toLowerCase().includes(mediaSearchQuery.toLowerCase())) ||
+                    (file.sender && file.sender.toLowerCase().includes(mediaSearchQuery.toLowerCase()));
+                  const cat = getMediaCategory(file);
+                  const matchesCat = mediaCategoryFilter === "all" || cat === mediaCategoryFilter;
+                  return matchesSearch && matchesCat;
+                }).length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-64 text-center p-6">
+                    <div className="w-16 h-16 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-center mb-3 text-gray-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-8 h-8">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                      </svg>
+                    </div>
+                    <p className="text-sm font-semibold text-gray-300">No attachments found</p>
+                    <p className="text-xs text-gray-500 mt-1">Attachments will appear here automatically when emails arrive.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
+                    {mediaFiles.filter(file => {
+                      const matchesSearch = !mediaSearchQuery || 
+                        file.filename.toLowerCase().includes(mediaSearchQuery.toLowerCase()) ||
+                        (file.subject && file.subject.toLowerCase().includes(mediaSearchQuery.toLowerCase())) ||
+                        (file.sender && file.sender.toLowerCase().includes(mediaSearchQuery.toLowerCase()));
+                      const cat = getMediaCategory(file);
+                      const matchesCat = mediaCategoryFilter === "all" || cat === mediaCategoryFilter;
+                      return matchesSearch && matchesCat;
+                    }).map((file, idx) => {
+                      const category = getMediaCategory(file);
+                      const ext = getFileExtension(file.filename);
+                      const badgeStyle = getExtensionBadgeStyle(ext);
+
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => setPreviewModalFile(file)}
+                          className={`group relative rounded-2xl border overflow-hidden flex flex-col justify-between cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-xl ${
+                            theme === "light"
+                              ? "bg-white border-gray-200 hover:border-purple-500 hover:shadow-purple-500/10"
+                              : "bg-[#070c18] border-white/[0.08] hover:border-purple-500/50 hover:shadow-[0_0_25px_rgba(168,85,247,0.15)]"
+                          }`}
+                        >
+                          {/* Thumbnail Area */}
+                          <div className="relative h-28 w-full overflow-hidden bg-black/40 flex items-center justify-center">
+                            {category === "images" ? (
+                              <img
+                                src={file.url}
+                                alt={file.filename}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                loading="lazy"
+                              />
+                            ) : category === "videos" ? (
+                              <div className="relative w-full h-full flex items-center justify-center bg-black">
+                                <video src={file.url} className="w-full h-full object-cover opacity-60 pointer-events-none" muted />
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/10 transition-colors">
+                                  <div className="w-9 h-9 rounded-full bg-purple-500/80 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 ml-0.5"><path d="M8 5v14l11-7z"/></svg>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              /* Document & Other File Formats (Shows text extension) */
+                              <div className={`w-full h-full flex flex-col items-center justify-center bg-gradient-to-br ${badgeStyle.glow} p-3`}>
+                                <span className={`text-xl sm:text-2xl font-black font-mono tracking-widest px-2.5 py-1 rounded-xl border ${badgeStyle.bg} ${badgeStyle.text} ${badgeStyle.border} shadow-inner`}>
+                                  .{ext}
+                                </span>
+                                <span className="text-[10px] font-mono text-gray-400 mt-1 uppercase tracking-wider">
+                                  {file.contentType ? file.contentType.split("/")[1] || ext : ext}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Type Badge */}
+                            <div className="absolute top-2 left-2">
+                              <span className={`text-[9px] font-black font-mono px-1.5 py-0.5 rounded-md border uppercase tracking-wider ${
+                                category === "images"
+                                  ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 backdrop-blur-md"
+                                  : category === "videos"
+                                  ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40 backdrop-blur-md"
+                                  : `${badgeStyle.bg} ${badgeStyle.text} ${badgeStyle.border} backdrop-blur-md`
+                              }`}>
+                                {ext}
+                              </span>
+                            </div>
+
+                            {/* Hover View overlay */}
+                            <div className="absolute inset-0 bg-purple-950/60 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                              <span className="text-[11px] font-bold font-mono text-white bg-purple-600/80 px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                Preview
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Card Details */}
+                          <div className="p-2.5 flex flex-col justify-between flex-grow">
+                            <div>
+                              <p className="text-xs font-semibold text-gray-200 truncate" title={file.filename}>
+                                {file.filename}
+                              </p>
+                              {file.subject && (
+                                <p className="text-[10px] text-gray-500 truncate mt-0.5">
+                                  {file.subject}
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-white/[0.04] text-[10px] font-mono">
+                              <span className="text-purple-400 font-bold">{formatBytes(file.size)}</span>
+                              <span className="text-gray-500">{formatDate(file.date).split(",")[0]}</span>
+                            </div>
+                          </div>
+
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer of Drawer */}
+              <div className={`p-4 border-t flex items-center justify-between text-xs font-mono shrink-0 ${
+                theme === "light" ? "bg-[#f8f9fa] border-[#dadce0] text-gray-600" : "bg-[#060a14] border-white/[0.08] text-gray-400"
+              }`}>
+                <span>Showing {mediaFiles.filter(file => {
+                  const matchesSearch = !mediaSearchQuery || 
+                    file.filename.toLowerCase().includes(mediaSearchQuery.toLowerCase()) ||
+                    (file.subject && file.subject.toLowerCase().includes(mediaSearchQuery.toLowerCase())) ||
+                    (file.sender && file.sender.toLowerCase().includes(mediaSearchQuery.toLowerCase()));
+                  const cat = getMediaCategory(file);
+                  const matchesCat = mediaCategoryFilter === "all" || cat === mediaCategoryFilter;
+                  return matchesSearch && matchesCat;
+                }).length} of {mediaFiles.length} attachments</span>
+                <button
+                  onClick={() => openMediaSheet()}
+                  disabled={loadingMedia}
+                  className="text-purple-400 hover:text-purple-300 font-bold flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
+                  title="Refresh media files"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="2"
+                    stroke="currentColor"
+                    className={`w-3.5 h-3.5 ${loadingMedia ? "animate-spin" : ""}`}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+                    />
+                  </svg>
+                  <span>Refresh</span>
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* LARGE POPUP / LIGHTBOX MODAL FOR MEDIA PREVIEW             */}
+      {/* ========================================================= */}
+      {previewModalFile && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-6 overflow-hidden">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/80 backdrop-blur-md transition-opacity"
+            onClick={() => setPreviewModalFile(null)}
+          ></div>
+
+          {/* Modal Card */}
+          <div className={`relative z-10 max-w-4xl w-full max-h-[90vh] rounded-3xl border shadow-2xl flex flex-col overflow-hidden animate-scale-up ${
+            theme === "light"
+              ? "bg-white border-gray-300 text-gray-900"
+              : "bg-[#080d1a] border-white/[0.12] text-white"
+          }`}>
+            
+            {/* Modal Top Bar */}
+            <div className="px-5 py-4 border-b border-white/[0.08] flex items-center justify-between backdrop-blur-sm bg-black/20">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className={`text-[10px] font-black font-mono px-2 py-0.5 rounded-lg border uppercase ${
+                  getExtensionBadgeStyle(getFileExtension(previewModalFile.filename)).bg
+                } ${getExtensionBadgeStyle(getFileExtension(previewModalFile.filename)).text} ${
+                  getExtensionBadgeStyle(getFileExtension(previewModalFile.filename)).border
+                }`}>
+                  .{getFileExtension(previewModalFile.filename)}
+                </span>
+                <div className="min-w-0">
+                  <h3 className="text-sm sm:text-base font-bold truncate" title={previewModalFile.filename}>
+                    {previewModalFile.filename}
+                  </h3>
+                  <div className="flex items-center gap-2 text-[11px] text-gray-400 font-mono">
+                    <span>{formatBytes(previewModalFile.size)}</span>
+                    <span>•</span>
+                    <span>{formatDate(previewModalFile.date)}</span>
+                    {previewModalFile.sender && (
+                      <>
+                        <span>•</span>
+                        <span className="truncate">From: {previewModalFile.sender}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewModalFile.url}
+                  download={previewModalFile.filename}
+                  className="text-xs font-bold font-mono px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-600/30 flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                  <span>Download</span>
+                </a>
+                <a
+                  href={previewModalFile.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-medium px-3 py-1.5 rounded-xl border border-white/[0.1] bg-white/[0.05] hover:bg-white/[0.1] text-gray-300 transition-colors flex items-center gap-1 cursor-pointer"
+                  title="Open in new tab"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3.5 h-3.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                  </svg>
+                </a>
+                <button
+                  onClick={() => setPreviewModalFile(null)}
+                  className="w-8 h-8 rounded-xl bg-white/[0.05] hover:bg-white/[0.15] text-gray-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                  title="Close Preview"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Preview Area */}
+            <div className="flex-1 overflow-auto p-4 sm:p-8 flex items-center justify-center bg-black/40 min-h-[300px]">
+              {getMediaCategory(previewModalFile) === "images" ? (
+                <img
+                  src={previewModalFile.url}
+                  alt={previewModalFile.filename}
+                  className="max-h-[65vh] max-w-full object-contain rounded-xl shadow-2xl"
+                />
+              ) : getMediaCategory(previewModalFile) === "videos" ? (
+                <video
+                  src={previewModalFile.url}
+                  controls
+                  autoPlay
+                  className="max-h-[65vh] max-w-full rounded-xl shadow-2xl bg-black"
+                />
+              ) : previewModalFile.filename.toLowerCase().endsWith(".pdf") ? (
+                <iframe
+                  src={previewModalFile.url}
+                  className="w-full h-[65vh] rounded-xl border border-white/10 bg-white"
+                  title={previewModalFile.filename}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center p-8 text-center max-w-md">
+                  <div className={`w-24 h-24 rounded-3xl flex items-center justify-center border ${
+                    getExtensionBadgeStyle(getFileExtension(previewModalFile.filename)).bg
+                  } ${getExtensionBadgeStyle(getFileExtension(previewModalFile.filename)).border} mb-4 shadow-xl`}>
+                    <span className={`text-2xl font-black font-mono ${getExtensionBadgeStyle(getFileExtension(previewModalFile.filename)).text}`}>
+                      .{getFileExtension(previewModalFile.filename)}
+                    </span>
+                  </div>
+                  <h4 className="text-base font-bold mb-1">{previewModalFile.filename}</h4>
+                  <p className="text-xs text-gray-400 font-mono mb-6">
+                    {formatBytes(previewModalFile.size)} • {previewModalFile.contentType || "Binary file"}
+                  </p>
+                  <a
+                    href={previewModalFile.url}
+                    download={previewModalFile.filename}
+                    className="px-6 py-3 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-sm shadow-xl shadow-purple-600/30 flex items-center gap-2 transition-all cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                    <span>Download {previewModalFile.filename}</span>
+                  </a>
+                </div>
+              )}
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* ========================================================= */}
       {/* RIGHT SHEET (DRAWER) FOR SERVER SETTINGS (IMAP/POP)        */}

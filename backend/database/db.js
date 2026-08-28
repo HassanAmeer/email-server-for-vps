@@ -98,13 +98,15 @@ db.exec(`
   );
 
   CREATE TABLE IF NOT EXISTS api_settings (
-    id TEXT PRIMARY KEY,
+    id TEXT,
+    scope TEXT DEFAULT 'admin',
     method TEXT,
     path TEXT,
     desc TEXT,
     enabled BOOLEAN DEFAULT 1,
     category TEXT,
-    hits INTEGER DEFAULT 0
+    hits INTEGER DEFAULT 0,
+    PRIMARY KEY (id, scope)
   );
 `);
 
@@ -113,6 +115,35 @@ try { db.exec(`ALTER TABLE attached_domains ADD COLUMN is_primary BOOLEAN DEFAUL
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN primary_prefix TEXT DEFAULT 'my';`); } catch (e) { }
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN route_to_primary BOOLEAN DEFAULT 1;`); } catch (e) { }
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN scope TEXT DEFAULT 'admin';`); } catch (e) { }
+
+// Migrate api_settings to include (id, scope) composite primary key
+try {
+  const tableInfo = db.prepare("PRAGMA table_info(api_settings)").all();
+  const hasScope = tableInfo.some(col => col.name === "scope");
+  if (!hasScope) {
+    db.exec(`
+      CREATE TABLE api_settings_new (
+        id TEXT,
+        scope TEXT DEFAULT 'admin',
+        method TEXT,
+        path TEXT,
+        desc TEXT,
+        enabled BOOLEAN DEFAULT 1,
+        category TEXT,
+        hits INTEGER DEFAULT 0,
+        PRIMARY KEY (id, scope)
+      );
+      INSERT OR IGNORE INTO api_settings_new (id, scope, method, path, desc, enabled, category, hits)
+        SELECT id, 'admin', method, path, desc, enabled, category, hits FROM api_settings;
+      INSERT OR IGNORE INTO api_settings_new (id, scope, method, path, desc, enabled, category, hits)
+        SELECT id, 'dev', method, path, desc, enabled, category, hits FROM api_settings;
+      DROP TABLE api_settings;
+      ALTER TABLE api_settings_new RENAME TO api_settings;
+    `);
+  }
+} catch (e) {
+  console.error("Migration error for api_settings:", e);
+}
 // Migrate mailbox/mailbox_users to mailbox_table if exists
 try {
   const hasMailboxUsers = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='mailbox_users'").get();
@@ -853,25 +884,38 @@ export function deleteSystemLogsByIds(ids) {
 export function initApiSettings(settingsArray) {
   try {
     const stmt = db.prepare(`
-      INSERT INTO api_settings (id, method, path, desc, enabled, category, hits)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET
+      INSERT INTO api_settings (id, scope, method, path, desc, enabled, category, hits)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id, scope) DO UPDATE SET
         desc = excluded.desc,
         path = excluded.path,
         method = excluded.method,
         category = excluded.category
     `);
     for (const api of settingsArray) {
-      stmt.run(api.id, api.method, api.path, api.desc, api.enabled ? 1 : 0, api.category, api.hits || 0);
+      // 1. Admin Scope
+      stmt.run(api.id, "admin", api.method, api.path, api.desc, api.enabled ? 1 : 0, api.category, api.hits || 0);
+
+      // 2. Dev Scope
+      let devPath = api.path;
+      let devCat = api.category;
+      if (devPath.startsWith("/api/admin/")) {
+        devPath = devPath.replace("/api/admin/", "/api/devpanel/");
+        devCat = "DevPanel Management";
+      } else if (devPath.startsWith("/api/")) {
+        devPath = devPath.replace("/api/", "/api/dev/");
+      }
+      stmt.run(api.id, "dev", api.method, devPath, api.desc, api.enabled ? 1 : 0, devCat, api.hits || 0);
     }
   } catch (err) {
     console.error("DB Error initializing API settings:", err);
   }
 }
 
-export function getApiSettingsList() {
+export function getApiSettingsList(scope = "admin") {
   try {
-    const rows = db.prepare("SELECT * FROM api_settings").all();
+    const targetScope = scope === "dev" || scope === "devpanel" ? "dev" : "admin";
+    const rows = db.prepare("SELECT * FROM api_settings WHERE scope = ?").all(targetScope);
     return rows.map(r => ({ ...r, enabled: r.enabled === 1 }));
   } catch (err) {
     console.error("DB Error getting API settings:", err);
@@ -879,9 +923,10 @@ export function getApiSettingsList() {
   }
 }
 
-export function toggleApiSettingDB(id, enabled) {
+export function toggleApiSettingDB(id, enabled, scope = "admin") {
   try {
-    db.prepare("UPDATE api_settings SET enabled = ? WHERE id = ?").run(enabled ? 1 : 0, id);
+    const targetScope = scope === "dev" || scope === "devpanel" ? "dev" : "admin";
+    db.prepare("UPDATE api_settings SET enabled = ? WHERE id = ? AND scope = ?").run(enabled ? 1 : 0, id, targetScope);
     return true;
   } catch (err) {
     console.error("DB Error toggling API setting:", err);
@@ -889,17 +934,19 @@ export function toggleApiSettingDB(id, enabled) {
   }
 }
 
-export function incrementApiHits(id) {
+export function incrementApiHits(id, scope = "admin") {
   try {
-    db.prepare("UPDATE api_settings SET hits = hits + 1 WHERE id = ?").run(id);
+    const targetScope = scope === "dev" || scope === "devpanel" ? "dev" : "admin";
+    db.prepare("UPDATE api_settings SET hits = hits + 1 WHERE id = ? AND scope = ?").run(id, targetScope);
   } catch (err) {
     console.error("DB Error incrementing API hit:", err);
   }
 }
 
-export function resetApiSettingsHits() {
+export function resetApiSettingsHits(scope = "admin") {
   try {
-    db.prepare("UPDATE api_settings SET hits = 0").run();
+    const targetScope = scope === "dev" || scope === "devpanel" ? "dev" : "admin";
+    db.prepare("UPDATE api_settings SET hits = 0 WHERE scope = ?").run(targetScope);
   } catch (err) {
     console.error("DB Error resetting API hits:", err);
   }

@@ -386,9 +386,10 @@ export class AdminController {
 
   static getApiSettings(req, res) {
     const isDevScope = (req.url && (req.url.startsWith("/api/devpanel") || req.url.startsWith("/api/dev-admin") || req.url.startsWith("/api/dev"))) ||
-      (req.headers && req.headers["x-scope"] === "devpanel");
+      (req.headers && (req.headers["x-scope"] === "devpanel" || req.headers["x-scope"] === "dev"));
+    const scope = isDevScope ? "dev" : "admin";
 
-    const list = getApiSettingsList();
+    const list = getApiSettingsList(scope);
     // Merge static fields (auth, variables) that aren't stored in DB
     const enrichedList = list.map(item => {
       const staticData = defaultApiSettings.find(s => s.id === item.id);
@@ -425,6 +426,10 @@ export class AdminController {
    */
   static async toggleApiSetting(req, res) {
     try {
+      const isDevScope = (req.url && (req.url.startsWith("/api/devpanel") || req.url.startsWith("/api/dev-admin") || req.url.startsWith("/api/dev"))) ||
+        (req.headers && (req.headers["x-scope"] === "devpanel" || req.headers["x-scope"] === "dev"));
+      const scope = isDevScope ? "dev" : "admin";
+
       const parsed = await parseJsonBody(req);
       if (!parsed) {
         res.writeHead(400, { "Content-Type": "application/json" });
@@ -432,10 +437,11 @@ export class AdminController {
         return;
       }
       const { id, enabled } = parsed;
-      const success = toggleApiSettingDB(id, enabled);
+      const cleanId = id ? id.replace(/^dev-/, "") : id;
+      const success = toggleApiSettingDB(cleanId, enabled, scope);
       if (success) {
-        const list = getApiSettingsList();
-        const api = list.find(a => a.id === id);
+        const list = getApiSettingsList(scope);
+        const api = list.find(a => a.id === cleanId);
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ success: true, api }));
       } else {
@@ -450,7 +456,10 @@ export class AdminController {
 
   static resetApiSettingsHits(req, res) {
     try {
-      resetApiSettingsHits();
+      const isDevScope = (req.url && (req.url.startsWith("/api/devpanel") || req.url.startsWith("/api/dev-admin") || req.url.startsWith("/api/dev"))) ||
+        (req.headers && (req.headers["x-scope"] === "devpanel" || req.headers["x-scope"] === "dev"));
+      const scope = isDevScope ? "dev" : "admin";
+      resetApiSettingsHits(scope);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: true }));
     } catch (err) {
@@ -556,9 +565,11 @@ export class AdminController {
       return true;
     }
 
+    const isDev = cleanUrl.startsWith("/api/devpanel/") || cleanUrl.startsWith("/api/dev-admin/") || cleanUrl.startsWith("/api/dev/");
+    const scope = isDev ? "dev" : "admin";
     const normUrl = cleanUrl.replace(/^\/api\/devpanel\//, "/api/admin/").replace(/^\/api\/dev-admin\//, "/api/admin/").replace(/^\/api\/dev\//, "/api/");
 
-    const list = getApiSettingsList();
+    const list = getApiSettingsList(scope);
     // Find matching API config
     const api = list.find(a => {
       // Direct path match
@@ -588,7 +599,7 @@ export class AdminController {
       if (!api.enabled) {
         return false;
       }
-      incrementApiHits(api.id); // Increment usage statistics count
+      incrementApiHits(api.id, scope); // Increment usage statistics count
     }
     return true;
   }
