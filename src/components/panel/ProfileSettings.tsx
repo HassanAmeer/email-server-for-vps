@@ -17,6 +17,8 @@ export default function ProfileSettings({
 }: ProfileSettingsProps) {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [alertEmail, setAlertEmail] = useState("");
+  const [defaultAlertEmail, setDefaultAlertEmail] = useState("hasanameer386@gmail.com");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -49,6 +51,8 @@ export default function ProfileSettings({
       if (data.success) {
         setUsername(data.username || "admin");
         setEmail(data.email || "admin@gmail.com");
+        setAlertEmail(data.alert_email || data.default_alert_email || "hasanameer386@gmail.com");
+        setDefaultAlertEmail(data.default_alert_email || "hasanameer386@gmail.com");
       } else {
         throw new Error(data.error || "Could not retrieve profile data");
       }
@@ -93,6 +97,7 @@ export default function ProfileSettings({
       const payload: Record<string, string> = {
         username: username.trim(),
         email: email.trim().toLowerCase(),
+        alert_email: alertEmail.trim().toLowerCase(),
       };
 
       if (password.trim().length > 0) {
@@ -110,11 +115,12 @@ export default function ProfileSettings({
 
       const data = await res.json();
       if (res.ok && data.success) {
-        setSuccessMsg("Admin credentials updated successfully!");
+        setSuccessMsg("Admin credentials & alert notification settings updated successfully!");
         setPassword("");
         setConfirmPassword("");
         if (data.username) setUsername(data.username);
         if (data.email) setEmail(data.email);
+        if (data.alert_email) setAlertEmail(data.alert_email);
         setTimeout(() => setSuccessMsg(""), 5000);
       } else {
         throw new Error(data.error || "Failed to update profile");
@@ -159,11 +165,11 @@ export default function ProfileSettings({
               </svg>
             </div>
             <h1 className="text-xl font-bold text-white tracking-wide">
-              Admin Profile Settings
+              Admin Profile & Security
             </h1>
           </div>
           <p className="text-xs text-gray-400 mt-1.5 ml-0.5">
-            Update your admin login username, email address, and dashboard password.
+            Manage your admin credentials, login password, and Gmail SMTP login alert notifications.
           </p>
         </div>
 
@@ -254,17 +260,25 @@ export default function ProfileSettings({
               </div>
               <div className="flex justify-between items-center text-gray-400">
                 <span className="text-[11px] text-gray-500">Login Email:</span>
-                <span className="font-mono text-gray-200 font-semibold truncate max-w-[160px]" title={email}>
+                <span className="font-mono text-gray-200 font-semibold truncate max-w-[150px]" title={email}>
                   {email || "admin@gmail.com"}
                 </span>
               </div>
               <div className="flex justify-between items-center text-gray-400">
-                <span className="text-[11px] text-gray-500">Role:</span>
-                <span className="text-gray-200">Server Administrator</span>
+                <span className="text-[11px] text-gray-500">Alert Notification:</span>
+                <span className="font-mono text-emerald-400 font-semibold truncate max-w-[150px]" title={alertEmail}>
+                  {alertEmail || "hasanameer386@gmail.com"}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-gray-400">
+                <span className="text-[11px] text-gray-500">Gmail Alert:</span>
+                <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Active
+                </span>
               </div>
               <div className="flex justify-between items-center text-gray-400">
                 <span className="text-[11px] text-gray-500">Session:</span>
-                <span className="font-mono text-emerald-400">24-Hour Token</span>
+                <span className="font-mono text-gray-200">24-Hour Token</span>
               </div>
             </div>
           </div>
@@ -286,10 +300,10 @@ export default function ProfileSettings({
                   d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
                 />
               </svg>
-              <span>Security Guidelines</span>
+              <span>Login Alert Security</span>
             </div>
             <p className="text-[11px] text-gray-500 leading-relaxed">
-              Updates to your password and login credentials are automatically saved in SQLite. Once updated, use your new credentials for future dashboard logins.
+              Every time anyone logs into the admin dashboard, a secure email notification containing the login timestamp, client IP, and browser details is automatically dispatched to the Alert Email specified above via Gmail SMTP.
             </p>
           </div>
         </div>
@@ -302,9 +316,9 @@ export default function ProfileSettings({
           >
             <div className="flex items-center justify-between border-b border-white/[0.04] pb-4">
               <div>
-                <h2 className="text-base font-bold text-white">Edit Admin Credentials</h2>
+                <h2 className="text-base font-bold text-white">Edit Admin Credentials & Alerts</h2>
                 <p className="text-[11px] text-gray-400 mt-0.5">
-                  Update your username, contact email, and password to secure dashboard access.
+                  Update your username, primary login email, alert notification recipient, and password.
                 </p>
               </div>
             </div>
@@ -317,7 +331,7 @@ export default function ProfileSettings({
               </div>
             ) : (
               <div className="space-y-5">
-                {/* Grid: Username & Email */}
+                {/* Grid: Username & Primary Email */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-gray-300 mb-1.5">
@@ -336,7 +350,7 @@ export default function ProfileSettings({
 
                   <div>
                     <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-                      Admin Email <span className="text-red-400">*</span>
+                      Admin Login Email <span className="text-red-400">*</span>
                     </label>
                     <input
                       type="email"
@@ -346,7 +360,7 @@ export default function ProfileSettings({
                       placeholder="admin@gmail.com"
                       className={`w-full bg-slate-900/60 border border-white/[0.08] rounded-xl px-4 py-2.5 text-xs font-mono text-white placeholder-gray-500 outline-none transition-all ${accentRing}`}
                     />
-                    <p className="text-[10px] text-gray-500 mt-1">Also accepted as login email</p>
+                    <p className="text-[10px] text-gray-500 mt-1">Also accepted as login identifier</p>
                   </div>
                 </div>
 
@@ -430,6 +444,31 @@ export default function ProfileSettings({
                   </div>
                 </div>
 
+                {/* Alert Notification Recipient Email (To) - Positioned at Bottom */}
+                <div className="pt-3 border-t border-white/[0.04]">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-gray-300 flex items-center gap-1.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3.5 h-3.5 text-emerald-400">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                      </svg>
+                      <span>Login Alert Notification Email (To)</span>
+                    </label>
+                    <span className="text-[10px] text-gray-500 font-mono">
+                      Default: {defaultAlertEmail}
+                    </span>
+                  </div>
+                  <input
+                    type="email"
+                    value={alertEmail}
+                    onChange={(e) => setAlertEmail(e.target.value)}
+                    placeholder={defaultAlertEmail || "hasanameer386@gmail.com"}
+                    className={`w-full bg-slate-900/60 border border-emerald-500/30 rounded-xl px-4 py-2.5 text-xs font-mono text-emerald-300 placeholder-gray-500 outline-none transition-all ${accentRing}`}
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    Gmail SMTP sends security alerts to this address upon every admin login. If left blank, it automatically defaults to the value set in <code className="text-emerald-400 font-mono">.env</code> (<code className="text-emerald-400 font-mono">ADMIN_ALERT_EMAIL</code>).
+                  </p>
+                </div>
+
                 {/* Submit Action Button */}
                 <div className="pt-4 flex justify-end">
                   <button
@@ -477,7 +516,7 @@ export default function ProfileSettings({
                             d="M4.5 12.75l6 6 9-13.5"
                           />
                         </svg>
-                        <span>Save Credentials</span>
+                        <span>Save Credentials & Settings</span>
                       </>
                     )}
                   </button>

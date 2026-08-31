@@ -741,6 +741,14 @@ const httpServer = http.createServer((req, res) => {
     return ApiRouter.adminLogin(req, res);
   }
 
+  if (cleanUrl === "/api/admin/verify-otp" && req.method === "POST") {
+    return AdminController.verifyOtp(req, res);
+  }
+
+  if (cleanUrl === "/api/admin/resend-otp" && req.method === "POST") {
+    return AdminController.resendOtp(req, res);
+  }
+
   if (cleanUrl === "/api/admin/profile") {
     if (req.method === "GET") return AdminController.getAdminProfile(req, res);
     if (req.method === "PUT" || req.method === "POST") return AdminController.updateAdminProfile(req, res);

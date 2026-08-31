@@ -479,6 +479,14 @@ export class ApiRouter {
     return AdminController.login(req, res);
   }
 
+  static verifyAdminOtp(req, res) {
+    return AdminController.verifyOtp(req, res);
+  }
+
+  static resendAdminOtp(req, res) {
+    return AdminController.resendOtp(req, res);
+  }
+
   static getStats(req, res) {
     return AdminController.getStats(req, res);
   }

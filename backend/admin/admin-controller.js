@@ -273,6 +273,19 @@ async function parseJsonBody(req) {
   }
 }
 
+// In-memory OTP storage for 2FA login verification (5-minute expiry)
+const pendingOtpMap = new Map();
+
+// Periodic cleanup of expired OTP tokens
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, val] of pendingOtpMap.entries()) {
+    if (val.expiresAt < now) {
+      pendingOtpMap.delete(key);
+    }
+  }
+}, 60000);
+
 /**
  * Controller class to handle all admin actions
  */
@@ -323,8 +336,219 @@ export class AdminController {
   }
 
   /**
-   * Validates credentials for Admin Dashboard
-   * Supports configured username, email, and password from server_flags
+   * Asynchronous, non-blocking Gmail SMTP OTP Verification Email
+   */
+  static sendAdminOtpEmail(to, otp, loginIdentifier, clientIp = "127.0.0.1") {
+    setImmediate(async () => {
+      try {
+        const host = process.env.ADMIN_SMTP_HOST || "smtp.gmail.com";
+        const port = Number(process.env.ADMIN_SMTP_PORT || 587);
+        const user = process.env.ADMIN_SMTP_USER || "webconicprivatelimited@gmail.com";
+        const pass = process.env.ADMIN_SMTP_PASS || "fsgyctvahoqpnnri";
+        const from = process.env.ADMIN_SMTP_FROM || user;
+
+        if (!user || !pass || !to) return;
+
+        const nodemailer = (await import("nodemailer")).default;
+        const transporter = nodemailer.createTransport({
+          host,
+          port,
+          secure: port === 465,
+          auth: { user, pass },
+          connectionTimeout: 6000,
+          greetingTimeout: 6000,
+          socketTimeout: 6000,
+        });
+
+        const now = new Date().toUTCString();
+        const subject = `🔑 Verification Code: ${otp} - Admin Login`;
+
+        const html = `
+          <div style="background-color: #05070E; padding: 35px 15px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f1f5f9;">
+            <div style="max-width: 560px; margin: 0 auto; background: #0B0F19; border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.85);">
+              
+              <!-- Neon Lime Theme Header -->
+              <div style="background: linear-gradient(180deg, #111a09 0%, #0b0f19 100%); padding: 32px 24px; text-align: center; border-bottom: 1px solid rgba(190, 242, 100, 0.15);">
+                <div style="display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; background-color: #17230b; border: 1.5px solid #4d6d1b; border-radius: 18px; margin-bottom: 14px; box-shadow: 0 0 20px rgba(190, 242, 100, 0.25);">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#bef264" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </div>
+                <div style="display: block; margin-bottom: 6px;">
+                  <span style="display: inline-block; background: #1a270d; border: 1px solid #3d5815; color: #bef264; font-size: 10px; font-weight: 800; letter-spacing: 0.2em; font-family: monospace; text-transform: uppercase; padding: 4px 12px; border-radius: 999px;">VPS AUTHENTICATION GATEWAY</span>
+                </div>
+                <h1 style="color: #ffffff; margin: 8px 0 0; font-size: 22px; font-weight: 800; letter-spacing: -0.02em;">Admin Verification Code</h1>
+                <p style="color: #94a3b8; margin: 6px 0 0; font-size: 13px;">Use the 4-digit code below to complete sign-in</p>
+              </div>
+
+              <!-- Body -->
+              <div style="padding: 30px 28px;">
+                <p style="font-size: 13px; color: #94a3b8; margin-top: 0; line-height: 1.6;">
+                  A login request was initiated for administrator <strong style="color: #bef264; font-family: monospace;">${loginIdentifier}</strong>. Enter this 4-digit code on the dashboard to authenticate:
+                </p>
+
+                <!-- Glowing Neon Lime OTP Card -->
+                <div style="background: #0d1508; border: 1.5px solid rgba(190, 242, 100, 0.45); border-radius: 18px; padding: 26px 16px; margin: 24px 0; text-align: center; box-shadow: inset 0 2px 8px rgba(0,0,0,0.6), 0 0 30px rgba(190, 242, 100, 0.18);">
+                  <span style="display: block; font-size: 10px; font-weight: 700; color: #bef264; letter-spacing: 0.22em; text-transform: uppercase; margin-bottom: 8px; font-family: monospace;">ONE-TIME VERIFICATION CODE</span>
+                  <div style="font-size: 42px; font-weight: 900; letter-spacing: 16px; color: #bef264; font-family: 'Courier New', Courier, monospace; text-shadow: 0 0 20px rgba(190, 242, 100, 0.6);">${otp}</div>
+                  <div style="margin-top: 10px; font-size: 11px; color: #84cc16; font-family: monospace; font-weight: 600;">⏱️ Valid for 5 minutes only</div>
+                </div>
+
+                <!-- Info Table -->
+                <div style="background: #111827; border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 14px 18px; margin-bottom: 20px;">
+                  <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                    <tr>
+                      <td style="color: #64748b; padding: 5px 0; width: 35%;"><strong>Client IP:</strong></td>
+                      <td style="color: #bef264; font-family: monospace; font-weight: 700; padding: 5px 0;">${clientIp}</td>
+                    </tr>
+                    <tr>
+                      <td style="color: #64748b; padding: 5px 0;"><strong>Timestamp:</strong></td>
+                      <td style="color: #cbd5e1; padding: 5px 0;">${now}</td>
+                    </tr>
+                  </table>
+                </div>
+
+                <p style="font-size: 11px; color: #64748b; line-height: 1.5; margin-bottom: 0;">
+                  ⚠️ <strong>Security Notice:</strong> Never share this verification code with anyone. If you did not initiate this login request, please change your admin password immediately in Profile Settings.
+                </p>
+              </div>
+
+              <!-- Footer -->
+              <div style="background: #070A13; padding: 16px 24px; border-top: 1px solid rgba(255,255,255,0.05); text-align: center; font-size: 11px; color: #475569; font-family: monospace;">
+                VPS Mail Server · 2-Factor Authentication Gate
+              </div>
+
+            </div>
+          </div>
+        `;
+
+        await transporter.sendMail({
+          from: `"VPS Security Gate" <${from}>`,
+          to: to,
+          subject: subject,
+          text: `Admin Verification Code: ${otp}\nValid for 5 minutes.\nAccount: ${loginIdentifier}\nIP: ${clientIp}\nTime: ${now}`,
+          html: html,
+        });
+
+        console.log(`[SECURITY] 🔑 Admin OTP verification code dispatched to ${to}`);
+      } catch (otpErr) {
+        console.error("[SECURITY] ⚠️ Failed to send admin OTP email:", otpErr.message);
+      }
+    });
+  }
+
+  /**
+   * Asynchronous, non-blocking Gmail SMTP Login Notification Alert
+   */
+  static sendAdminLoginAlert(loginIdentifier, clientIp = "127.0.0.1", userAgent = "") {
+    // Fire-and-forget execution in background event loop
+    setImmediate(async () => {
+      try {
+        const host = process.env.ADMIN_SMTP_HOST || "smtp.gmail.com";
+        const port = Number(process.env.ADMIN_SMTP_PORT || 587);
+        const user = process.env.ADMIN_SMTP_USER || "webconicprivatelimited@gmail.com";
+        const pass = process.env.ADMIN_SMTP_PASS || "fsgyctvahoqpnnri";
+        const from = process.env.ADMIN_SMTP_FROM || user;
+        const configuredAlert = (getSetting("admin_alert_email") || "").trim();
+        const to = configuredAlert || (process.env.ADMIN_ALERT_EMAIL || "hasanameer386@gmail.com").trim();
+
+        if (!user || !pass || !to) return;
+
+        const nodemailer = (await import("nodemailer")).default;
+        const transporter = nodemailer.createTransport({
+          host,
+          port,
+          secure: port === 465,
+          auth: { user, pass },
+          connectionTimeout: 6000,
+          greetingTimeout: 6000,
+          socketTimeout: 6000,
+        });
+
+        const now = new Date().toUTCString();
+        const subject = `🔐 Security Alert: Admin Login on Email Server VPS (${loginIdentifier})`;
+
+        const html = `
+          <div style="background-color: #05070E; padding: 35px 15px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f1f5f9;">
+            <div style="max-width: 560px; margin: 0 auto; background: #0B0F19; border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.85);">
+              
+              <!-- Neon Lime Theme Header -->
+              <div style="background: linear-gradient(180deg, #111a09 0%, #0b0f19 100%); padding: 30px 24px; text-align: center; border-bottom: 1px solid rgba(190, 242, 100, 0.15);">
+                <div style="display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; background-color: #17230b; border: 1.5px solid #4d6d1b; border-radius: 18px; margin-bottom: 14px; box-shadow: 0 0 20px rgba(190, 242, 100, 0.25);">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#bef264" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                </div>
+                <div style="display: block; margin-bottom: 6px;">
+                  <span style="display: inline-block; background: #1a270d; border: 1px solid #3d5815; color: #bef264; font-size: 10px; font-weight: 800; letter-spacing: 0.2em; font-family: monospace; text-transform: uppercase; padding: 4px 12px; border-radius: 999px;">SYSTEM SECURITY NOTICE</span>
+                </div>
+                <h1 style="color: #ffffff; margin: 8px 0 0; font-size: 22px; font-weight: 800; letter-spacing: -0.02em;">🔐 Successful Admin Login</h1>
+                <p style="color: #94a3b8; margin: 6px 0 0; font-size: 13px;">An administrator has successfully authenticated</p>
+              </div>
+
+              <!-- Body -->
+              <div style="padding: 28px 28px;">
+                <p style="font-size: 13px; color: #94a3b8; margin-top: 0; line-height: 1.6;">
+                  Administrator <strong style="color: #bef264; font-family: monospace;">${loginIdentifier}</strong> has successfully completed 2-Factor OTP Authentication and logged into the <strong>Admin Dashboard</strong>.
+                </p>
+
+                <!-- Metadata Table -->
+                <table style="width: 100%; border-collapse: collapse; margin: 20px 0; background-color: #0d1508; border: 1px solid rgba(190, 242, 100, 0.25); border-radius: 16px; overflow: hidden;">
+                  <tr>
+                    <td style="padding: 12px 16px; font-size: 12px; color: #84cc16; border-bottom: 1px solid rgba(190, 242, 100, 0.12); width: 35%;"><strong>Admin User:</strong></td>
+                    <td style="padding: 12px 16px; font-size: 12px; color: #bef264; font-family: monospace; font-weight: 700; border-bottom: 1px solid rgba(190, 242, 100, 0.12);">${loginIdentifier}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 12px 16px; font-size: 12px; color: #84cc16; border-bottom: 1px solid rgba(190, 242, 100, 0.12);"><strong>Auth Method:</strong></td>
+                    <td style="padding: 12px 16px; font-size: 12px; color: #bef264; font-family: monospace; font-weight: 700; border-bottom: 1px solid rgba(190, 242, 100, 0.12);">Password + 2FA OTP Verified</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 12px 16px; font-size: 12px; color: #84cc16; border-bottom: 1px solid rgba(190, 242, 100, 0.12);"><strong>Timestamp (UTC):</strong></td>
+                    <td style="padding: 12px 16px; font-size: 12px; color: #f1f5f9; border-bottom: 1px solid rgba(190, 242, 100, 0.12);">${now}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 12px 16px; font-size: 12px; color: #84cc16; border-bottom: 1px solid rgba(190, 242, 100, 0.12);"><strong>Client IP Address:</strong></td>
+                    <td style="padding: 12px 16px; font-size: 12px; color: #bef264; font-family: monospace; font-weight: 700; border-bottom: 1px solid rgba(190, 242, 100, 0.12);">${clientIp}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 12px 16px; font-size: 12px; color: #84cc16;"><strong>Browser / Device:</strong></td>
+                    <td style="padding: 12px 16px; font-size: 11px; color: #94a3b8; word-break: break-all;">${userAgent || "Standard Browser"}</td>
+                  </tr>
+                </table>
+
+                <p style="font-size: 11px; color: #64748b; line-height: 1.5; margin-bottom: 0;">
+                  If this was authorized by you, no action is needed. If you did not perform this login, please immediately access your server and reset administrator credentials.
+                </p>
+              </div>
+
+              <!-- Footer -->
+              <div style="background: #070A13; padding: 16px 24px; border-top: 1px solid rgba(255,255,255,0.05); text-align: center; font-size: 11px; color: #475569; font-family: monospace;">
+                VPS Mail Server Automated Security Alert System
+              </div>
+
+            </div>
+          </div>
+        `;
+
+        await transporter.sendMail({
+          from: `"Mail Server Security" <${from}>`,
+          to: to,
+          subject: subject,
+          text: `Admin Dashboard Login Alert:\n\nUser: ${loginIdentifier}\nTime: ${now}\nIP: ${clientIp}\nAgent: ${userAgent}`,
+          html: html,
+        });
+
+        console.log(`[SECURITY] 📧 Admin login alert dispatched to ${to}`);
+      } catch (alertErr) {
+        console.error("[SECURITY] ⚠️ Failed to send admin login alert email:", alertErr.message);
+      }
+    });
+  }
+
+  /**
+   * Step 1: Validates credentials for Admin Dashboard and generates 4-digit OTP
    */
   static async login(req, res) {
     try {
@@ -346,18 +570,48 @@ export class AdminController {
       const isPasswordValid = password === configuredPassword || password === envFallbackPassword;
 
       if (isNameValid && isPasswordValid) {
-        const token = generateSessionToken("admin", configuredPassword, SESSION_DURATION_MS);
+        const clientIp = (req.headers && (req.headers["x-forwarded-for"] || req.headers["x-real-ip"])) || (req.socket && req.socket.remoteAddress) || "127.0.0.1";
+        const userAgent = (req.headers && req.headers["user-agent"]) || "";
+
+        // Generate 4-digit random numeric OTP (1000 - 9999)
+        const otp = Math.floor(1000 + Math.random() * 9000).toString();
+        const tempToken = crypto.randomBytes(24).toString("hex");
+        const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes validity
+
+        // Store in memory
+        pendingOtpMap.set(tempToken, {
+          otp,
+          loginName,
+          configuredUsername,
+          configuredEmail,
+          configuredPassword,
+          clientIp,
+          userAgent,
+          expiresAt
+        });
+
+        // Determine destination alert email
+        const configuredAlert = (getSetting("admin_alert_email") || "").trim();
+        const toEmail = configuredAlert || (process.env.ADMIN_ALERT_EMAIL || "hasanameer386@gmail.com").trim();
+
+        // Dispatch OTP verification email non-blocking in background
+        AdminController.sendAdminOtpEmail(toEmail, otp, loginName, clientIp);
+
+        // Mask destination email for security display (e.g. h***r@gmail.com)
+        let maskedEmail = toEmail;
+        const atIdx = toEmail.indexOf("@");
+        if (atIdx > 2) {
+          maskedEmail = toEmail[0] + "***" + toEmail[atIdx - 1] + toEmail.substring(atIdx);
+        }
+
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
           success: true,
-          token,
-          expiresIn: 86400,
-          expiresAt: Date.now() + SESSION_DURATION_MS,
-          user: {
-            name: getSetting("admin_name") || "Administrator",
-            username: configuredUsername,
-            email: configuredEmail
-          }
+          requireOtp: true,
+          tempToken,
+          maskedEmail,
+          expiresInSeconds: 300,
+          message: `Verification code sent to ${maskedEmail}`
         }));
       } else {
         res.writeHead(401, { "Content-Type": "application/json" });
@@ -370,8 +624,114 @@ export class AdminController {
   }
 
   /**
+   * Step 2: Validates OTP and issues 24-hour session token + dispatches login alert
+   */
+  static async verifyOtp(req, res) {
+    try {
+      const parsed = await parseJsonBody(req);
+      if (parsed === null) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid JSON body" }));
+        return;
+      }
+
+      const { tempToken, otp } = parsed;
+      if (!tempToken || !otp) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: false, error: "Missing temporary token or verification code" }));
+        return;
+      }
+
+      const pending = pendingOtpMap.get(tempToken);
+      if (!pending) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: false, error: "Verification session expired or invalid. Please login again." }));
+        return;
+      }
+
+      if (Date.now() > pending.expiresAt) {
+        pendingOtpMap.delete(tempToken);
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: false, error: "Verification code expired. Please request a new code." }));
+        return;
+      }
+
+      if (pending.otp.trim() !== String(otp).trim()) {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: false, error: "Invalid 4-digit verification code. Please try again." }));
+        return;
+      }
+
+      // OTP is valid -> Remove from pending map
+      pendingOtpMap.delete(tempToken);
+
+      // Generate 24-hour session token
+      const token = generateSessionToken("admin", pending.configuredPassword, SESSION_DURATION_MS);
+
+      // Dispatch 2nd email: Successful Admin Login Security Alert
+      AdminController.sendAdminLoginAlert(pending.loginName, pending.clientIp, pending.userAgent);
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        success: true,
+        token,
+        expiresIn: 86400,
+        expiresAt: Date.now() + SESSION_DURATION_MS,
+        user: {
+          username: pending.configuredUsername,
+          email: pending.configuredEmail
+        }
+      }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  }
+
+  /**
+   * Re-sends OTP to alert email address
+   */
+  static async resendOtp(req, res) {
+    try {
+      const parsed = await parseJsonBody(req);
+      if (parsed === null) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid JSON body" }));
+        return;
+      }
+
+      const { tempToken } = parsed;
+      const pending = pendingOtpMap.get(tempToken);
+      if (!pending) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: false, error: "Session expired. Please start login again." }));
+        return;
+      }
+
+      // Generate new 4-digit OTP & extend expiry
+      const newOtp = Math.floor(1000 + Math.random() * 9000).toString();
+      pending.otp = newOtp;
+      pending.expiresAt = Date.now() + 5 * 60 * 1000;
+
+      const configuredAlert = (getSetting("admin_alert_email") || "").trim();
+      const toEmail = configuredAlert || (process.env.ADMIN_ALERT_EMAIL || "hasanameer386@gmail.com").trim();
+
+      AdminController.sendAdminOtpEmail(toEmail, newOtp, pending.loginName, pending.clientIp);
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        success: true,
+        message: "A new 4-digit verification code has been dispatched to your email."
+      }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  }
+
+  /**
    * GET /api/admin/profile
-   * Returns current admin name, username, and email
+   * Returns current admin username, email, and alert notification recipient email
    */
   static getAdminProfile(req, res) {
     const authHeader = req.headers["authorization"];
@@ -385,12 +745,17 @@ export class AdminController {
     try {
       const username = getSetting("admin_username") || process.env.ADMIN_USER || "admin";
       const email = getSetting("admin_email") || process.env.ADMIN_EMAIL || "admin@gmail.com";
+      const configuredAlert = (getSetting("admin_alert_email") || "").trim();
+      const defaultAlert = (process.env.ADMIN_ALERT_EMAIL || "hasanameer386@gmail.com").trim();
 
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         success: true,
         username,
-        email
+        email,
+        alert_email: configuredAlert || defaultAlert,
+        default_alert_email: defaultAlert,
+        is_custom_alert_email: !!configuredAlert
       }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
@@ -400,7 +765,7 @@ export class AdminController {
 
   /**
    * PUT /api/admin/profile
-   * Updates admin username, email, and password in server_flags table
+   * Updates admin username, email, alert recipient email, and password in server_flags table
    */
   static async updateAdminProfile(req, res) {
     const authHeader = req.headers["authorization"];
@@ -419,7 +784,7 @@ export class AdminController {
         return;
       }
 
-      const { username, email, password } = parsed;
+      const { username, email, alert_email, password } = parsed;
 
       if (username && typeof username === "string") {
         setSetting("admin_username", username.trim());
@@ -427,19 +792,28 @@ export class AdminController {
       if (email && typeof email === "string") {
         setSetting("admin_email", email.trim().toLowerCase());
       }
+      if (alert_email !== undefined) {
+        const cleanAlert = typeof alert_email === "string" ? alert_email.trim().toLowerCase() : "";
+        setSetting("admin_alert_email", cleanAlert);
+      }
       if (password && typeof password === "string" && password.trim().length > 0) {
         setSetting("admin_password", password.trim());
       }
 
       const updatedUsername = getSetting("admin_username") || "admin";
       const updatedEmail = getSetting("admin_email") || "admin@gmail.com";
+      const configuredAlert = (getSetting("admin_alert_email") || "").trim();
+      const defaultAlert = (process.env.ADMIN_ALERT_EMAIL || "hasanameer386@gmail.com").trim();
 
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         success: true,
-        message: "Admin credentials updated successfully",
+        message: "Admin credentials & notification settings updated successfully",
         username: updatedUsername,
-        email: updatedEmail
+        email: updatedEmail,
+        alert_email: configuredAlert || defaultAlert,
+        default_alert_email: defaultAlert,
+        is_custom_alert_email: !!configuredAlert
       }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
