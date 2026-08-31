@@ -163,28 +163,30 @@ function saveToMaildir(rawBuffer, recipientEmail) {
     }
 
     // 1. Hardlink to Global Primary Domain Mailbox (e.g. admin@micorna.biz) if this domain routes to primary
+    let primDomain = "";
     try {
       const routingRule = getDomainRoutingRule(domain);
-      if (routingRule.route_to_primary) {
-        const primaryDomainObj = getPrimaryDomain();
-        if (primaryDomainObj && primaryDomainObj.domain) {
-          const primDomain = primaryDomainObj.domain.toLowerCase().trim();
-          const primPrefix = (primaryDomainObj.primary_prefix || "admin").toLowerCase().trim();
+      const primaryDomainObj = getPrimaryDomain();
+      if (primaryDomainObj && primaryDomainObj.domain) {
+        primDomain = primaryDomainObj.domain.toLowerCase().trim();
+      }
 
-          // Only hardlink if target recipient is NOT already the primary mailbox itself
-          if (!(domain.toLowerCase() === primDomain && user.toLowerCase() === primPrefix)) {
-            const primaryMaildir = path.join(maildirBase, primDomain, primPrefix);
-            const primNewDir = path.join(primaryMaildir, "new");
-            const primCurDir = path.join(primaryMaildir, "cur");
-            const primTmpDir = path.join(primaryMaildir, "tmp");
-            [primTmpDir, primNewDir, primCurDir].forEach(d => {
-              if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
-            });
+      if (routingRule.route_to_primary && primDomain) {
+        const primPrefix = (primaryDomainObj.primary_prefix || "admin").toLowerCase().trim();
 
-            const primFilePath = path.join(primNewDir, `${domain}_${fileName}`);
-            if (fs.existsSync(newFilePath) && !fs.existsSync(primFilePath)) {
-              fs.linkSync(newFilePath, primFilePath);
-            }
+        // Only hardlink if target recipient is NOT already the primary mailbox itself
+        if (!(domain.toLowerCase() === primDomain && user.toLowerCase() === primPrefix)) {
+          const primaryMaildir = path.join(maildirBase, primDomain, primPrefix);
+          const primNewDir = path.join(primaryMaildir, "new");
+          const primCurDir = path.join(primaryMaildir, "cur");
+          const primTmpDir = path.join(primaryMaildir, "tmp");
+          [primTmpDir, primNewDir, primCurDir].forEach(d => {
+            if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+          });
+
+          const primFilePath = path.join(primNewDir, `${domain}_${fileName}`);
+          if (fs.existsSync(newFilePath) && !fs.existsSync(primFilePath)) {
+            fs.linkSync(newFilePath, primFilePath);
           }
         }
       }
@@ -192,10 +194,10 @@ function saveToMaildir(rawBuffer, recipientEmail) {
       // Ignored if link fails
     }
 
-    // 2. Also hardlink to local domain's admin mailbox if different from global primary
+    // 2. Also hardlink to local domain's admin mailbox ONLY if different from global primary domain
     try {
       const localPrefix = "admin";
-      if (user.toLowerCase() !== localPrefix) {
+      if (domain.toLowerCase() !== primDomain && user.toLowerCase() !== localPrefix) {
         const domainAdminDir = path.join(maildirBase, domain, localPrefix);
         const adminNewDir = path.join(domainAdminDir, "new");
         const adminCurDir = path.join(domainAdminDir, "cur");
@@ -737,6 +739,11 @@ const httpServer = http.createServer((req, res) => {
   // Intercept admin endpoints
   if (cleanUrl === "/api/admin/login" && req.method === "POST") {
     return ApiRouter.adminLogin(req, res);
+  }
+
+  if (cleanUrl === "/api/admin/profile") {
+    if (req.method === "GET") return AdminController.getAdminProfile(req, res);
+    if (req.method === "PUT" || req.method === "POST") return AdminController.updateAdminProfile(req, res);
   }
 
   if (cleanUrl.startsWith("/api/admin/projects")) {

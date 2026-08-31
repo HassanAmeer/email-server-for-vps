@@ -42,5 +42,7 @@ export function generateStaticParams() {
     { tab: "setup" },
     { tab: "credentials" },
     { tab: "smtp" },
+    { tab: "profile" },
+    { tab: "profile-settings" },
   ];
 }

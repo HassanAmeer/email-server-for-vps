@@ -7,6 +7,7 @@ import db, { logGeneratedEmail, getProjectByApiKey, logProjectApiHit, getActiveD
 const localMailDir = path.join(process.cwd(), "backend", "storage", "local");
 const liveMailDir = path.join(process.cwd(), "backend", "storage", "live");
 const attachmentsDir = path.join(process.cwd(), "backend", "storage", "media-mails");
+const maildirBase = path.join(process.cwd(), "backend", "storage", "maildir");
 const credsPath = path.join(process.cwd(), "backend", "send-mail-by-smtp", "credentials.json");
 
 // Helper to determine active email storage directory
@@ -285,7 +286,11 @@ export class ApiRouter {
 
   /**
    * DELETE /api/mailbox/:email
-   * Deletes all emails matching this mailbox address
+   * Deep Deletion API: Deletes all emails matching this mailbox address from:
+   * 1. Storage Files: Both backend/storage/live/ and backend/storage/local/ (.json files)
+   * 2. Database: received_emails table recipient matching rows
+   * 3. Maildir Directory: backend/storage/maildir/<domain>/<user> physical folder
+   * 4. Maildir Hardlinks: backend/storage/maildir/_all_mails_/ (new, cur, tmp)
    */
   static deleteMailbox(req, res, emailAddress) {
     const project = ApiRouter.validateApiKey(req, res);
@@ -297,34 +302,109 @@ export class ApiRouter {
       return;
     }
 
-    logProjectApiHit(project.id, `/api/mailbox/${emailAddress}`, "DELETE");
+    let targetEmail = emailAddress;
+    try {
+      targetEmail = decodeURIComponent(emailAddress);
+    } catch (e) {}
+
+    const cleanEmail = extractEmail(targetEmail).toLowerCase().trim();
+    if (!cleanEmail) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid email address parameter" }));
+      return;
+    }
+
+    logProjectApiHit(project.id, `/api/mailbox/${cleanEmail}`, "DELETE");
 
     try {
-      const targetDir = getTargetStorageDir();
-      if (!fs.existsSync(targetDir)) {
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: true, count: 0 }));
-        return;
-      }
-
-      const targetRecipient = emailAddress.toLowerCase().trim();
-      const records = db.query(`SELECT id, file_name FROM received_emails WHERE recipient LIKE ?`).all(`%${targetRecipient}%`);
       let deletedCount = 0;
+      const fileNamesToDelete = new Set();
 
+      // 1. Fetch matching records from DB to identify file names
+      const records = db.query(`SELECT id, file_name FROM received_emails WHERE LOWER(recipient) LIKE ? OR LOWER(recipient) = ?`).all(`%${cleanEmail}%`, cleanEmail);
       for (const record of records) {
         if (record.file_name) {
-          const filePath = path.join(targetDir, record.file_name);
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
+          fileNamesToDelete.add(record.file_name);
+        }
+      }
+
+      // 2. Storage Files: Search & Delete all matching .json files from BOTH live and local storage folders
+      const storageDirs = [liveMailDir, localMailDir];
+      for (const dir of storageDirs) {
+        if (fs.existsSync(dir)) {
+          // Delete known files from DB records
+          for (const fileName of fileNamesToDelete) {
+            const filePath = path.join(dir, fileName);
+            if (fs.existsSync(filePath)) {
+              try {
+                fs.unlinkSync(filePath);
+              } catch (e) {}
+            }
+          }
+
+          // Also scan directory to clean any lingering or unindexed .json files for this email
+          try {
+            const files = fs.readdirSync(dir);
+            for (const file of files) {
+              if (file.endsWith(".json")) {
+                const fullPath = path.join(dir, file);
+                try {
+                  const content = fs.readFileSync(fullPath, "utf-8");
+                  const parsed = JSON.parse(content);
+                  const toEmail = extractEmail(parsed.to || "").toLowerCase().trim();
+                  if (toEmail === cleanEmail || toEmail.includes(cleanEmail)) {
+                    fs.unlinkSync(fullPath);
+                  }
+                } catch (e) {}
+              }
+            }
+          } catch (e) {}
+        }
+      }
+
+      // 3. Database: Delete recipient matching rows from received_emails table
+      const deleteResult = db.query(`DELETE FROM received_emails WHERE LOWER(recipient) LIKE ? OR LOWER(recipient) = ?`).run(`%${cleanEmail}%`, cleanEmail);
+      deletedCount = Math.max(records.length, deleteResult.changes || 0);
+
+      // 4. Maildir Directory: backend/storage/maildir/<domain>/<user> physical folder remove
+      if (cleanEmail.includes("@")) {
+        const parts = cleanEmail.split("@");
+        const user = parts[0];
+        const domain = parts[1];
+        if (user && domain) {
+          const userMaildirPath = path.join(maildirBase, domain, user);
+          if (fs.existsSync(userMaildirPath)) {
+            try {
+              fs.rmSync(userMaildirPath, { recursive: true, force: true });
+            } catch (e) {}
           }
         }
-        db.query(`DELETE FROM received_emails WHERE id = ?`).run(record.id);
-        deletedCount++;
+      }
+
+      // 5. Maildir Hardlinks: backend/storage/maildir/_all_mails_/ (new, cur, tmp)
+      const allMaildir = path.join(maildirBase, "_all_mails_");
+      const maildirSubDirs = ["new", "cur", "tmp"];
+      for (const sub of maildirSubDirs) {
+        const subDirPath = path.join(allMaildir, sub);
+        if (fs.existsSync(subDirPath)) {
+          try {
+            const subFiles = fs.readdirSync(subDirPath);
+            for (const file of subFiles) {
+              const lowerFile = file.toLowerCase();
+              if (lowerFile.startsWith(`${cleanEmail}_`) || lowerFile.includes(cleanEmail)) {
+                try {
+                  fs.unlinkSync(path.join(subDirPath, file));
+                } catch (e) {}
+              }
+            }
+          } catch (e) {}
+        }
       }
 
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ success: true, count: deletedCount }));
+      res.end(JSON.stringify({ success: true, count: deletedCount, email: cleanEmail }));
     } catch (error) {
+      console.error("Delete mailbox error:", error);
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: error.message }));
     }
@@ -463,6 +543,14 @@ export class ApiRouter {
 
   static isApiEnabled(url, method) {
     return AdminController.isApiEnabled(url, method);
+  }
+
+  static getAdminProfile(req, res) {
+    return AdminController.getAdminProfile(req, res);
+  }
+
+  static updateAdminProfile(req, res) {
+    return AdminController.updateAdminProfile(req, res);
   }
 
 

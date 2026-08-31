@@ -11,4 +11,5 @@ export { default as MailboxManager } from "./MailboxManager";
 export { default as LoginOverlay } from "./LoginOverlay";
 export { default as SetupManager } from "./SetupManager";
 export { default as MenuSetManager } from "./MenuSetManager";
+export { default as ProfileSettings } from "./ProfileSettings";
 export { default as PanelDashboardShell, PanelDashboardShell as DashboardShell } from "./PanelDashboardShell";

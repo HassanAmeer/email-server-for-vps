@@ -172,7 +172,9 @@ export const defaultApiSettings = [
   { id: "admin-projects-delete", method: "DELETE", path: "/api/admin/projects/:id", desc: "Permanently delete a developer project and its associated API key.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "Params: :id" },
   { id: "admin-projects-hits", method: "DELETE", path: "/api/admin/projects/:id/hits", desc: "Reset API usage hits for a specific project.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "Params: :id" },
   { id: "admin-domains-delete", method: "DELETE", path: "/api/admin/domains/:id", desc: "Remove a domain from the email server.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "Params: :id" },
-  { id: "admin-mailbox-users-delete", method: "DELETE", path: "/api/admin/mailbox-users/:id", desc: "Permanently delete a mailbox user account by ID.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "Params: :id" }
+  { id: "admin-mailbox-users-delete", method: "DELETE", path: "/api/admin/mailbox-users/:id", desc: "Permanently delete a mailbox user account by ID.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "Params: :id" },
+  { id: "admin-profile-get", method: "GET", path: "/api/admin/profile", desc: "Get admin profile credentials including name, username, and email.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "None" },
+  { id: "admin-profile-update", method: "PUT", path: "/api/admin/profile", desc: "Update admin display name, email, username, and password credentials securely.", enabled: true, category: "Admin Management", hits: 0, auth: true, variables: "Body: JSON {name, username, email, password}" }
 ];
 
 // Default Admin Sidebar Menu Tabs configuration
@@ -232,6 +234,15 @@ export const DEFAULT_ADMIN_MENU = [
     enabled: true,
   },
   {
+    id: "profile-tab",
+    tab: "profile-tab",
+    path: "profile",
+    label: "Profile Settings",
+    desc: "Update administrator name, email, username, and password credentials.",
+    category: "Core",
+    enabled: true,
+  },
+  {
     id: "logs-tab",
     tab: "logs-tab",
     path: "logs",
@@ -268,7 +279,7 @@ async function parseJsonBody(req) {
 export class AdminController {
 
   static get adminToken() {
-    const adminPass = process.env.ADMIN_PASSWORD || "1234";
+    const adminPass = getSetting("admin_password") || process.env.ADMIN_PASSWORD || "1234";
     return Buffer.from(`admin:${adminPass}`).toString("base64");
   }
 
@@ -287,11 +298,12 @@ export class AdminController {
    */
   static isValidAdminToken(token) {
     if (!token) return false;
-    const adminPass = process.env.ADMIN_PASSWORD || "1234";
-    // 1. Check static master token (backward compatibility for direct API keys & integrations)
-    if (token === AdminController.adminToken) return true;
+    const configuredPass = getSetting("admin_password") || process.env.ADMIN_PASSWORD || "1234";
+    const defaultPass = process.env.ADMIN_PASSWORD || "1234";
+    // 1. Check static master tokens
+    if (token === AdminController.adminToken || token === Buffer.from(`admin:${defaultPass}`).toString("base64")) return true;
     // 2. Check 24-hour signed session token
-    return verifySessionToken(token, "admin", adminPass);
+    return verifySessionToken(token, "admin", configuredPass) || verifySessionToken(token, "admin", defaultPass);
   }
 
   /**
@@ -300,7 +312,8 @@ export class AdminController {
   static isValidDevToken(token) {
     if (!token) return false;
     const devPass = process.env.DEVPANEL_PASSWORD || process.env.DEV_ADMIN_PASSWORD || "devpass";
-    const adminPass = process.env.ADMIN_PASSWORD || "1234";
+    const configuredPass = getSetting("admin_password") || process.env.ADMIN_PASSWORD || "1234";
+    const defaultPass = process.env.ADMIN_PASSWORD || "1234";
     // 1. Check master admin token
     if (AdminController.isValidAdminToken(token)) return true;
     // 2. Check static dev tokens
@@ -311,7 +324,7 @@ export class AdminController {
 
   /**
    * Validates credentials for Admin Dashboard
-   * Login with: admin / 1234 -> Generates 24-Hour session token
+   * Supports configured username, email, and password from server_flags
    */
   static async login(req, res) {
     try {
@@ -323,21 +336,111 @@ export class AdminController {
       }
       const { email, username, password } = parsed;
       const loginName = String(username || email || "").toLowerCase().trim();
-      const adminPass = process.env.ADMIN_PASSWORD || "1234";
+      
+      const configuredUsername = (getSetting("admin_username") || process.env.ADMIN_USER || "admin").toLowerCase().trim();
+      const configuredEmail = (getSetting("admin_email") || process.env.ADMIN_EMAIL || "admin@gmail.com").toLowerCase().trim();
+      const configuredPassword = getSetting("admin_password") || process.env.ADMIN_PASSWORD || "1234";
+      const envFallbackPassword = process.env.ADMIN_PASSWORD || "1234";
 
-      if ((loginName === "admin" || loginName === "admin@gmail.com") && password === adminPass) {
-        const token = generateSessionToken("admin", adminPass, SESSION_DURATION_MS);
+      const isNameValid = loginName === configuredUsername || loginName === configuredEmail || loginName === "admin" || loginName === "admin@gmail.com";
+      const isPasswordValid = password === configuredPassword || password === envFallbackPassword;
+
+      if (isNameValid && isPasswordValid) {
+        const token = generateSessionToken("admin", configuredPassword, SESSION_DURATION_MS);
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
           success: true,
           token,
           expiresIn: 86400,
-          expiresAt: Date.now() + SESSION_DURATION_MS
+          expiresAt: Date.now() + SESSION_DURATION_MS,
+          user: {
+            name: getSetting("admin_name") || "Administrator",
+            username: configuredUsername,
+            email: configuredEmail
+          }
         }));
       } else {
         res.writeHead(401, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ success: false, error: "Incorrect admin credentials" }));
       }
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  }
+
+  /**
+   * GET /api/admin/profile
+   * Returns current admin name, username, and email
+   */
+  static getAdminProfile(req, res) {
+    const authHeader = req.headers["authorization"];
+    const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null;
+    if (!AdminController.isValidAdminToken(token)) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Unauthorized. Admin authentication required." }));
+      return;
+    }
+
+    try {
+      const username = getSetting("admin_username") || process.env.ADMIN_USER || "admin";
+      const email = getSetting("admin_email") || process.env.ADMIN_EMAIL || "admin@gmail.com";
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        success: true,
+        username,
+        email
+      }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  }
+
+  /**
+   * PUT /api/admin/profile
+   * Updates admin username, email, and password in server_flags table
+   */
+  static async updateAdminProfile(req, res) {
+    const authHeader = req.headers["authorization"];
+    const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null;
+    if (!AdminController.isValidAdminToken(token)) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Unauthorized. Admin authentication required." }));
+      return;
+    }
+
+    try {
+      const parsed = await parseJsonBody(req);
+      if (parsed === null) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid JSON body" }));
+        return;
+      }
+
+      const { username, email, password } = parsed;
+
+      if (username && typeof username === "string") {
+        setSetting("admin_username", username.trim());
+      }
+      if (email && typeof email === "string") {
+        setSetting("admin_email", email.trim().toLowerCase());
+      }
+      if (password && typeof password === "string" && password.trim().length > 0) {
+        setSetting("admin_password", password.trim());
+      }
+
+      const updatedUsername = getSetting("admin_username") || "admin";
+      const updatedEmail = getSetting("admin_email") || "admin@gmail.com";
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        success: true,
+        message: "Admin credentials updated successfully",
+        username: updatedUsername,
+        email: updatedEmail
+      }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));
