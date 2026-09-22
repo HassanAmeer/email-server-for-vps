@@ -51,6 +51,48 @@ const attachmentsDir = path.join(process.cwd(), "backend", "storage", "media-mai
 const maildirDir = path.join(process.cwd(), "backend", "storage", "maildir");
 const credsPath = path.join(process.cwd(), "backend", "send-mail-by-smtp", "credentials.json");
 
+/**
+ * Ensure account Maildir folders exist and have 777 permissions and vmail ownership for Dovecot IMAP
+ */
+function ensureAccountMaildir(domainName, prefixStr) {
+  try {
+    const dName = (domainName || "").toLowerCase().trim();
+    const pName = (prefixStr || "admin").toLowerCase().trim();
+    if (!dName || !pName) return;
+    const accountDir = path.join(maildirDir, dName, pName);
+    const subDirs = ["tmp", "new", "cur"];
+    subDirs.forEach((sub) => {
+      const fullSub = path.join(accountDir, sub);
+      if (!fs.existsSync(fullSub)) {
+        fs.mkdirSync(fullSub, { recursive: true, mode: 0o777 });
+      }
+    });
+
+    let curr = accountDir;
+    while (curr && curr.startsWith(maildirDir)) {
+      try { fs.chmodSync(curr, 0o777); } catch (_) {}
+      try {
+        if (process.platform === "linux") {
+          fs.chownSync(curr, 5000, 5000); // 5000:5000 is vmail:vmail for Dovecot
+        }
+      } catch (_) {}
+      if (curr === maildirDir) break;
+      curr = path.dirname(curr);
+    }
+    subDirs.forEach((sub) => {
+      const fullSub = path.join(accountDir, sub);
+      try { fs.chmodSync(fullSub, 0o777); } catch (_) {}
+      try {
+        if (process.platform === "linux") {
+          fs.chownSync(fullSub, 5000, 5000);
+        }
+      } catch (_) {}
+    });
+  } catch (err) {
+    // Non-fatal
+  }
+}
+
 // Helper to determine active email storage directory
 function getTargetStorageDir() {
   const IS_LIVE = process.env.live !== "false";
@@ -1676,46 +1718,6 @@ export class AdminController {
       }
 
       const domainScope = exists.scope || scope;
-
-function ensureAccountMaildir(domainName, prefixStr) {
-  try {
-    const dName = (domainName || "").toLowerCase().trim();
-    const pName = (prefixStr || "admin").toLowerCase().trim();
-    if (!dName || !pName) return;
-    const maildirBase = path.join(process.cwd(), "backend", "storage", "maildir");
-    const accountDir = path.join(maildirBase, dName, pName);
-    const subDirs = ["tmp", "new", "cur"];
-    subDirs.forEach((sub) => {
-      const fullSub = path.join(accountDir, sub);
-      if (!fs.existsSync(fullSub)) {
-        fs.mkdirSync(fullSub, { recursive: true, mode: 0o777 });
-      }
-    });
-
-    let curr = accountDir;
-    while (curr && curr.startsWith(maildirBase)) {
-      try { fs.chmodSync(curr, 0o777); } catch (_) {}
-      try {
-        if (process.platform === "linux") {
-          fs.chownSync(curr, 5000, 5000); // 5000:5000 is vmail:vmail for Dovecot
-        }
-      } catch (_) {}
-      if (curr === maildirBase) break;
-      curr = path.dirname(curr);
-    }
-    subDirs.forEach((sub) => {
-      const fullSub = path.join(accountDir, sub);
-      try { fs.chmodSync(fullSub, 0o777); } catch (_) {}
-      try {
-        if (process.platform === "linux") {
-          fs.chownSync(fullSub, 5000, 5000);
-        }
-      } catch (_) {}
-    });
-  } catch (err) {
-    // Non-fatal
-  }
-}
 
       db.transaction(() => {
         db.prepare("UPDATE attached_domains SET is_primary = 1, primary_prefix = ? WHERE id = ?").run(prefix || 'admin', id);
