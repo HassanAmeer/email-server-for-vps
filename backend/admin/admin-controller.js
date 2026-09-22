@@ -1677,6 +1677,46 @@ export class AdminController {
 
       const domainScope = exists.scope || scope;
 
+function ensureAccountMaildir(domainName, prefixStr) {
+  try {
+    const dName = (domainName || "").toLowerCase().trim();
+    const pName = (prefixStr || "admin").toLowerCase().trim();
+    if (!dName || !pName) return;
+    const maildirBase = path.join(process.cwd(), "backend", "storage", "maildir");
+    const accountDir = path.join(maildirBase, dName, pName);
+    const subDirs = ["tmp", "new", "cur"];
+    subDirs.forEach((sub) => {
+      const fullSub = path.join(accountDir, sub);
+      if (!fs.existsSync(fullSub)) {
+        fs.mkdirSync(fullSub, { recursive: true, mode: 0o777 });
+      }
+    });
+
+    let curr = accountDir;
+    while (curr && curr.startsWith(maildirBase)) {
+      try { fs.chmodSync(curr, 0o777); } catch (_) {}
+      try {
+        if (process.platform === "linux") {
+          fs.chownSync(curr, 5000, 5000); // 5000:5000 is vmail:vmail for Dovecot
+        }
+      } catch (_) {}
+      if (curr === maildirBase) break;
+      curr = path.dirname(curr);
+    }
+    subDirs.forEach((sub) => {
+      const fullSub = path.join(accountDir, sub);
+      try { fs.chmodSync(fullSub, 0o777); } catch (_) {}
+      try {
+        if (process.platform === "linux") {
+          fs.chownSync(fullSub, 5000, 5000);
+        }
+      } catch (_) {}
+    });
+  } catch (err) {
+    // Non-fatal
+  }
+}
+
       db.transaction(() => {
         db.prepare("UPDATE attached_domains SET is_primary = 1, primary_prefix = ? WHERE id = ?").run(prefix || 'admin', id);
 
@@ -1695,6 +1735,8 @@ export class AdminController {
           db.prepare("INSERT INTO mailbox_table (email, password_hash, plain_password, project_id, scope) VALUES (?, ?, ?, ?, ?)").run(fullEmail, hash, defaultPwd, 1, domainScope);
         }
       })();
+
+      ensureAccountMaildir(exists.domain, prefix || 'admin');
 
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: true, primary_id: id, domain: exists.domain, primary_prefix: prefix || 'admin' }));
@@ -1781,6 +1823,7 @@ export class AdminController {
           } catch (e) { }
           db.prepare("INSERT INTO mailbox_table (email, password_hash, plain_password, project_id, scope) VALUES (?, ?, ?, ?, ?)").run(fullEmail, hash, defaultPwd, 1, scope);
         }
+        ensureAccountMaildir(domain, cleanPrefix);
       }
 
       res.writeHead(201, { "Content-Type": "application/json" });

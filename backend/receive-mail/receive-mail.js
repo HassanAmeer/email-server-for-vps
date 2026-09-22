@@ -106,8 +106,52 @@ const attachmentsDir = path.join(process.cwd(), "backend", "storage", "media-mai
 const maildirBase = path.join(process.cwd(), "backend", "storage", "maildir");
 
 [localMailDir, liveMailDir, attachmentsDir, maildirBase].forEach(dir => {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true, mode: 0o777 });
+  try { fs.chmodSync(dir, 0o777); } catch (_) {}
 });
+
+// Ensure base maildir is owned by vmail for Dovecot
+try {
+  if (process.platform === "linux" && fs.existsSync(maildirBase)) {
+    try { fs.chownSync(maildirBase, 5000, 5000); } catch (_) {}
+  }
+} catch (_) {}
+
+/**
+ * Ensure maildir folder exists and is owned/writable by Dovecot vmail user (UID 5000:GID 5000)
+ */
+function ensureMaildirFolder(dirPath) {
+  try {
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true, mode: 0o777 });
+    }
+    let curr = dirPath;
+    while (curr && curr.startsWith(maildirBase)) {
+      try { fs.chmodSync(curr, 0o777); } catch (_) {}
+      try {
+        if (process.platform === "linux") {
+          fs.chownSync(curr, 5000, 5000); // 5000:5000 is vmail:vmail for Dovecot
+        }
+      } catch (_) {}
+      if (curr === maildirBase) break;
+      curr = path.dirname(curr);
+    }
+  } catch (_) {}
+}
+
+/**
+ * Ensure maildir file is readable/writable by Dovecot vmail user
+ */
+function ensureMaildirFile(filePath) {
+  try {
+    fs.chmodSync(filePath, 0o666);
+  } catch (_) {}
+  try {
+    if (process.platform === "linux") {
+      fs.chownSync(filePath, 5000, 5000);
+    }
+  } catch (_) {}
+}
 
 /**
  * Save raw RFC822 .eml to standard Maildir folder for Dovecot IMAP
@@ -129,9 +173,7 @@ function saveToMaildir(rawBuffer, recipientEmail) {
     const userNewDir = path.join(userMaildir, "new");
     const userCurDir = path.join(userMaildir, "cur");
 
-    [userTmpDir, userNewDir, userCurDir].forEach(d => {
-      if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
-    });
+    [userTmpDir, userNewDir, userCurDir].forEach(ensureMaildirFolder);
 
     const now = Date.now();
     const uniqueId = `${now}.${process.pid}_${Math.random().toString(36).substring(2, 8)}.${domain}`;
@@ -142,7 +184,9 @@ function saveToMaildir(rawBuffer, recipientEmail) {
 
     // Atomically write raw .eml buffer to Maildir
     fs.writeFileSync(tmpFilePath, rawBuffer);
+    ensureMaildirFile(tmpFilePath);
     fs.renameSync(tmpFilePath, newFilePath);
+    ensureMaildirFile(newFilePath);
 
     // Hardlink to _all_mails_ for Master Admin view with 0 duplicate storage bytes
     try {
@@ -150,13 +194,12 @@ function saveToMaildir(rawBuffer, recipientEmail) {
       const allNewDir = path.join(allMaildir, "new");
       const allCurDir = path.join(allMaildir, "cur");
       const allTmpDir = path.join(allMaildir, "tmp");
-      [allTmpDir, allNewDir, allCurDir].forEach(d => {
-        if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
-      });
+      [allTmpDir, allNewDir, allCurDir].forEach(ensureMaildirFolder);
 
       const allNewFilePath = path.join(allNewDir, `${cleanEmail}_${fileName}`);
       if (fs.existsSync(newFilePath) && !fs.existsSync(allNewFilePath)) {
         fs.linkSync(newFilePath, allNewFilePath);
+        ensureMaildirFile(allNewFilePath);
       }
     } catch (linkErr) {
       // Ignored if linkSync fails (e.g. cross-filesystem)
@@ -188,13 +231,12 @@ function saveToMaildir(rawBuffer, recipientEmail) {
             const primNewDir = path.join(primaryMaildir, "new");
             const primCurDir = path.join(primaryMaildir, "cur");
             const primTmpDir = path.join(primaryMaildir, "tmp");
-            [primTmpDir, primNewDir, primCurDir].forEach(d => {
-              if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
-            });
+            [primTmpDir, primNewDir, primCurDir].forEach(ensureMaildirFolder);
 
             const primFilePath = path.join(primNewDir, `${domain}_${fileName}`);
             if (fs.existsSync(newFilePath) && !fs.existsSync(primFilePath)) {
               fs.linkSync(newFilePath, primFilePath);
+              ensureMaildirFile(primFilePath);
             }
           }
         }
@@ -211,13 +253,12 @@ function saveToMaildir(rawBuffer, recipientEmail) {
         const adminNewDir = path.join(domainAdminDir, "new");
         const adminCurDir = path.join(domainAdminDir, "cur");
         const adminTmpDir = path.join(domainAdminDir, "tmp");
-        [adminTmpDir, adminNewDir, adminCurDir].forEach(d => {
-          if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
-        });
+        [adminTmpDir, adminNewDir, adminCurDir].forEach(ensureMaildirFolder);
 
         const domainAdminFilePath = path.join(adminNewDir, fileName);
         if (fs.existsSync(newFilePath) && !fs.existsSync(domainAdminFilePath)) {
           fs.linkSync(newFilePath, domainAdminFilePath);
+          ensureMaildirFile(domainAdminFilePath);
         }
       }
     } catch (adminLinkErr) {
