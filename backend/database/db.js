@@ -702,6 +702,12 @@ export function getPrimaryDomain() {
 
 export function getAllPrimaryDomains(scope = 'admin') {
   try {
+    if (scope === 'all') {
+      return db.prepare("SELECT * FROM attached_domains WHERE is_primary = 1 ORDER BY created_at ASC").all();
+    }
+    if (scope === 'dev' || scope === 'devpanel' || scope === 'devadmin') {
+      return db.prepare("SELECT * FROM attached_domains WHERE is_primary = 1 AND scope IN ('devpanel', 'devadmin', 'dev') ORDER BY created_at ASC").all();
+    }
     return db.prepare("SELECT * FROM attached_domains WHERE is_primary = 1 AND scope = ? ORDER BY created_at ASC").all(scope);
   } catch (err) {
     console.error("DB Error fetching all primary domains:", err);
@@ -1037,16 +1043,17 @@ export function deleteMailboxUser(userId, projectId) {
 export function isPrimaryMailboxUser(email) {
   if (!email) return false;
   try {
-    const primary = getPrimaryDomain();
-    if (!primary) return false;
     const cleanEmail = email.toLowerCase().trim();
-    const primaryDomainName = (primary.domain || "").toLowerCase().trim();
-    const primaryPrefix = (primary.primary_prefix || "my").toLowerCase().trim();
-    const primaryFullAddress = `${primaryPrefix}@${primaryDomainName}`;
+    const primaries = db.prepare("SELECT domain, primary_prefix FROM attached_domains WHERE is_primary = 1").all();
+    for (const primary of primaries) {
+      const primaryDomainName = (primary.domain || "").toLowerCase().trim();
+      const primaryPrefix = (primary.primary_prefix || "my").toLowerCase().trim();
+      const primaryFullAddress = `${primaryPrefix}@${primaryDomainName}`;
 
-    // Exact match with primary address (e.g. my@jk.com) OR any address under primary domain
-    if (cleanEmail === primaryFullAddress || cleanEmail.endsWith(`@${primaryDomainName}`)) {
-      return true;
+      // Exact match with primary address (e.g. my@jk.com) OR any address under primary domain
+      if (cleanEmail === primaryFullAddress || cleanEmail.endsWith(`@${primaryDomainName}`)) {
+        return true;
+      }
     }
     return false;
   } catch (err) {
@@ -1090,15 +1097,34 @@ export function getMailboxInbox(email, page = 1, limit = 200, search = "", filte
     const parsedPage = Math.max(1, parseInt(page || 1, 10));
     const parsedLimit = Math.min(500, Math.max(1, parseInt(limit || 200, 10)));
     const offset = (parsedPage - 1) * parsedLimit;
-    const isPrimary = isPrimaryMailboxUser(email);
-    
-    let query = "SELECT id, recipient, sender, subject, has_attachment, attachment_size, created_at, file_name FROM received_emails";
-    let countQuery = "SELECT COUNT(*) as count FROM received_emails";
-    let whereClauses = [];
-    let params = [];
-    let countParams = [];
+    if (isPrimary) {
+      const cleanEmail = email.toLowerCase().trim();
+      const defaultPrimary = getPrimaryDomain();
+      const isDefault = defaultPrimary && (
+        cleanEmail === `${(defaultPrimary.primary_prefix || 'admin').toLowerCase()}@${(defaultPrimary.domain || '').toLowerCase()}` ||
+        cleanEmail.endsWith(`@${(defaultPrimary.domain || '').toLowerCase()}`)
+      );
 
-    if (!isPrimary) {
+      // Find all domains assigned to this primary mailbox
+      const assignedRows = db.prepare("SELECT domain FROM attached_domains WHERE route_to_primary = 1 AND (LOWER(primary_target_email) = ? OR (? = 1 AND (primary_target_email IS NULL OR primary_target_email = '')))").all(cleanEmail, isDefault ? 1 : 0);
+      const assignedDomains = assignedRows.map(r => r.domain.toLowerCase().trim());
+      
+      const emailDomain = cleanEmail.includes("@") ? cleanEmail.split("@")[1] : "";
+      if (emailDomain && !assignedDomains.includes(emailDomain)) {
+        assignedDomains.push(emailDomain);
+      }
+
+      if (assignedDomains.length > 0) {
+        const domainPatterns = assignedDomains.map(() => "recipient LIKE ?").join(" OR ");
+        whereClauses.push(`(recipient = ? OR ${domainPatterns})`);
+        params.push(cleanEmail, ...assignedDomains.map(d => `%@${d}`));
+        countParams.push(cleanEmail, ...assignedDomains.map(d => `%@${d}`));
+      } else {
+        whereClauses.push("recipient = ?");
+        params.push(cleanEmail);
+        countParams.push(cleanEmail);
+      }
+    } else {
       whereClauses.push("recipient = ?");
       params.push(email);
       countParams.push(email);
@@ -1158,6 +1184,12 @@ export default db;
  */
 export function getAttachedDomainsByScope(scope = 'admin') {
   try {
+    if (scope === 'all') {
+      return db.prepare("SELECT * FROM attached_domains ORDER BY is_primary DESC, created_at DESC").all();
+    }
+    if (scope === 'dev' || scope === 'devpanel' || scope === 'devadmin') {
+      return db.prepare("SELECT * FROM attached_domains WHERE scope IN ('devpanel', 'devadmin', 'dev') ORDER BY is_primary DESC, created_at DESC").all();
+    }
     return db.prepare("SELECT * FROM attached_domains WHERE scope = ? ORDER BY is_primary DESC, created_at DESC").all(scope);
   } catch (err) {
     console.error("DB Error getAttachedDomainsByScope:", err);
@@ -1170,9 +1202,13 @@ export function getAttachedDomainsByScope(scope = 'admin') {
  */
 export function getPrimaryDomainByScope(scope = 'admin') {
   try {
-    const primary = db.prepare("SELECT * FROM attached_domains WHERE scope = ? AND is_primary = 1 LIMIT 1").get(scope);
+    const isDev = scope === 'dev' || scope === 'devpanel' || scope === 'devadmin';
+    const scopeCondition = isDev ? "scope IN ('devpanel', 'devadmin', 'dev')" : "scope = ?";
+    const scopeParams = isDev ? [] : [scope];
+
+    const primary = db.prepare(`SELECT * FROM attached_domains WHERE ${scopeCondition} AND is_primary = 1 ORDER BY created_at ASC LIMIT 1`).get(...scopeParams);
     if (primary) return primary;
-    const firstActive = db.prepare("SELECT * FROM attached_domains WHERE scope = ? AND status = 'active' ORDER BY created_at ASC LIMIT 1").get(scope);
+    const firstActive = db.prepare(`SELECT * FROM attached_domains WHERE ${scopeCondition} AND status = 'active' ORDER BY created_at ASC LIMIT 1`).get(...scopeParams);
     return firstActive || null;
   } catch (err) {
     console.error("DB Error getPrimaryDomainByScope:", err);

@@ -1157,21 +1157,30 @@ export class AdminController {
       let activeDomainsCount = 0;
       let pausedDomainsCount = 0;
       try {
-        const dCount = db.prepare("SELECT COUNT(*) as count FROM attached_domains WHERE scope = ?").get(scope);
+        const isDev = scope === "devadmin" || scope === "devpanel" || scope === "dev";
+        const scopeCondition = isDev ? "scope IN ('devadmin', 'devpanel', 'dev')" : "scope = ?";
+        const scopeParams = isDev ? [] : [scope];
+
+        const dCount = db.prepare(`SELECT COUNT(*) as count FROM attached_domains WHERE ${scopeCondition}`).get(...scopeParams);
         domainsCount = dCount?.count || 0;
-        const pRow = db.prepare("SELECT domain FROM attached_domains WHERE scope = ? AND is_primary = 1 LIMIT 1").get(scope);
+
+        const pRow = db.prepare(`SELECT domain FROM attached_domains WHERE ${scopeCondition} AND is_primary = 1 ORDER BY created_at ASC LIMIT 1`).get(...scopeParams);
         if (pRow) {
           primaryDomain = pRow.domain;
-          primaryDomainsCount = 1;
         } else {
-          const firstActive = db.prepare("SELECT domain FROM attached_domains WHERE scope = ? AND status = 'active' ORDER BY created_at ASC LIMIT 1").get(scope);
+          const firstActive = db.prepare(`SELECT domain FROM attached_domains WHERE ${scopeCondition} AND status = 'active' ORDER BY created_at ASC LIMIT 1`).get(...scopeParams);
           if (firstActive) {
             primaryDomain = firstActive.domain;
           }
         }
-        const activeRow = db.prepare("SELECT COUNT(*) as count FROM attached_domains WHERE scope = ? AND status = 'active'").get(scope);
+
+        const pCount = db.prepare(`SELECT COUNT(*) as count FROM attached_domains WHERE ${scopeCondition} AND is_primary = 1`).get(...scopeParams);
+        primaryDomainsCount = pCount?.count || 0;
+
+        const activeRow = db.prepare(`SELECT COUNT(*) as count FROM attached_domains WHERE ${scopeCondition} AND status = 'active'`).get(...scopeParams);
         activeDomainsCount = activeRow?.count || 0;
-        const pausedRow = db.prepare("SELECT COUNT(*) as count FROM attached_domains WHERE scope = ? AND (status = 'paused' OR status = 'inactive')").get(scope);
+
+        const pausedRow = db.prepare(`SELECT COUNT(*) as count FROM attached_domains WHERE ${scopeCondition} AND (status = 'paused' OR status = 'inactive')`).get(...scopeParams);
         pausedDomainsCount = pausedRow?.count || 0;
       } catch (e) { }
 
@@ -1623,7 +1632,14 @@ export class AdminController {
    */
   static getAttachedDomains(req, res, scope = 'admin') {
     try {
-      const domains = db.prepare("SELECT * FROM attached_domains WHERE scope = ? ORDER BY is_primary DESC, created_at DESC").all(scope);
+      let domains;
+      if (scope === 'all') {
+        domains = db.prepare("SELECT * FROM attached_domains ORDER BY is_primary DESC, created_at DESC").all();
+      } else if (scope === 'devadmin' || scope === 'devpanel' || scope === 'dev') {
+        domains = db.prepare("SELECT * FROM attached_domains WHERE scope IN ('devadmin', 'devpanel', 'dev') ORDER BY is_primary DESC, created_at DESC").all();
+      } else {
+        domains = db.prepare("SELECT * FROM attached_domains WHERE scope = ? ORDER BY is_primary DESC, created_at DESC").all(scope);
+      }
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(domains));
     } catch (error) {
@@ -1643,15 +1659,26 @@ export class AdminController {
         prefix = parsed.prefix.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
       }
 
-      const exists = db.prepare("SELECT id, domain FROM attached_domains WHERE id = ? AND scope = ?").get(id, scope);
+      let exists;
+      if (scope === 'devadmin' || scope === 'devpanel' || scope === 'dev') {
+        exists = db.prepare("SELECT id, domain, scope FROM attached_domains WHERE id = ? AND scope IN ('devadmin', 'devpanel', 'dev')").get(id);
+      } else {
+        exists = db.prepare("SELECT id, domain, scope FROM attached_domains WHERE id = ? AND scope = ?").get(id, scope);
+      }
+      if (!exists) {
+        exists = db.prepare("SELECT id, domain, scope FROM attached_domains WHERE id = ?").get(id);
+      }
+
       if (!exists) {
         res.writeHead(404, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Domain not found" }));
         return;
       }
 
+      const domainScope = exists.scope || scope;
+
       db.transaction(() => {
-        db.prepare("UPDATE attached_domains SET is_primary = 1, primary_prefix = ? WHERE id = ? AND scope = ?").run(prefix || 'admin', id, scope);
+        db.prepare("UPDATE attached_domains SET is_primary = 1, primary_prefix = ? WHERE id = ?").run(prefix || 'admin', id);
 
         const fullEmail = `${(prefix || 'admin').trim().toLowerCase()}@${exists.domain.toLowerCase()}`;
         const existingUser = db.prepare("SELECT id FROM mailbox_table WHERE LOWER(email) = LOWER(?) OR email LIKE ?").get(fullEmail, `%@${exists.domain.toLowerCase()}`);
@@ -1665,7 +1692,7 @@ export class AdminController {
               hash = Bun.password.hashSync(defaultPwd, { algorithm: "bcrypt", cost: 10 });
             }
           } catch (e) { }
-          db.prepare("INSERT INTO mailbox_table (email, password_hash, plain_password, project_id, scope) VALUES (?, ?, ?, ?, ?)").run(fullEmail, hash, defaultPwd, 1, scope);
+          db.prepare("INSERT INTO mailbox_table (email, password_hash, plain_password, project_id, scope) VALUES (?, ?, ?, ?, ?)").run(fullEmail, hash, defaultPwd, 1, domainScope);
         }
       })();
 
@@ -1682,13 +1709,21 @@ export class AdminController {
    */
   static async unsetPrimaryAttachedDomain(req, res, id, scope = 'admin') {
     try {
-      const exists = db.prepare("SELECT id, domain FROM attached_domains WHERE id = ? AND scope = ?").get(id, scope);
+      let exists;
+      if (scope === 'devadmin' || scope === 'devpanel' || scope === 'dev') {
+        exists = db.prepare("SELECT id, domain FROM attached_domains WHERE id = ? AND scope IN ('devadmin', 'devpanel', 'dev')").get(id);
+      } else {
+        exists = db.prepare("SELECT id, domain FROM attached_domains WHERE id = ? AND scope = ?").get(id, scope);
+      }
+      if (!exists) {
+        exists = db.prepare("SELECT id, domain FROM attached_domains WHERE id = ?").get(id);
+      }
       if (!exists) {
         res.writeHead(404, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Domain not found" }));
         return;
       }
-      db.prepare("UPDATE attached_domains SET is_primary = 0 WHERE id = ? AND scope = ?").run(id, scope);
+      db.prepare("UPDATE attached_domains SET is_primary = 0 WHERE id = ?").run(id);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: true, id, domain: exists.domain, is_primary: 0 }));
     } catch (error) {

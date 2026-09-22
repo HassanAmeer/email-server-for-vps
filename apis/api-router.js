@@ -652,14 +652,18 @@ export class ApiRouter {
   // ==========================================
 
   static async handleAttachedDomainsApi(req, res) {
-    // Basic auth check
+    // Basic auth check (supports Admin and Dev tokens)
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
-    if (!AdminController.isValidAdminToken(token)) {
+    if (!AdminController.isValidAdminToken(token) && !AdminController.isValidDevToken(token)) {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Unauthorized" }));
       return;
     }
+
+    const scope = (req.url && (req.url.startsWith("/api/devpanel") || req.url.startsWith("/api/dev-admin") || req.url.startsWith("/api/dev")))
+      ? "devpanel"
+      : (req.headers && (req.headers["x-scope"] === "devpanel" || req.headers["x-scope"] === "devadmin") ? "devpanel" : "admin");
 
     const cleanUrl = req.url.split("?")[0];
     const parts = cleanUrl.split("/").filter(Boolean); // e.g. ["api", "admin", "domains", "12", "verify"]
@@ -671,12 +675,12 @@ export class ApiRouter {
 
     if (parts.length === 5 && parts[4] === "primary" && req.method === "POST") {
       const id = parts[3];
-      return AdminController.setPrimaryAttachedDomain(req, res, id);
+      return AdminController.setPrimaryAttachedDomain(req, res, id, scope);
     }
 
     if (parts.length === 5 && parts[4] === "primary" && req.method === "DELETE") {
       const id = parts[3];
-      return AdminController.unsetPrimaryAttachedDomain(req, res, id);
+      return AdminController.unsetPrimaryAttachedDomain(req, res, id, scope);
     }
 
     if (parts.length === 4 && parts[3] === "bulk-routing" && req.method === "POST") {
@@ -684,11 +688,11 @@ export class ApiRouter {
     }
 
     if (req.method === "GET") {
-      return AdminController.getAttachedDomains(req, res);
+      return AdminController.getAttachedDomains(req, res, scope);
     }
     
     if (req.method === "POST") {
-      return AdminController.addAttachedDomain(req, res);
+      return AdminController.addAttachedDomain(req, res, scope);
     }
     
     if (req.method === "PUT") {

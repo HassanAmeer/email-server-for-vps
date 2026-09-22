@@ -645,7 +645,7 @@ const httpServer = http.createServer((req, res) => {
         prox.headers = { ...req.headers, authorization: `Bearer ${AdminController.adminToken}` };
         return ApiRouter.handleProjectsApi(prox, res);
       }
-      if (devSubPath.startsWith("domains") && req.method !== "GET") {
+      if (devSubPath.startsWith("domains")) {
         const parts = cleanUrl.split("/").filter(Boolean);
         if (parts.length === 5 && parts[4] === "verify" && req.method === "POST") {
           return AdminController.verifyAttachedDomain(req, res, parts[3]);
@@ -659,6 +659,7 @@ const httpServer = http.createServer((req, res) => {
         if (parts.length === 4 && parts[3] === "bulk-routing" && req.method === "POST") {
           return AdminController.bulkUpdateDomainRouting(req, res);
         }
+        if (req.method === "GET") return AdminController.getAttachedDomains(req, res, "devadmin");
         if (req.method === "POST") return AdminController.addAttachedDomain(req, res, "devadmin");
         if (req.method === "PUT") return AdminController.updateAttachedDomain(req, res, parts[3]);
         if (req.method === "DELETE") return AdminController.deleteAttachedDomain(req, res, parts[3]);
