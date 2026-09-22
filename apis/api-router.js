@@ -674,6 +674,11 @@ export class ApiRouter {
       return AdminController.setPrimaryAttachedDomain(req, res, id);
     }
 
+    if (parts.length === 5 && parts[4] === "primary" && req.method === "DELETE") {
+      const id = parts[3];
+      return AdminController.unsetPrimaryAttachedDomain(req, res, id);
+    }
+
     if (parts.length === 4 && parts[3] === "bulk-routing" && req.method === "POST") {
       return AdminController.bulkUpdateDomainRouting(req, res);
     }

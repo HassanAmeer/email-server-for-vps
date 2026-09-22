@@ -17,13 +17,14 @@ interface AttachedDomain {
   is_primary?: number | boolean;
   primary_prefix?: string;
   route_to_primary?: number | boolean;
+  primary_target_email?: string;
   created_at: string;
 }
 
 export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin", tokenKey = "admin_token" }: PrimaryDomainManagerProps) {
   const [domains, setDomains] = useState<AttachedDomain[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [serverIp, setServerIp] = useState<string>(process.env.NEXT_PUBLIC_SERVER_IP || "127.0.0.1");
+  const [serverIp, setServerIp] = useState<string>(process.env.NEXT_PUBLIC_SERVER_IP || "187.52.117.2");
   const [ipCopied, setIpCopied] = useState<boolean>(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -31,7 +32,7 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
 
   // Form State: Choose & Create Primary Email / Mailbox
   const [selectedDomainId, setSelectedDomainId] = useState<number | string>("");
-  const [primaryPrefix, setPrimaryPrefix] = useState<string>("my");
+  const [primaryPrefix, setPrimaryPrefix] = useState<string>("admin");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Right Sheet / Drawer State for DNS inspection
@@ -55,6 +56,7 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
   // Routing Sheet / Drawer State for Multi-Domain Routing to Primary
   const [isRoutingSheetOpen, setIsRoutingSheetOpen] = useState<boolean>(false);
   const [routingSearchQuery, setRoutingSearchQuery] = useState<string>("");
+  const [activeRoutingPrimary, setActiveRoutingPrimary] = useState<AttachedDomain | null>(null);
 
   const showToast = (text: string, type: "success" | "error" = "success") => {
     setToastMessage({ type, text });
@@ -270,16 +272,16 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
 
     const id = Number(selectedDomainId);
     const target = domains.find((d) => d.id === id);
-    const cleanPrefix = (primaryPrefix || "my").trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
+    const cleanPrefix = (primaryPrefix || "admin").trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
 
     setIsSubmitting(true);
     const previousDomains = [...domains];
 
-    // Optimistic UI state update
+    // Optimistic UI state update: add as a primary domain (preserve existing primary domains)
     setDomains((prev) =>
       prev.map((d) => ({
         ...d,
-        is_primary: d.id === id ? 1 : 0,
+        is_primary: d.id === id ? 1 : d.is_primary,
         primary_prefix: d.id === id ? cleanPrefix : d.primary_prefix
       }))
     );
@@ -296,7 +298,7 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
       });
 
       if (res.ok) {
-        showToast(`Primary Email set to "${target?.domain}" with mailbox "${cleanPrefix}@${target?.domain}"!`, "success");
+        showToast(`Primary Email created: "${cleanPrefix}@${target?.domain}"!`, "success");
         if (target?.domain) {
           fetchMailboxCredentials(target.domain, cleanPrefix);
         }
@@ -313,22 +315,42 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
     }
   };
 
+  // Unset Primary Domain Status Handler
+  const handleUnsetPrimaryDomain = async (domainId: number) => {
+    const targetDomain = domains.find((d) => d.id === domainId);
+    const previousDomains = [...domains];
 
+    // Optimistic UI update
+    setDomains((prev) =>
+      prev.map((d) => (d.id === domainId ? { ...d, is_primary: 0 } : d))
+    );
+
+    try {
+      const token = localStorage.getItem(tokenKey) || "";
+      const res = await fetch(`${apiUrl}${apiPrefix}/domains/${domainId}/primary`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        showToast(`"${targetDomain?.domain}" is no longer a Primary Email.`, "success");
+      } else {
+        setDomains(previousDomains);
+        showToast("Failed to unset primary status", "error");
+      }
+    } catch (err) {
+      setDomains(previousDomains);
+      showToast("Network error unsetting primary status", "error");
+    }
+  };
 
   // Delete Domain Handler
   const handleDeleteDomain = async () => {
     if (showDeleteConfirmModal === null) return;
     const id = showDeleteConfirmModal;
     const targetDomain = domains.find((d) => d.id === id);
-    const wasPrimary = targetDomain?.is_primary === 1 || targetDomain?.is_primary === true;
 
-    setDomains((prev) => {
-      const remaining = prev.filter((d) => d.id !== id);
-      if (wasPrimary && remaining.length > 0) {
-        remaining[0].is_primary = 1;
-      }
-      return remaining;
-    });
+    setDomains((prev) => prev.filter((d) => d.id !== id));
     setShowDeleteConfirmModal(null);
 
     try {
@@ -351,15 +373,24 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
     }
   };
 
-  // Toggle individual domain routing to primary
-  const handleToggleDomainRouting = async (domainId: number, currentRouting: number | boolean | undefined) => {
-    const isCurrentlyOn = currentRouting === 1 || currentRouting === true;
-    const newRouting = isCurrentlyOn ? 0 : 1;
+  // Toggle individual domain routing to a target primary email
+  const handleToggleDomainRouting = async (domainId: number, targetPrimaryEmail: string | null) => {
     const targetDomain = domains.find((d) => d.id === domainId);
+    if (!targetDomain) return;
+
+    const currentEmail = targetDomain.primary_target_email?.toLowerCase();
+    const isCurrentlyLinkedToThis = targetPrimaryEmail && currentEmail === targetPrimaryEmail.toLowerCase() && (targetDomain.route_to_primary === 1 || targetDomain.route_to_primary === true);
+
+    const newRoute = isCurrentlyLinkedToThis ? 0 : 1;
+    const newTargetEmail = isCurrentlyLinkedToThis ? null : targetPrimaryEmail;
 
     // Optimistic UI update
     setDomains((prev) =>
-      prev.map((d) => (d.id === domainId ? { ...d, route_to_primary: newRouting } : d))
+      prev.map((d) =>
+        d.id === domainId
+          ? { ...d, route_to_primary: newRoute, primary_target_email: newTargetEmail || undefined }
+          : d
+      )
     );
 
     try {
@@ -370,37 +401,44 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ route_to_primary: newRouting })
+        body: JSON.stringify({
+          route_to_primary: newRoute,
+          primary_target_email: newTargetEmail
+        })
       });
 
       if (res.ok) {
         showToast(
-          newRouting === 1
-            ? `"${targetDomain?.domain}" linked to Primary Mailbox! All emails will be routed.`
-            : `"${targetDomain?.domain}" unlinked from Primary Mailbox.`,
+          newRoute === 1
+            ? `"${targetDomain.domain}" routed to ${targetPrimaryEmail}!`
+            : `"${targetDomain.domain}" unlinked from ${targetPrimaryEmail}.`,
           "success"
         );
       } else {
-        setDomains((prev) =>
-          prev.map((d) => (d.id === domainId ? { ...d, route_to_primary: isCurrentlyOn ? 1 : 0 } : d))
-        );
+        fetchDomains();
         showToast("Failed to update domain routing", "error");
       }
     } catch (err) {
-      setDomains((prev) =>
-        prev.map((d) => (d.id === domainId ? { ...d, route_to_primary: isCurrentlyOn ? 1 : 0 } : d))
-      );
+      fetchDomains();
       showToast("Network error updating domain routing", "error");
     }
   };
 
-  // Bulk toggle all domains routing to primary
-  const handleBulkToggleRouting = async (routeAll: boolean) => {
+  // Bulk toggle all domains routing to a target primary email
+  const handleBulkToggleRouting = async (routeAll: boolean, targetPrimaryEmail: string) => {
     const targetFlag = routeAll ? 1 : 0;
-    const previousDomains = [...domains];
+    const targetEmail = routeAll ? targetPrimaryEmail : null;
+    const eligibleDomains = domains.filter((d) => !(d.is_primary === 1 || d.is_primary === true));
+    const domainIds = eligibleDomains.map((d) => d.id);
 
     // Optimistic UI update
-    setDomains((prev) => prev.map((d) => ({ ...d, route_to_primary: targetFlag })));
+    setDomains((prev) =>
+      prev.map((d) =>
+        !(d.is_primary === 1 || d.is_primary === true)
+          ? { ...d, route_to_primary: targetFlag, primary_target_email: targetEmail || undefined }
+          : d
+      )
+    );
 
     try {
       const token = localStorage.getItem(tokenKey) || "";
@@ -410,24 +448,33 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ route_to_primary: targetFlag })
+        body: JSON.stringify({
+          route_to_primary: targetFlag,
+          target_primary_email: targetEmail,
+          domain_ids: domainIds
+        })
       });
 
       if (res.ok) {
         showToast(
           routeAll
-            ? "All domains successfully linked to Primary Mailbox!"
-            : "All secondary domains unlinked from Primary Mailbox.",
+            ? `All eligible domains linked to ${targetPrimaryEmail}!`
+            : `Domains unlinked from ${targetPrimaryEmail}.`,
           "success"
         );
       } else {
-        setDomains(previousDomains);
+        fetchDomains();
         showToast("Failed to bulk update domain routing", "error");
       }
     } catch (err) {
-      setDomains(previousDomains);
+      fetchDomains();
       showToast("Network error during bulk routing update", "error");
     }
+  };
+
+  const handleOpenRoutingSheet = (pDomain: AttachedDomain) => {
+    setActiveRoutingPrimary(pDomain);
+    setIsRoutingSheetOpen(true);
   };
 
   const handleOpenDnsSheet = (domainName: string) => {
@@ -436,13 +483,14 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
     setIsRightSheetOpen(true);
   };
 
-  const primaryDomain = domains.find((d) => d.is_primary === 1 || d.is_primary === true) || null;
+  const primaryDomains = domains.filter((d) => d.is_primary === 1 || d.is_primary === true);
+  const primaryDomain = primaryDomains.length > 0 ? primaryDomains[0] : null;
 
   const selectedDomainObj = domains.find((d) => String(d.id) === String(selectedDomainId)) || primaryDomain;
   const targetDeleteDomain = domains.find((d) => d.id === showDeleteConfirmModal);
 
-  const activePrefix = primaryDomain?.primary_prefix || "my";
-  const activeFullEmail = primaryDomain ? `${activePrefix}@${primaryDomain.domain}` : "my@yourdomain.com";
+  const activePrefix = primaryDomain?.primary_prefix || "admin";
+  const activeFullEmail = primaryDomain ? `${activePrefix}@${primaryDomain.domain}` : "admin@mailserver10.com";
   const currentHost = settingsDomain || primaryDomain?.domain || "mailserver10.com";
 
   return (
@@ -596,7 +644,7 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
             <div className="w-8 h-8 border-2 border-amber-500/20 border-t-amber-400 rounded-full animate-spin"></div>
             <span className="text-xs font-medium">Loading primary domain info...</span>
           </div>
-        ) : !primaryDomain ? (
+        ) : primaryDomains.length === 0 ? (
           <div className="py-14 text-center text-gray-500 text-xs font-mono">
             No primary domain designated yet. Select one from the form above.
           </div>
@@ -605,105 +653,133 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-white/[0.06] bg-black/40 text-gray-400 text-xs font-bold">
-                  <th className="py-3 px-5">Domain</th>
+                  <th className="py-3 px-5">Primary Mailbox & Domain</th>
                   <th className="py-3 px-5">Routing Mode</th>
+                  <th className="py-3 px-5">Linked Domains</th>
                   <th className="py-3 px-5">Status</th>
                   <th className="py-3 px-5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.04]">
-                <tr className="hover:bg-white/[0.02] transition-colors">
-                  
-                  {/* Domain Name Cell */}
-                  <td className="py-3.5 px-5">
-                    <div className="flex flex-col">
-                      <span className="font-mono font-bold text-white text-sm">
-                        {primaryDomain.domain}
-                      </span>
-                      <span className="text-gray-400 text-xs font-mono mt-0.5">
-                        {activeFullEmail}
-                      </span>
-                    </div>
-                  </td>
+                {primaryDomains.map((pDomain, pIdx) => {
+                  const pPrefix = (pDomain.primary_prefix || "admin").trim().toLowerCase();
+                  const pFullEmail = `${pPrefix}@${pDomain.domain.toLowerCase()}`;
+                  const isFirstPrimary = pIdx === 0;
+                  const linkedDomainsList = domains.filter(d => 
+                    (d.primary_target_email && d.primary_target_email.toLowerCase() === pFullEmail.toLowerCase()) ||
+                    (!d.primary_target_email && (d.route_to_primary === 1 || d.route_to_primary === true) && isFirstPrimary && d.id !== pDomain.id)
+                  );
+                  const linkedCount = linkedDomainsList.length;
 
-                  {/* Routing Mode Cell */}
-                  <td className="py-3.5 px-5">
-                    <div className="flex items-center gap-2 text-xs font-mono text-emerald-400">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block shadow-[0_0_8px_rgba(52,211,153,0.6)]"></span>
-                      <span>Catch-All Active</span>
-                    </div>
-                  </td>
+                  return (
+                    <tr key={pDomain.id} className="hover:bg-white/[0.02] transition-colors">
+                      {/* Domain & Mailbox Cell */}
+                      <td className="py-3.5 px-5">
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-white text-sm">
+                              {pDomain.domain}
+                            </span>
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                              Primary #{pIdx + 1}
+                            </span>
+                          </div>
+                          <span className="text-amber-400/90 text-xs font-mono font-medium mt-0.5 flex items-center gap-1">
+                            <span>✉️</span>
+                            <span>{pFullEmail}</span>
+                          </span>
+                        </div>
+                      </td>
 
-                  {/* Live Status Cell */}
-                  <td className="py-3.5 px-5">
-                    <div className="flex items-center gap-2 text-xs font-mono text-cyan-400">
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400"></span>
-                      </span>
-                      <span>Live & Receiving</span>
-                    </div>
-                  </td>
+                      {/* Routing Mode Cell */}
+                      <td className="py-3.5 px-5">
+                        <div className="flex items-center gap-2 text-xs font-mono text-emerald-400">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block shadow-[0_0_8px_rgba(52,211,153,0.6)]"></span>
+                          <span>Catch-All Active</span>
+                        </div>
+                      </td>
 
-                  {/* Action Buttons Cell */}
-                  <td className="py-3.5 px-5 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      
-                      {/* Routes / Linked Domains Drawer Trigger Button */}
-                      <button
-                        onClick={() => setIsRoutingSheetOpen(true)}
-                        className="px-3 py-1.5 rounded-[8px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 hover:text-emerald-200 border border-emerald-500/30 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 shadow-sm shadow-emerald-500/10"
-                        title="Configure Domain Routing & Catch-All Links in Right Drawer"
-                      >
-                        <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                        </svg>
-                        <span>Routes</span>
-                        <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                          {domains.filter(d => d.route_to_primary === 1 || d.route_to_primary === true || d.route_to_primary === undefined || d.is_primary === 1 || d.is_primary === true).length}
-                        </span>
-                      </button>
+                      {/* Linked Domains Count Badge */}
+                      <td className="py-3.5 px-5">
+                        <button
+                          onClick={() => handleOpenRoutingSheet(pDomain)}
+                          className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/25 flex items-center gap-1.5 transition-all cursor-pointer"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                          <span>{linkedCount} Domains Linked</span>
+                        </button>
+                      </td>
 
-                      {/* Settings Button */}
-                      <button
-                        onClick={() => handleOpenSettingsSheet(primaryDomain.domain)}
-                        className="px-3 py-1.5 rounded-[8px] bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
-                        title="Configure Primary Mailbox Login & Password"
-                      >
-                        <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        <span>Settings</span>
-                      </button>
+                      {/* Live Status Cell */}
+                      <td className="py-3.5 px-5">
+                        <div className="flex items-center gap-2 text-xs font-mono text-cyan-400">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400"></span>
+                          </span>
+                          <span>Live & Receiving</span>
+                        </div>
+                      </td>
 
-                      {/* Mailbox UI Button */}
-                      <a
-                        href="/mailbox"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3 py-1.5 rounded-[8px] border border-amber-500/40 hover:border-amber-400 bg-amber-500/5 hover:bg-amber-500/15 text-amber-400 hover:text-amber-300 text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95"
-                      >
-                        <span>Mailbox UI</span>
-                        <svg className="w-3 h-3 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                      </a>
+                      {/* Action Buttons Cell */}
+                      <td className="py-3.5 px-5 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {/* Routes / Linked Domains Drawer Trigger Button */}
+                          <button
+                            onClick={() => handleOpenRoutingSheet(pDomain)}
+                            className="px-3 py-1.5 rounded-[8px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 hover:text-emerald-200 border border-emerald-500/30 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 shadow-sm shadow-emerald-500/10"
+                            title={`Configure domains routed to ${pFullEmail}`}
+                          >
+                            <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                            </svg>
+                            <span>Routes</span>
+                            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                              {linkedCount}
+                            </span>
+                          </button>
 
-                      {/* Delete Button */}
-                      <button
-                        onClick={() => setShowDeleteConfirmModal(primaryDomain.id)}
-                        className="p-1.5 rounded-[8px] bg-white/5 hover:bg-red-500/20 text-gray-400 hover:text-red-400 border border-white/10 text-xs transition-all cursor-pointer flex items-center justify-center active:scale-95"
-                        title="Delete Domain"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </div>
-                  </td>
+                          {/* Settings Button */}
+                          <button
+                            onClick={() => handleOpenSettingsSheet(pDomain.domain)}
+                            className="px-3 py-1.5 rounded-[8px] bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
+                            title="Configure Mailbox Login & Password"
+                          >
+                            <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span>Settings</span>
+                          </button>
 
-                </tr>
+                          {/* Mailbox UI Button */}
+                          <a
+                            href={`/mailbox?email=${encodeURIComponent(pFullEmail)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-3 py-1.5 rounded-[8px] border border-amber-500/40 hover:border-amber-400 bg-amber-500/5 hover:bg-amber-500/15 text-amber-400 hover:text-amber-300 text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95"
+                          >
+                            <span>Mailbox UI</span>
+                            <svg className="w-3 h-3 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+
+                          {/* Unset Primary Status Button */}
+                          <button
+                            onClick={() => handleUnsetPrimaryDomain(pDomain.id)}
+                            className="p-1.5 rounded-[8px] bg-white/5 hover:bg-amber-500/20 text-gray-400 hover:text-amber-300 border border-white/10 text-xs transition-all cursor-pointer flex items-center justify-center active:scale-95"
+                            title="Remove Primary status"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1152,10 +1228,12 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
                         <div className="bg-black/50 p-2 rounded-lg border border-white/5 flex items-center justify-between">
                           <div className="flex flex-col">
                             <span className="text-[10px] text-gray-500 uppercase font-bold">Points to (Value)</span>
-                            <span className="font-mono text-emerald-400 font-semibold">mail.{sheetDomain}</span>
+                            <span className="font-mono text-emerald-400 font-semibold">
+                              {sheetDomain.toLowerCase() === "mailserver10.com" ? `mail.${sheetDomain}` : "mail.mailserver10.com"}
+                            </span>
                           </div>
                           <button
-                            onClick={() => copyToClipboard(`mail.${sheetDomain}`, "mx_val")}
+                            onClick={() => copyToClipboard(sheetDomain.toLowerCase() === "mailserver10.com" ? `mail.${sheetDomain}` : "mail.mailserver10.com", "mx_val")}
                             className="text-gray-400 hover:text-emerald-400 p-1 cursor-pointer"
                           >
                             {copiedKey === "mx_val" ? (
@@ -1172,13 +1250,29 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
                       </div>
                     </div>
 
-                    {/* Record 2: A Record */}
+                    {/* Central Mail Notice for Secondary Domains */}
+                    {sheetDomain.toLowerCase() !== "mailserver10.com" && (
+                      <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-3 flex items-start gap-2.5">
+                        <span className="text-emerald-400 text-sm">💡</span>
+                        <div className="flex flex-col text-xs">
+                          <span className="font-semibold text-emerald-300">Central MX Hub — No A-Record Needed!</span>
+                          <span className="text-gray-300 mt-0.5">
+                            Because this domain points to the central mail host (<code className="font-mono text-emerald-300">mail.mailserver10.com</code>), you only need to add the single MX record above. No A-record or VPS IP is required!
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Record 2: A Record (Only required for central host mailserver10.com) */}
                     <div className="bg-slate-900/60 border border-white/[0.08] rounded-xl p-3 flex flex-col gap-2">
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
                           <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono text-[10px]">A</span>
                           Mail Host Address Record
                         </span>
+                        {sheetDomain.toLowerCase() !== "mailserver10.com" && (
+                          <span className="text-[10px] text-gray-500 font-mono italic">(Optional for secondary domains)</span>
+                        )}
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                         <div className="bg-black/50 p-2 rounded-lg border border-white/5 flex items-center justify-between">
@@ -2017,8 +2111,12 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
                   Cancel
                 </button>
                 <div className="flex flex-col items-center">
-                  <h3 className="text-xs font-semibold text-white">Route Domains</h3>
-                  <span className="text-[10px] text-gray-400 font-mono truncate max-w-[180px]">{activeFullEmail}</span>
+                  <h3 className="text-xs font-semibold text-white">Route Domains to Mailbox</h3>
+                  <span className="text-[10px] text-amber-400 font-mono font-bold truncate max-w-[200px]">
+                    {activeRoutingPrimary
+                      ? `${(activeRoutingPrimary.primary_prefix || "admin").trim().toLowerCase()}@${activeRoutingPrimary.domain.toLowerCase()}`
+                      : activeFullEmail}
+                  </span>
                 </div>
                 <button
                   type="button"
@@ -2070,29 +2168,38 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
                       domains
                         .filter(d => d.domain.toLowerCase().includes(routingSearchQuery.toLowerCase()))
                         .map((domain) => {
-                          const isPrimary = domain.domain === primaryDomain?.domain || domain.is_primary === 1 || domain.is_primary === true;
-                          const isLinked = isPrimary ? true : (domain.route_to_primary === 1 || domain.route_to_primary === true);
+                          const activeTargetEmail = (activeRoutingPrimary
+                            ? `${(activeRoutingPrimary.primary_prefix || "admin").trim().toLowerCase()}@${activeRoutingPrimary.domain.toLowerCase()}`
+                            : activeFullEmail).toLowerCase();
+
+                          const isThisPrimary = domain.id === activeRoutingPrimary?.id;
+                          const isOtherPrimary = (domain.is_primary === 1 || domain.is_primary === true) && !isThisPrimary;
+                          const domainTarget = domain.primary_target_email?.toLowerCase();
+                          const isLinkedToThis = !isThisPrimary && (domainTarget === activeTargetEmail || (!domainTarget && (domain.route_to_primary === 1 || domain.route_to_primary === true) && activeRoutingPrimary?.id === primaryDomains[0]?.id));
+                          const isLinkedToOther = !isThisPrimary && domainTarget && domainTarget !== activeTargetEmail;
 
                           return (
                             <div
                               key={domain.id}
-                              onClick={() => !isPrimary && handleToggleDomainRouting(domain.id, domain.route_to_primary)}
+                              onClick={() => !isThisPrimary && handleToggleDomainRouting(domain.id, isLinkedToThis ? null : activeTargetEmail)}
                               className={`flex items-center justify-between px-3 py-2 transition-colors select-none ${
-                                isPrimary ? "bg-amber-500/[0.04]" : "hover:bg-white/[0.03] cursor-pointer"
+                                isThisPrimary ? "bg-amber-500/[0.04]" : "hover:bg-white/[0.03] cursor-pointer"
                               }`}
                             >
                               {/* Left: Checkmark Box + Domain info */}
                               <div className="flex items-center gap-2.5 min-w-0">
                                 <div
                                   className={`w-4 h-4 rounded-[4px] flex items-center justify-center shrink-0 border transition-all ${
-                                    isPrimary
+                                    isThisPrimary
                                       ? "bg-amber-500 border-amber-500 text-slate-950 shadow-sm"
-                                      : isLinked
+                                      : isLinkedToThis
                                       ? "bg-[#0A84FF] border-[#0A84FF] text-white shadow-sm"
+                                      : isLinkedToOther
+                                      ? "bg-purple-600/70 border-purple-500 text-white shadow-sm"
                                       : "border-zinc-600 bg-transparent text-transparent hover:border-zinc-400"
                                   }`}
                                 >
-                                  {(isLinked || isPrimary) ? (
+                                  {(isLinkedToThis || isThisPrimary || isLinkedToOther) ? (
                                     <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
                                     </svg>
@@ -2104,18 +2211,25 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
                                     <span className="font-mono font-medium text-white text-xs truncate">
                                       {domain.domain}
                                     </span>
-                                    {isPrimary && (
+                                    {isThisPrimary && (
                                       <span className="px-1.5 py-0.2 rounded text-[9px] font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                                        Primary
+                                        Active Hub
+                                      </span>
+                                    )}
+                                    {isOtherPrimary && (
+                                      <span className="px-1.5 py-0.2 rounded text-[9px] font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                                        Other Primary
                                       </span>
                                     )}
                                   </div>
                                   <span className="text-[10px] text-gray-400 truncate">
-                                    {isPrimary
-                                      ? "Master Mailbox"
-                                      : isLinked
-                                      ? `↳ Routed to ${activeFullEmail}`
-                                      : "Isolated mailbox"}
+                                    {isThisPrimary
+                                      ? "Master Mailbox Hub"
+                                      : isLinkedToThis
+                                      ? `↳ Routed to ${activeTargetEmail}`
+                                      : isLinkedToOther
+                                      ? `↳ Routed to ${domain.primary_target_email} (click to reassign)`
+                                      : "Isolated mailbox (click to route here)"}
                                   </span>
                                 </div>
                               </div>
@@ -2124,13 +2238,17 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
                               <div className="flex items-center gap-1.5 shrink-0">
                                 <span
                                   className={`px-2 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-1 ${
-                                    isLinked
+                                    isThisPrimary
+                                      ? "bg-amber-500/15 text-amber-300 border border-amber-500/25"
+                                      : isLinkedToThis
                                       ? "bg-[#30D158]/15 text-[#30D158] border border-[#30D158]/25"
+                                      : isLinkedToOther
+                                      ? "bg-purple-500/15 text-purple-300 border border-purple-500/25"
                                       : "bg-white/5 text-gray-400 border border-white/[0.06]"
                                   }`}
                                 >
-                                  <span className={`w-1 h-1 rounded-full ${isLinked ? "bg-[#30D158]" : "bg-gray-500"}`} />
-                                  {isLinked ? "Linked" : "Isolated"}
+                                  <span className={`w-1 h-1 rounded-full ${isThisPrimary ? "bg-amber-400" : isLinkedToThis ? "bg-[#30D158]" : isLinkedToOther ? "bg-purple-400" : "bg-gray-500"}`} />
+                                  {isThisPrimary ? "Master Hub" : isLinkedToThis ? "Linked" : isLinkedToOther ? "Linked to Other" : "Isolated"}
                                 </span>
                               </div>
                             </div>
@@ -2142,12 +2260,11 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
 
               </div>
 
-              {/* iOS Bottom Fixed Section (Transparent, No Background Box, No Top Border) */}
+              {/* iOS Bottom Fixed Section */}
               <div className="px-3.5 pt-2 pb-3 bg-transparent flex flex-col gap-2 shrink-0">
-                {/* Centered Note Text (No background) */}
                 <p className="text-center text-[10.5px] text-gray-400 flex items-center justify-center gap-1.5 select-none">
                   <span className="text-xs">💡</span>
-                  <span>Transfer All Emails From Multi Domains to Single Primary Email/Email</span>
+                  <span>Click any domain to checkmark and route its incoming emails to this mailbox</span>
                 </p>
 
                 {/* Bottom Controls Row */}
@@ -2156,9 +2273,22 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
                   <div className="text-[11px] font-medium text-gray-400 flex items-center gap-1.5 min-w-0">
                     <span className="w-2 h-2 rounded-full bg-[#30D158] shrink-0"></span>
                     <span className="truncate">
-                      <strong className="text-white font-semibold">
-                        {domains.filter(d => d.route_to_primary === 1 || d.route_to_primary === true || d.is_primary === 1 || d.is_primary === true || d.domain === primaryDomain?.domain).length}
-                      </strong> of {domains.length} linked
+                      {(() => {
+                        const targetEmail = (activeRoutingPrimary
+                          ? `${(activeRoutingPrimary.primary_prefix || "admin").trim().toLowerCase()}@${activeRoutingPrimary.domain.toLowerCase()}`
+                          : activeFullEmail).toLowerCase();
+                        const isFirstPrimary = activeRoutingPrimary?.id === primaryDomains[0]?.id;
+                        const count = domains.filter(d => 
+                          d.id === activeRoutingPrimary?.id || 
+                          d.primary_target_email?.toLowerCase() === targetEmail ||
+                          (!d.primary_target_email && (d.route_to_primary === 1 || d.route_to_primary === true) && isFirstPrimary)
+                        ).length;
+                        return (
+                          <span>
+                            <strong className="text-white font-semibold">{count}</strong> of {domains.length} linked
+                          </span>
+                        );
+                      })()}
                     </span>
                   </div>
 
@@ -2166,14 +2296,24 @@ export default function PrimaryDomainManager({ apiUrl, apiPrefix = "/api/admin",
                   <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       type="button"
-                      onClick={() => handleBulkToggleRouting(true)}
+                      onClick={() => {
+                        const targetEmail = activeRoutingPrimary
+                          ? `${(activeRoutingPrimary.primary_prefix || "admin").trim().toLowerCase()}@${activeRoutingPrimary.domain.toLowerCase()}`
+                          : activeFullEmail;
+                        handleBulkToggleRouting(true, targetEmail);
+                      }}
                       className="px-2.5 py-1 rounded-lg bg-[#30D158]/15 hover:bg-[#30D158]/25 text-[#30D158] border border-[#30D158]/30 text-[11px] font-semibold transition-all cursor-pointer active:scale-95"
                     >
                       Link All
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleBulkToggleRouting(false)}
+                      onClick={() => {
+                        const targetEmail = activeRoutingPrimary
+                          ? `${(activeRoutingPrimary.primary_prefix || "admin").trim().toLowerCase()}@${activeRoutingPrimary.domain.toLowerCase()}`
+                          : activeFullEmail;
+                        handleBulkToggleRouting(false, targetEmail);
+                      }}
                       className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 text-[11px] font-semibold transition-all cursor-pointer active:scale-95"
                     >
                       Unlink All

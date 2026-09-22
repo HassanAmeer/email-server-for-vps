@@ -1633,11 +1633,11 @@ export class AdminController {
   }
 
   /**
-   * Sets a domain as the primary domain — scoped to admin or devadmin
+   * Sets a domain as a primary domain — scoped to admin or devadmin (Supports multiple primary domains)
    */
   static async setPrimaryAttachedDomain(req, res, id, scope = 'admin') {
     try {
-      let prefix = "my";
+      let prefix = "admin";
       const parsed = await parseJsonBody(req);
       if (parsed && parsed.prefix) {
         prefix = parsed.prefix.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -1651,10 +1651,9 @@ export class AdminController {
       }
 
       db.transaction(() => {
-        db.prepare("UPDATE attached_domains SET is_primary = 0 WHERE scope = ?").run(scope);
-        db.prepare("UPDATE attached_domains SET is_primary = 1, primary_prefix = ? WHERE id = ? AND scope = ?").run(prefix || 'my', id, scope);
+        db.prepare("UPDATE attached_domains SET is_primary = 1, primary_prefix = ? WHERE id = ? AND scope = ?").run(prefix || 'admin', id, scope);
 
-        const fullEmail = `${(prefix || 'my').trim().toLowerCase()}@${exists.domain.toLowerCase()}`;
+        const fullEmail = `${(prefix || 'admin').trim().toLowerCase()}@${exists.domain.toLowerCase()}`;
         const existingUser = db.prepare("SELECT id FROM mailbox_table WHERE LOWER(email) = LOWER(?) OR email LIKE ?").get(fullEmail, `%@${exists.domain.toLowerCase()}`);
         if (existingUser) {
           db.prepare("UPDATE mailbox_table SET email = ? WHERE id = ?").run(fullEmail, existingUser.id);
@@ -1671,7 +1670,27 @@ export class AdminController {
       })();
 
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ success: true, primary_id: id, domain: exists.domain, primary_prefix: prefix || 'my' }));
+      res.end(JSON.stringify({ success: true, primary_id: id, domain: exists.domain, primary_prefix: prefix || 'admin' }));
+    } catch (error) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+  }
+
+  /**
+   * Unsets a primary domain status
+   */
+  static async unsetPrimaryAttachedDomain(req, res, id, scope = 'admin') {
+    try {
+      const exists = db.prepare("SELECT id, domain FROM attached_domains WHERE id = ? AND scope = ?").get(id, scope);
+      if (!exists) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Domain not found" }));
+        return;
+      }
+      db.prepare("UPDATE attached_domains SET is_primary = 0 WHERE id = ? AND scope = ?").run(id, scope);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true, id, domain: exists.domain, is_primary: 0 }));
     } catch (error) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: error.message }));
@@ -1690,28 +1709,44 @@ export class AdminController {
         return;
       }
 
-      const { domain, status = 'pending', plan = 'free', catch_all = 1, is_primary = 0, route_to_primary = 0 } = parsed;
+      const { domain, status = 'pending', plan = 'free', catch_all = 1, is_primary = 0, primary_prefix = 'admin', route_to_primary = 0, primary_target_email = null } = parsed;
       if (!domain) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Domain name is required" }));
         return;
       }
 
-      // If this is marked as primary, reset others in same scope only
-      if (is_primary === 1 || is_primary === true) {
-        db.prepare("UPDATE attached_domains SET is_primary = 0 WHERE scope = ?").run(scope);
-      }
+      const isPrim = is_primary === 1 || is_primary === true ? 1 : 0;
+      const cleanPrefix = (primary_prefix || 'admin').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
 
-      const stmt = db.prepare("INSERT INTO attached_domains (domain, status, plan, catch_all, is_primary, route_to_primary, scope) VALUES (?, ?, ?, ?, ?, ?, ?)");
+      const stmt = db.prepare("INSERT INTO attached_domains (domain, status, plan, catch_all, is_primary, primary_prefix, route_to_primary, primary_target_email, scope) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
       stmt.run(
         domain.toLowerCase().trim(),
         status,
         plan,
         catch_all === 0 || catch_all === false ? 0 : 1,
-        is_primary === 1 || is_primary === true ? 1 : 0,
+        isPrim,
+        cleanPrefix,
         route_to_primary === 0 || route_to_primary === false ? 0 : 1,
+        primary_target_email ? primary_target_email.trim().toLowerCase() : null,
         scope
       );
+
+      // If created as primary, ensure mailbox account is generated
+      if (isPrim) {
+        const fullEmail = `${cleanPrefix}@${domain.toLowerCase().trim()}`;
+        const existingUser = db.prepare("SELECT id FROM mailbox_table WHERE LOWER(email) = LOWER(?)").get(fullEmail);
+        if (!existingUser) {
+          const defaultPwd = "Admin@" + Math.random().toString(36).slice(-8);
+          let hash = defaultPwd;
+          try {
+            if (typeof Bun !== "undefined" && Bun.password) {
+              hash = Bun.password.hashSync(defaultPwd, { algorithm: "bcrypt", cost: 10 });
+            }
+          } catch (e) { }
+          db.prepare("INSERT INTO mailbox_table (email, password_hash, plain_password, project_id, scope) VALUES (?, ?, ?, ?, ?)").run(fullEmail, hash, defaultPwd, 1, scope);
+        }
+      }
 
       res.writeHead(201, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: true }));
@@ -1727,12 +1762,12 @@ export class AdminController {
   }
 
   /**
-   * Updates an attached domain's status, plan, catch_all, is_primary, or route_to_primary setting
+   * Updates an attached domain's status, plan, catch_all, is_primary, primary_prefix, primary_target_email, or route_to_primary setting
    */
   static async updateAttachedDomain(req, res, id) {
     try {
       const payload = await parseJsonBody(req);
-      if (!payload || (payload.status === undefined && payload.catch_all === undefined && payload.plan === undefined && payload.is_primary === undefined && payload.route_to_primary === undefined)) {
+      if (!payload || (payload.status === undefined && payload.catch_all === undefined && payload.plan === undefined && payload.is_primary === undefined && payload.primary_prefix === undefined && payload.primary_target_email === undefined && payload.route_to_primary === undefined)) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "No fields to update" }));
         return;
@@ -1761,11 +1796,18 @@ export class AdminController {
         values.push(payload.route_to_primary === true || payload.route_to_primary === 1 ? 1 : 0);
       }
 
+      if (payload.primary_prefix !== undefined) {
+        updates.push("primary_prefix = ?");
+        values.push(payload.primary_prefix.trim().toLowerCase().replace(/[^a-z0-9._-]/g, ''));
+      }
+
+      if (payload.primary_target_email !== undefined) {
+        updates.push("primary_target_email = ?");
+        values.push(payload.primary_target_email ? payload.primary_target_email.trim().toLowerCase() : null);
+      }
+
       if (payload.is_primary !== undefined) {
         const isPrim = payload.is_primary === true || payload.is_primary === 1 ? 1 : 0;
-        if (isPrim === 1) {
-          db.prepare("UPDATE attached_domains SET is_primary = 0").run();
-        }
         updates.push("is_primary = ?");
         values.push(isPrim);
       }
@@ -1789,7 +1831,7 @@ export class AdminController {
   }
 
   /**
-   * Bulk updates routing for attached domains
+   * Bulk updates routing for attached domains, with optional target_primary_email assignment
    */
   static async bulkUpdateDomainRouting(req, res) {
     try {
@@ -1800,17 +1842,26 @@ export class AdminController {
         return;
       }
       const routeFlag = payload.route_to_primary === true || payload.route_to_primary === 1 ? 1 : 0;
+      const targetEmail = routeFlag === 1 && payload.target_primary_email ? payload.target_primary_email.trim().toLowerCase() : null;
 
       if (Array.isArray(payload.domain_ids) && payload.domain_ids.length > 0) {
         const placeholders = payload.domain_ids.map(() => '?').join(',');
-        db.prepare(`UPDATE attached_domains SET route_to_primary = ? WHERE id IN (${placeholders})`).run(routeFlag, ...payload.domain_ids);
+        if (routeFlag === 1) {
+          db.prepare(`UPDATE attached_domains SET route_to_primary = 1, primary_target_email = ? WHERE id IN (${placeholders})`).run(targetEmail, ...payload.domain_ids);
+        } else {
+          db.prepare(`UPDATE attached_domains SET route_to_primary = 0, primary_target_email = NULL WHERE id IN (${placeholders})`).run(...payload.domain_ids);
+        }
       } else {
         // Apply to all attached domains
-        db.prepare("UPDATE attached_domains SET route_to_primary = ?").run(routeFlag);
+        if (routeFlag === 1) {
+          db.prepare("UPDATE attached_domains SET route_to_primary = 1, primary_target_email = ?").run(targetEmail);
+        } else {
+          db.prepare("UPDATE attached_domains SET route_to_primary = 0, primary_target_email = NULL").run();
+        }
       }
 
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ success: true, route_to_primary: routeFlag }));
+      res.end(JSON.stringify({ success: true, route_to_primary: routeFlag, target_primary_email: targetEmail }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message }));

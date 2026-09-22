@@ -914,7 +914,9 @@ export default function DomainsManager({ apiUrl, apiPrefix = "/api/admin", token
                               </td>
                               <td className="py-1.5 px-2.5 text-white font-bold">mail</td>
                               <td className="py-1.5 px-2.5 text-emerald-400 font-bold">{serverIp}</td>
-                              <td className="py-1.5 px-2.5 text-gray-500 text-[10px] font-sans">Required</td>
+                              <td className="py-1.5 px-2.5 text-gray-500 text-[10px] font-sans">
+                                {sheetDomain.toLowerCase() === "mailserver10.com" ? "Required" : "Optional"}
+                              </td>
                               <td className="py-1.5 px-2.5 text-right">
                                 <button
                                   type="button"
@@ -941,12 +943,14 @@ export default function DomainsManager({ apiUrl, apiPrefix = "/api/admin", token
                                 <span className="px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-400 font-bold text-[10px]">MX</span>
                               </td>
                               <td className="py-1.5 px-2.5 text-white font-bold">@</td>
-                              <td className="py-1.5 px-2.5 text-white font-bold">mail.{sheetDomain || "yourdomain.com"}</td>
+                              <td className="py-1.5 px-2.5 text-emerald-400 font-bold">
+                                {sheetDomain.toLowerCase() === "mailserver10.com" ? `mail.${sheetDomain}` : "mail.mailserver10.com"}
+                              </td>
                               <td className="py-1.5 px-2.5 text-emerald-400 text-[10px] font-bold">Priority 10</td>
                               <td className="py-1.5 px-2.5 text-right">
                                 <button
                                   type="button"
-                                  onClick={() => copyToClipboard(`mail.${sheetDomain || "yourdomain.com"}`, "mx_val")}
+                                  onClick={() => copyToClipboard(sheetDomain.toLowerCase() === "mailserver10.com" ? `mail.${sheetDomain}` : "mail.mailserver10.com", "mx_val")}
                                   className="p-1 rounded-md bg-white/5 hover:bg-emerald-500/20 hover:text-emerald-400 text-gray-300 transition-all cursor-pointer inline-flex items-center justify-center border border-white/5"
                                   title="Copy MX value"
                                 >

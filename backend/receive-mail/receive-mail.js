@@ -162,31 +162,40 @@ function saveToMaildir(rawBuffer, recipientEmail) {
       // Ignored if linkSync fails (e.g. cross-filesystem)
     }
 
-    // 1. Hardlink to Global Primary Domain Mailbox (e.g. admin@micorna.biz) if this domain routes to primary
+    // 1. Hardlink to Primary Domain Mailbox (e.g. admin@micorna.biz or assigned primary email)
     let primDomain = "";
+    let primPrefix = "admin";
     try {
       const routingRule = getDomainRoutingRule(domain);
-      const primaryDomainObj = getPrimaryDomain();
-      if (primaryDomainObj && primaryDomainObj.domain) {
-        primDomain = primaryDomainObj.domain.toLowerCase().trim();
-      }
 
-      if (routingRule.route_to_primary && primDomain) {
-        const primPrefix = (primaryDomainObj.primary_prefix || "admin").toLowerCase().trim();
+      if (routingRule.route_to_primary) {
+        if (routingRule.primary_target_email && routingRule.primary_target_email.includes("@")) {
+          const parts = routingRule.primary_target_email.toLowerCase().trim().split("@");
+          primPrefix = parts[0] || "admin";
+          primDomain = parts[1] || "";
+        } else {
+          const primaryDomainObj = getPrimaryDomain();
+          if (primaryDomainObj && primaryDomainObj.domain) {
+            primDomain = primaryDomainObj.domain.toLowerCase().trim();
+            primPrefix = (primaryDomainObj.primary_prefix || "admin").toLowerCase().trim();
+          }
+        }
 
-        // Only hardlink if target recipient is NOT already the primary mailbox itself
-        if (!(domain.toLowerCase() === primDomain && user.toLowerCase() === primPrefix)) {
-          const primaryMaildir = path.join(maildirBase, primDomain, primPrefix);
-          const primNewDir = path.join(primaryMaildir, "new");
-          const primCurDir = path.join(primaryMaildir, "cur");
-          const primTmpDir = path.join(primaryMaildir, "tmp");
-          [primTmpDir, primNewDir, primCurDir].forEach(d => {
-            if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
-          });
+        if (primDomain) {
+          // Only hardlink if target recipient is NOT already the primary mailbox itself
+          if (!(domain.toLowerCase() === primDomain && user.toLowerCase() === primPrefix)) {
+            const primaryMaildir = path.join(maildirBase, primDomain, primPrefix);
+            const primNewDir = path.join(primaryMaildir, "new");
+            const primCurDir = path.join(primaryMaildir, "cur");
+            const primTmpDir = path.join(primaryMaildir, "tmp");
+            [primTmpDir, primNewDir, primCurDir].forEach(d => {
+              if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+            });
 
-          const primFilePath = path.join(primNewDir, `${domain}_${fileName}`);
-          if (fs.existsSync(newFilePath) && !fs.existsSync(primFilePath)) {
-            fs.linkSync(newFilePath, primFilePath);
+            const primFilePath = path.join(primNewDir, `${domain}_${fileName}`);
+            if (fs.existsSync(newFilePath) && !fs.existsSync(primFilePath)) {
+              fs.linkSync(newFilePath, primFilePath);
+            }
           }
         }
       }
@@ -644,6 +653,9 @@ const httpServer = http.createServer((req, res) => {
         if (parts.length === 5 && parts[4] === "primary" && req.method === "POST") {
           return AdminController.setPrimaryAttachedDomain(req, res, parts[3], "devadmin");
         }
+        if (parts.length === 5 && parts[4] === "primary" && req.method === "DELETE") {
+          return AdminController.unsetPrimaryAttachedDomain(req, res, parts[3], "devadmin");
+        }
         if (parts.length === 4 && parts[3] === "bulk-routing" && req.method === "POST") {
           return AdminController.bulkUpdateDomainRouting(req, res);
         }
@@ -888,9 +900,12 @@ const httpServer = http.createServer((req, res) => {
       if (parts.length === 5 && parts[4] === "verify" && req.method === "POST") {
         return AdminController.verifyAttachedDomain(req, res, parts[3]);
       }
-      // POST /api/dev-admin/domains/:id/primary
+      // POST or DELETE /api/dev-admin/domains/:id/primary
       if (parts.length === 5 && parts[4] === "primary" && req.method === "POST") {
         return AdminController.setPrimaryAttachedDomain(req, res, parts[3], "devpanel");
+      }
+      if (parts.length === 5 && parts[4] === "primary" && req.method === "DELETE") {
+        return AdminController.unsetPrimaryAttachedDomain(req, res, parts[3], "devpanel");
       }
       // POST /api/dev-admin/domains/bulk-routing
       if (parts.length === 4 && parts[3] === "bulk-routing" && req.method === "POST") {

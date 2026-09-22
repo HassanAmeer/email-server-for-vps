@@ -114,6 +114,7 @@ try { db.exec(`ALTER TABLE attached_domains ADD COLUMN catch_all BOOLEAN DEFAULT
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN is_primary BOOLEAN DEFAULT 0;`); } catch (e) { }
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN primary_prefix TEXT DEFAULT 'my';`); } catch (e) { }
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN route_to_primary BOOLEAN DEFAULT 0;`); } catch (e) { }
+try { db.exec(`ALTER TABLE attached_domains ADD COLUMN primary_target_email TEXT;`); } catch (e) { }
 try { db.exec(`ALTER TABLE attached_domains ADD COLUMN scope TEXT DEFAULT 'admin';`); } catch (e) { }
 
 try { db.exec(`ALTER TABLE received_emails ADD COLUMN is_deleted BOOLEAN DEFAULT 0;`); } catch (e) { }
@@ -689,7 +690,7 @@ export function getActiveDomainsWithPlan() {
 
 export function getPrimaryDomain() {
   try {
-    const primary = db.prepare("SELECT * FROM attached_domains WHERE is_primary = 1 LIMIT 1").get();
+    const primary = db.prepare("SELECT * FROM attached_domains WHERE is_primary = 1 ORDER BY created_at ASC LIMIT 1").get();
     if (primary) return primary;
     const firstActive = db.prepare("SELECT * FROM attached_domains WHERE status = 'active' ORDER BY created_at ASC LIMIT 1").get();
     return firstActive || null;
@@ -699,14 +700,20 @@ export function getPrimaryDomain() {
   }
 }
 
-export function setPrimaryDomain(id) {
+export function getAllPrimaryDomains(scope = 'admin') {
+  try {
+    return db.prepare("SELECT * FROM attached_domains WHERE is_primary = 1 AND scope = ? ORDER BY created_at ASC").all(scope);
+  } catch (err) {
+    console.error("DB Error fetching all primary domains:", err);
+    return [];
+  }
+}
+
+export function setPrimaryDomain(id, prefix = 'my') {
   try {
     const target = db.prepare("SELECT * FROM attached_domains WHERE id = ?").get(id);
     if (!target) return false;
-    db.transaction(() => {
-      db.prepare("UPDATE attached_domains SET is_primary = 0").run();
-      db.prepare("UPDATE attached_domains SET is_primary = 1 WHERE id = ?").run(id);
-    })();
+    db.prepare("UPDATE attached_domains SET is_primary = 1, primary_prefix = ? WHERE id = ?").run(prefix || 'my', id);
     invalidateDomainCache();
     return true;
   } catch (err) {
@@ -715,20 +722,34 @@ export function setPrimaryDomain(id) {
   }
 }
 
+export function unsetPrimaryDomain(id) {
+  try {
+    const target = db.prepare("SELECT * FROM attached_domains WHERE id = ?").get(id);
+    if (!target) return false;
+    db.prepare("UPDATE attached_domains SET is_primary = 0 WHERE id = ?").run(id);
+    invalidateDomainCache();
+    return true;
+  } catch (err) {
+    console.error("DB Error unsetting primary domain:", err);
+    return false;
+  }
+}
+
 export function getDomainRoutingRule(domain) {
   try {
-    if (!domain) return { route_to_primary: true, is_primary: false, primary_prefix: 'admin' };
-    const row = db.prepare("SELECT route_to_primary, is_primary, primary_prefix FROM attached_domains WHERE LOWER(domain) = LOWER(?) LIMIT 1").get(domain.trim());
+    if (!domain) return { route_to_primary: true, is_primary: false, primary_prefix: 'admin', primary_target_email: null };
+    const row = db.prepare("SELECT route_to_primary, is_primary, primary_prefix, primary_target_email FROM attached_domains WHERE LOWER(domain) = LOWER(?) LIMIT 1").get(domain.trim());
     if (row) {
       return {
         route_to_primary: row.route_to_primary !== 0,
         is_primary: row.is_primary === 1,
-        primary_prefix: row.primary_prefix || 'admin'
+        primary_prefix: row.primary_prefix || 'admin',
+        primary_target_email: row.primary_target_email || null
       };
     }
-    return { route_to_primary: true, is_primary: false, primary_prefix: 'admin' };
+    return { route_to_primary: true, is_primary: false, primary_prefix: 'admin', primary_target_email: null };
   } catch (err) {
-    return { route_to_primary: true, is_primary: false, primary_prefix: 'admin' };
+    return { route_to_primary: true, is_primary: false, primary_prefix: 'admin', primary_target_email: null };
   }
 }
 
