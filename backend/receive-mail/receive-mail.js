@@ -775,10 +775,13 @@ const httpServer = http.createServer((req, res) => {
     }
   }
 
-  if (cleanUrl.startsWith("/api/mailbox/") && req.method === "DELETE") {
+  if (cleanUrl.startsWith("/api/mailbox/") && (req.method === "DELETE" || (req.method === "POST" && cleanUrl.endsWith("/delete")))) {
     const parts = cleanUrl.split("/");
     const email = parts[3];
-    const mailId = parts[4];
+    let mailId = parts.slice(4).join("/");
+    if (mailId.endsWith("/delete")) {
+      mailId = mailId.slice(0, -7);
+    }
     if (mailId) {
       return ApiRouter.deleteMail(req, res, email, mailId);
     } else {

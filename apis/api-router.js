@@ -418,54 +418,325 @@ export class ApiRouter {
     const project = ApiRouter.validateApiKey(req, res);
     if (!project) return;
 
-    if (!emailAddress || !mailId) {
+    if (!emailAddress) {
       res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Missing emailAddress or mailId parameter" }));
+      res.end(JSON.stringify({ error: "Missing emailAddress parameter" }));
       return;
     }
 
-    logProjectApiHit(project.id, `/api/mailbox/${emailAddress}/${mailId}`, "DELETE");
+    let targetEmail = emailAddress;
+    try {
+      targetEmail = decodeURIComponent(emailAddress);
+    } catch (e) {}
+
+    const cleanEmail = extractEmail(targetEmail).toLowerCase().trim();
+    if (!cleanEmail) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid emailAddress parameter" }));
+      return;
+    }
+
+    logProjectApiHit(project.id, `/api/mailbox/${cleanEmail}/${mailId || ""}`, "DELETE");
+
+    // 1. Parse URL query params and body
+    const urlObj = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+    const querySubject = urlObj.searchParams.get("subject") || "";
+    const queryFrom = urlObj.searchParams.get("from") || "";
+    const queryMsgId = urlObj.searchParams.get("message_id") || "";
+    const queryHashId = urlObj.searchParams.get("hash_id") || "";
+
+    let bodyData = {};
+    try {
+      let bodyStr = "";
+      if (req.readable) {
+        for await (const chunk of req) {
+          bodyStr += chunk.toString();
+        }
+        if (bodyStr.trim()) {
+          bodyData = JSON.parse(bodyStr);
+        }
+      }
+    } catch (e) {}
+
+    let targetSubject = (querySubject || bodyData.subject || "").trim();
+    let targetFrom = (queryFrom || bodyData.from || "").trim().toLowerCase();
+    let targetMsgId = (queryMsgId || bodyData.message_id || "").trim();
+    let targetMailId = decodeURIComponent(mailId || "").trim();
+
+    // Normalization helper
+    const cleanStr = (s) => (s || "").replace(/[\r\n\t]/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
+    let normTargetSubject = cleanStr(targetSubject);
+    let normTargetMsgId = cleanStr(targetMsgId).replace(/[<>]/g, "");
+
+    // If mailId itself was passed as Message-ID or Subject
+    if (!normTargetMsgId && (targetMailId.startsWith("<") || targetMailId.includes("@"))) {
+      normTargetMsgId = cleanStr(targetMailId).replace(/[<>]/g, "");
+    }
+    if (!normTargetSubject && targetMailId && targetMailId !== "single" && targetMailId !== "all" && !/^\d+$/.test(targetMailId)) {
+      normTargetSubject = cleanStr(targetMailId);
+    }
 
     try {
-      const targetDir = getTargetStorageDir();
-      if (!fs.existsSync(targetDir)) {
-        res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Mailbox not found" }));
-        return;
-      }
+      const storageDirs = [liveMailDir, localMailDir];
 
-      const targetRecipient = emailAddress.toLowerCase().trim();
-      const records = db.query(`SELECT id, file_name FROM received_emails WHERE recipient LIKE ?`).all(`%${targetRecipient}%`);
-      const files = records.map(r => r.file_name).filter(Boolean);
-      let deleted = false;
+      // 2. Query matching records from DB for this recipient
+      const records = db.query(
+        `SELECT id, recipient, sender, subject, file_name, created_at, has_attachment FROM received_emails WHERE LOWER(recipient) LIKE ? OR LOWER(recipient) = ?`
+      ).all(`%${cleanEmail}%`, cleanEmail);
 
+      const matchedRecords = [];
+      const matchedFiles = new Set();
+
+      // Match against DB records and JSON files
       for (const record of records) {
-        if (!record.file_name) continue;
-        const filePath = path.join(targetDir, record.file_name);
-        if (!fs.existsSync(filePath)) continue;
+        let isMatch = false;
 
-        const fileContent = await fs.promises.readFile(filePath, "utf-8");
-        const parsed = JSON.parse(fileContent);
+        // A. Match by DB primary key or file_name
+        if (targetMailId && (String(record.id) === targetMailId || record.file_name === targetMailId || record.file_name?.startsWith(targetMailId))) {
+          isMatch = true;
+        }
 
-        const cleanRecipient = extractEmail(parsed.to);
-        const currentTargetRecipient = emailAddress.toLowerCase().trim();
+        // B. Match by inspecting JSON file content
+        let parsed = null;
+        if (record.file_name) {
+          for (const dir of storageDirs) {
+            const fp = path.join(dir, record.file_name);
+            if (fs.existsSync(fp)) {
+              try {
+                parsed = JSON.parse(fs.readFileSync(fp, "utf-8"));
+                break;
+              } catch (e) {}
+            }
+          }
+        }
 
-        if (parsed.id === mailId && (cleanRecipient === currentTargetRecipient || cleanRecipient.includes(currentTargetRecipient))) {
-          await fs.promises.unlink(filePath).catch(() => {});
-          db.query(`DELETE FROM received_emails WHERE id = ?`).run(record.id);
-          deleted = true;
-          break;
+        if (parsed) {
+          if (targetMailId && parsed.id === targetMailId) {
+            isMatch = true;
+          }
+
+          if (normTargetMsgId) {
+            const rawHeaderMsgId = cleanStr(parsed.headers?.["message-id"] || parsed.headers?.["Message-ID"] || "");
+            const cleanHeaderMsgId = rawHeaderMsgId.replace(/[<>]/g, "");
+            if (cleanHeaderMsgId && (cleanHeaderMsgId === normTargetMsgId || cleanHeaderMsgId.includes(normTargetMsgId) || normTargetMsgId.includes(cleanHeaderMsgId))) {
+              isMatch = true;
+            }
+          }
+
+          if (normTargetSubject) {
+            const parsedSubj = cleanStr(parsed.subject || "");
+            const recSubj = cleanStr(record.subject || "");
+            if (parsedSubj === normTargetSubject || recSubj === normTargetSubject || (normTargetSubject.length > 5 && (parsedSubj.includes(normTargetSubject) || recSubj.includes(normTargetSubject)))) {
+              if (!targetFrom || record.sender.toLowerCase().includes(targetFrom) || (parsed.from && parsed.from.toLowerCase().includes(targetFrom))) {
+                isMatch = true;
+              }
+            }
+          }
+        } else if (normTargetSubject && cleanStr(record.subject) === normTargetSubject) {
+          if (!targetFrom || record.sender.toLowerCase().includes(targetFrom)) {
+            isMatch = true;
+          }
+        }
+
+        // Fallback: If only 1 email exists in mailbox and request asked to delete 'single'
+        if (records.length === 1 && (targetMailId === "single" || !targetMailId || targetMailId === "latest")) {
+          isMatch = true;
+        }
+
+        if (isMatch) {
+          matchedRecords.push({ record, parsed });
+          if (record.file_name) matchedFiles.add(record.file_name);
         }
       }
 
-      if (deleted) {
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: true }));
-      } else {
-        res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Mail not found in this mailbox" }));
+      // Also scan storage folders for unindexed JSON files matching cleanEmail
+      for (const dir of storageDirs) {
+        if (!fs.existsSync(dir)) continue;
+        try {
+          const files = fs.readdirSync(dir);
+          for (const file of files) {
+            if (!file.endsWith(".json") || matchedFiles.has(file)) continue;
+            const fp = path.join(dir, file);
+            try {
+              const content = fs.readFileSync(fp, "utf-8");
+              const parsed = JSON.parse(content);
+              const toEmail = extractEmail(parsed.to || "").toLowerCase().trim();
+              if (toEmail !== cleanEmail && !toEmail.includes(cleanEmail)) continue;
+
+              let isFileMatch = false;
+              if (targetMailId && (parsed.id === targetMailId || file === targetMailId || file.startsWith(targetMailId))) {
+                isFileMatch = true;
+              }
+              if (normTargetMsgId) {
+                const cleanHeaderMsgId = cleanStr(parsed.headers?.["message-id"] || parsed.headers?.["Message-ID"] || "").replace(/[<>]/g, "");
+                if (cleanHeaderMsgId && (cleanHeaderMsgId === normTargetMsgId || cleanHeaderMsgId.includes(normTargetMsgId) || normTargetMsgId.includes(cleanHeaderMsgId))) {
+                  isFileMatch = true;
+                }
+              }
+              if (normTargetSubject && cleanStr(parsed.subject || "") === normTargetSubject) {
+                if (!targetFrom || (parsed.from && parsed.from.toLowerCase().includes(targetFrom))) {
+                  isFileMatch = true;
+                }
+              }
+
+              if (isFileMatch) {
+                matchedRecords.push({ record: { id: null, file_name: file }, parsed });
+                matchedFiles.add(file);
+              }
+            } catch (e) {}
+          }
+        } catch (e) {}
       }
+
+      if (matchedRecords.length === 0) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Mail not found in this mailbox", email: cleanEmail }));
+        return;
+      }
+
+      // 3. Perform Complete Purge for all matched items
+      let deletedCount = 0;
+      const timestampsToClean = [];
+
+      for (const item of matchedRecords) {
+        const { record, parsed } = item;
+
+        // A. Delete from SQLite
+        if (record && record.id) {
+          try {
+            db.query(`DELETE FROM received_emails WHERE id = ?`).run(record.id);
+            deletedCount++;
+          } catch (e) {}
+        } else {
+          deletedCount++;
+        }
+
+        // Extract timestamp prefix from file_name (e.g. 1786901813176-xxx.json) or parsed.id
+        if (record && record.file_name) {
+          const tsMatch = record.file_name.match(/^(\d{10,14})/);
+          if (tsMatch) timestampsToClean.push(tsMatch[1]);
+        }
+        if (parsed && parsed.id && /^\d{10,14}$/.test(parsed.id)) {
+          timestampsToClean.push(parsed.id);
+        }
+
+        // B. Unlink .json file from both live & local
+        if (record && record.file_name) {
+          for (const dir of storageDirs) {
+            const fp = path.join(dir, record.file_name);
+            if (fs.existsSync(fp)) {
+              try { fs.unlinkSync(fp); } catch (e) {}
+            }
+          }
+        }
+
+        // C. Unlink attachments from media-mails
+        if (parsed && Array.isArray(parsed.attachments)) {
+          for (const att of parsed.attachments) {
+            const attFileName = path.basename(att.url || att.filename || "");
+            if (attFileName) {
+              const attPath = path.join(attachmentsDir, attFileName);
+              if (fs.existsSync(attPath)) {
+                try { fs.unlinkSync(attPath); } catch (e) {}
+              }
+            }
+          }
+        }
+      }
+
+      // D. Clean physical Maildir folders (<domain>/<user>/{new, cur, tmp})
+      if (cleanEmail.includes("@")) {
+        const [user, domain] = cleanEmail.split("@");
+        if (user && domain) {
+          const userMaildirPath = path.join(maildirBase, domain, user);
+          for (const sub of ["new", "cur", "tmp"]) {
+            const subDir = path.join(userMaildirPath, sub);
+            if (fs.existsSync(subDir)) {
+              try {
+                const emlFiles = fs.readdirSync(subDir);
+                for (const eml of emlFiles) {
+                  const emlPath = path.join(subDir, eml);
+                  let shouldUnlink = false;
+
+                  for (const ts of timestampsToClean) {
+                    if (eml.startsWith(ts)) {
+                      shouldUnlink = true;
+                      break;
+                    }
+                  }
+
+                  if (!shouldUnlink && (normTargetMsgId || normTargetSubject)) {
+                    try {
+                      const fd = fs.openSync(emlPath, "r");
+                      const buf = Buffer.alloc(4096);
+                      const bytesRead = fs.readSync(fd, buf, 0, 4096, 0);
+                      fs.closeSync(fd);
+                      const headSnippet = buf.toString("utf-8", 0, bytesRead).toLowerCase();
+                      if (normTargetMsgId && headSnippet.includes(normTargetMsgId)) {
+                        shouldUnlink = true;
+                      } else if (normTargetSubject && headSnippet.includes(normTargetSubject)) {
+                        shouldUnlink = true;
+                      }
+                    } catch (e) {}
+                  }
+
+                  if (shouldUnlink) {
+                    try { fs.unlinkSync(emlPath); } catch (e) {}
+                  }
+                }
+              } catch (e) {}
+            }
+          }
+        }
+      }
+
+      // E. Clean Master Maildir (_all_mails_/{new, cur, tmp})
+      const allMaildir = path.join(maildirBase, "_all_mails_");
+      for (const sub of ["new", "cur", "tmp"]) {
+        const subDir = path.join(allMaildir, sub);
+        if (fs.existsSync(subDir)) {
+          try {
+            const allFiles = fs.readdirSync(subDir);
+            for (const file of allFiles) {
+              const lowerFile = file.toLowerCase();
+              if (lowerFile.startsWith(`${cleanEmail}_`) || lowerFile.includes(cleanEmail)) {
+                let shouldUnlink = false;
+                for (const ts of timestampsToClean) {
+                  if (lowerFile.includes(ts)) {
+                    shouldUnlink = true;
+                    break;
+                  }
+                }
+
+                if (!shouldUnlink && (normTargetMsgId || normTargetSubject)) {
+                  try {
+                    const emlPath = path.join(subDir, file);
+                    const fd = fs.openSync(emlPath, "r");
+                    const buf = Buffer.alloc(4096);
+                    const bytesRead = fs.readSync(fd, buf, 0, 4096, 0);
+                    fs.closeSync(fd);
+                    const headSnippet = buf.toString("utf-8", 0, bytesRead).toLowerCase();
+                    if (normTargetMsgId && headSnippet.includes(normTargetMsgId)) {
+                      shouldUnlink = true;
+                    } else if (normTargetSubject && headSnippet.includes(normTargetSubject)) {
+                      shouldUnlink = true;
+                    }
+                  } catch (e) {}
+                }
+
+                if (shouldUnlink) {
+                  try { fs.unlinkSync(path.join(subDir, file)); } catch (e) {}
+                }
+              }
+            }
+          } catch (e) {}
+        }
+      }
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true, count: deletedCount, email: cleanEmail }));
     } catch (error) {
+      console.error("Delete mail error:", error);
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: error.message }));
     }
@@ -474,7 +745,6 @@ export class ApiRouter {
   // ==========================================
   // ADMIN PANEL BACKEND APIS (Delegated to AdminController)
   // ==========================================
-
   static adminLogin(req, res) {
     return AdminController.login(req, res);
   }
